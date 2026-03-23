@@ -52,8 +52,7 @@ LANGUAGE_CODE = os.getenv("LANGUAGE_CODE", "en")
 if PROJECT_NAME not in INSTALLED_APPS:
     INSTALLED_APPS += (
         PROJECT_NAME,
-        'analysis',
-        'mining_detection'
+        'mining_detection',
     )
 
 # Location of url mappings
