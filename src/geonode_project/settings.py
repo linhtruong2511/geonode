@@ -50,7 +50,11 @@ WSGI_APPLICATION = "{}.wsgi.application".format(PROJECT_NAME)
 LANGUAGE_CODE = os.getenv("LANGUAGE_CODE", "en")
 
 if PROJECT_NAME not in INSTALLED_APPS:
-    INSTALLED_APPS += (PROJECT_NAME,)
+    INSTALLED_APPS += (
+        PROJECT_NAME,
+        'analysis',
+        'mining_detection'
+    )
 
 # Location of url mappings
 ROOT_URLCONF = os.getenv("ROOT_URLCONF", "{}.urls".format(PROJECT_NAME))
@@ -76,4 +80,92 @@ TEMPLATES[0].pop("APP_DIRS", None)
 
 PROJECT_FIXTURES = [
     # List project-related fixture files here, in the order they should be loaded.
+]
+
+AI_SERVICE_URL="http://ai_api:8001"
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        # Chỉ định đích danh app của bạn để xem log chi tiết
+        'mining_detection': { 
+            'handlers': ['console'],
+            'level': 'DEBUG', # Xem tất cả từ DEBUG trở lên
+            'propagate': True,
+        },
+    },
+}
+
+MAPSTORE_BASELAYERS = [
+    {
+        "type": "osm",
+        "title": "Open Street Map",
+        "name": "mapnik",
+        "source": "osm",
+        "group": "background",
+        "visibility": True   # Basemap hiển thị mặc định
+    },
+    {
+        "type": "tileprovider",
+        "title": "OpenTopoMap",
+        "provider": "OpenTopoMap",
+        "name": "OpenTopoMap",
+        "source": "OpenTopoMap",
+        "group": "background",
+        "visibility": False
+    },
+    {
+        "type": "tileprovider",
+        "title": "ESRI World Imagery (Satellite)",
+        "provider": "custom",
+        "name": "ESRI_Satellite",
+        "group": "background",
+        "visibility": True,
+        "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        "options": {
+            "subdomains": []
+        }
+    },
+    {
+        "type": "wms",
+        "title": "Sentinel-2 Cloudless (Satellite)",
+        "format": "image/jpeg",
+        "id": "s2cloudless",
+        "name": "s2cloudless:s2cloudless",
+        "url": "https://maps.geo-solutions.it/geoserver/wms",
+        "group": "background",
+        "visibility": False
+    },
+    {
+        "type": "wms",
+        "title": "Bản đồ nội bộ của tôi",
+        "format": "image/jpeg",
+        "name": "ten_layer:ten_workspace",
+        "url": "https://your-geoserver/geoserver/wms",
+        "group": "background",
+        "visibility": False
+    },
+    {
+        "source": "ol",
+        "group": "background",
+        "id": "none",
+        "name": "empty",
+        "title": "Empty Background",
+        "type": "empty",
+        "visibility": False,
+        "args": ["Empty Background", {"visibility": False}]
+    }
 ]

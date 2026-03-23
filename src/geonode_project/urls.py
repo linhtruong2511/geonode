@@ -22,12 +22,13 @@
 # the custom error page handler for the GeoNode project
 # related issue: https://github.com/GeoNode/geonode-project/issues/570
 from geonode.urls import urlpatterns, handler500  # noqa
+from django.urls import path, include
 
-"""
 # You can register your own urlpatterns here
-urlpatterns = [
-    url(r'^/?$',
-        homepage,
-        name='home'),
- ] + urlpatterns
-"""
+urlpatterns += [
+    path('analysis/', include('analysis.urls')),
+    path('api/', include('analysis.api_urls')),
+    path("mining-detection/", include("mining_detection.urls", namespace="mining_detection")),
+    path('api/v2/', include('mining_detection.api_urls')),
+]
+
