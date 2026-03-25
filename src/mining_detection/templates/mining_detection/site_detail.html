@@ -1,0 +1,185 @@
+{% extends "mining_detection/app_base.html" %}
+{% load i18n l10n %}
+
+{% block mining_content %}
+  <div class="row">
+    <div class="col-md-6">
+      <div id="gn-mining-site-metadata" class="md-card">
+        <div class="md-card-header"><i class="fa fa-info-circle"></i> {% trans "Thông tin mỏ" %}</div>
+        <div class="md-card-body">
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Số hiệu" %}</span><span class="md-kv-value">{{ object.serial_number }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Tên" %}</span><span class="md-kv-value">{{ object.name }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Loại khoáng sản" %}</span><span class="md-kv-value">{{ object.mineral_type }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Trạng thái" %}</span><span class="md-kv-value">{{ object.get_status_display }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Diện tích (ha)" %}</span><span class="md-kv-value">{{ object.area_ha }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Xã/Phường" %}</span><span class="md-kv-value">{{ object.ward|default:"-" }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Khu quy hoạch" %}</span><span class="md-kv-value">{{ object.planning_zone|default:"-" }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Hệ tọa độ" %}</span><span class="md-kv-value">{{ object.coordinate_system|default:"-" }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Ghi chú" %}</span><span class="md-kv-value">{{ object.notes|default:"-" }}</span></div>
+
+          <div id="gn-mining-site-actions" style="margin-top: 15px;">
+            <a href="{{ edit_url }}" class="btn btn-primary">{% trans "Sửa" %}</a>
+            <a href="{{ delete_url }}" class="btn btn-danger">{% trans "Xóa" %}</a>
+            <a href="{% url 'mining_detection:monitoring_create' %}?site={{ object.pk }}" class="btn btn-default">{% trans "Thêm đợt giám sát" %}</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div id="gn-mining-site-map-card" class="md-card">
+        <div class="md-card-header"><i class="fa fa-map"></i> {% trans "Xem trước ranh giới" %}</div>
+        <div class="md-card-body">
+          {% if has_map_points %}
+            <div id="site-detail-map" style="height: 420px; border-radius: 6px; border: 1px solid #dee2e6;"></div>
+          {% else %}
+            <div class="alert alert-info" style="margin-bottom: 0;">{% trans "Bản ghi này chưa có đủ điểm WGS84 để hiển thị polygon trên bản đồ." %}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <div id="gn-mining-site-boundary-points" class="md-card">
+        <div class="md-card-header"><i class="fa fa-crosshairs"></i> {% trans "Điểm ranh giới" %}</div>
+        <div class="md-card-body">
+          <div class="table-responsive">
+            <table class="table md-table">
+              <thead>
+                <tr>
+                  <th>{% trans "Thứ tự" %}</th>
+                  <th>X</th>
+                  <th>Y</th>
+                  <th>{% trans "Vĩ độ" %}</th>
+                  <th>{% trans "Kinh độ" %}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for point in boundary_points %}
+                  <tr>
+                    <td>{{ point.point_order }}</td>
+                    <td>{{ point.x|default:"-" }}</td>
+                    <td>{{ point.y|default:"-" }}</td>
+                    <td>{{ point.latitude|default:"-" }}</td>
+                    <td>{{ point.longitude|default:"-" }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="5" class="text-center text-muted">{% trans "Chưa có điểm ranh giới." %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div id="gn-mining-site-monitoring-summary" class="md-card">
+        <div class="md-card-header"><i class="fa fa-line-chart"></i> {% trans "Giám sát và vi phạm" %}</div>
+        <div class="md-card-body">
+          <h4 style="margin-top: 0;">{% trans "Đợt giám sát" %}</h4>
+          <ul class="list-unstyled">
+            {% for record in monitoring_records %}
+              <li style="margin-bottom: 8px;"><a href="{% url 'mining_detection:monitoring_detail' pk=record.pk %}">{{ record.recorded_at|date:"d/m/Y H:i" }}</a></li>
+            {% empty %}
+              <li class="text-muted">{% trans "Chưa có đợt giám sát nào." %}</li>
+            {% endfor %}
+          </ul>
+
+          <hr />
+
+          <h4>{% trans "Vi phạm" %}</h4>
+          <ul class="list-unstyled">
+            {% for violation in violations %}
+              <li style="margin-bottom: 8px;"><a href="{% url 'mining_detection:violation_detail' pk=violation.pk %}">{{ violation.get_severity_display }} - {{ violation.get_status_display }}</a></li>
+            {% empty %}
+              <li class="text-muted">{% trans "Chưa có vi phạm liên kết với mỏ này." %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block mining_scripts %}
+  {% if has_map_points %}
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        var mapElement = document.getElementById('site-detail-map');
+        if (!mapElement || typeof L === 'undefined') {
+          return;
+        }
+
+        var points = [
+          {% for point in map_points %}
+            [{{ point.latitude|unlocalize }}, {{ point.longitude|unlocalize }}],
+          {% endfor %}
+        ];
+        var map = L.map('site-detail-map').setView([16.2, 107.8], 6);
+        var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19
+        });
+        var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+          maxZoom: 19
+        });
+        satelliteLayer.addTo(map);
+        L.control.layers({
+          'OpenStreetMap': streetLayer,
+          'Satellite': satelliteLayer
+        }, null, { position: 'topright' }).addTo(map);
+        var geometryLayer = L.featureGroup().addTo(map);
+
+        if (points.length >= 3) {
+          geometryLayer.addLayer(L.polygon(points, {
+            color: '#337ab7',
+            fillColor: '#5bc0de',
+            fillOpacity: 0.2
+          }));
+        } else if (points.length >= 2) {
+          geometryLayer.addLayer(L.polyline(points, {
+            color: '#337ab7',
+            weight: 3
+          }));
+        }
+
+        points.forEach(function (point, index) {
+          geometryLayer.addLayer(L.circleMarker(point, {
+            radius: 5,
+            color: '#1f4e79',
+            weight: 2,
+            fillColor: '#ffffff',
+            fillOpacity: 1
+          }).bindTooltip('{% trans "Äiá»ƒm" %} ' + (index + 1)));
+        });
+
+        function zoomToBoundary() {
+          if (points.length === 1) {
+            map.setView(points[0], 16);
+            return;
+          }
+
+          if (points.length > 1) {
+            var bounds = geometryLayer.getBounds();
+            if (bounds.isValid()) {
+              map.fitBounds(bounds, { padding: [20, 20] });
+            }
+          }
+        }
+
+        zoomToBoundary();
+        setTimeout(function () {
+          map.invalidateSize();
+          zoomToBoundary();
+        }, 150);
+
+        window.addEventListener('load', function () {
+          map.invalidateSize();
+          zoomToBoundary();
+        }, { once: true });
+      });
+    </script>
+  {% endif %}
+{% endblock %}

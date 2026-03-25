@@ -1,0 +1,27 @@
+{% extends "mining_detection/app_base.html" %}
+{% load i18n %}
+
+{% block mining_content %}
+  <div id="gn-mining-detail-card" class="md-card">
+    <div id="gn-mining-detail-header" class="md-card-header">
+      <i class="fa fa-info-circle"></i> {% trans "Thông tin chi tiết" %}
+    </div>
+    <div class="md-card-body">
+      <div id="gn-mining-detail-rows">
+        {% for row in detail_rows %}
+          <div class="md-kv-row">
+            <span class="md-kv-label">{{ row.label }}</span>
+            <span class="md-kv-value">{{ row.value }}</span>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div id="gn-mining-detail-actions" style="margin-top: 15px;">
+        {% if edit_url %}<a href="{{ edit_url }}" class="btn btn-primary">{% trans "Sửa" %}</a>{% endif %}
+        {% if delete_url %}<a href="{{ delete_url }}" class="btn btn-danger">{% trans "Xóa" %}</a>{% endif %}
+      </div>
+
+      {% block extra_detail %}{% endblock %}
+    </div>
+  </div>
+{% endblock %}

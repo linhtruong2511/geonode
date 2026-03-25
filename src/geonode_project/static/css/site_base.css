@@ -1,0 +1,34 @@
+/* Dùng font system hỗ trợ tiếng Việt tốt, không cần download */
+body,
+input,
+textarea,
+select,
+button,
+.form-control,
+label,
+h1, h2, h3, h4, h5, h6,
+p, span, a, td, th, li {
+    font-family: 
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",        /* Windows - hỗ trợ tiếng Việt tốt */
+        "Helvetica Neue",
+        Arial,
+        sans-serif !important;
+    
+    font-synthesis: none !important;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* Keep Leaflet tiles and overlays from inheriting restrictive global image sizing. */
+.leaflet-container {
+    font: inherit;
+}
+
+.leaflet-container img,
+.leaflet-pane > svg,
+.leaflet-pane > canvas {
+    max-width: none !important;
+    max-height: none !important;
+}

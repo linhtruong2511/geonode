@@ -1,0 +1,24 @@
+{% extends "mining_detection/app_base.html" %}
+{% load i18n %}
+
+{% block mining_content %}
+  <div id="gn-mining-delete-layout" class="row">
+    <div class="col-md-8 col-md-offset-2">
+      <div id="gn-mining-delete-card" class="md-card">
+        <div id="gn-mining-delete-header" class="md-card-header">
+          <i class="fa fa-trash"></i> {% trans "Xác nhận xóa" %}
+        </div>
+        <div class="md-card-body">
+          <div id="gn-mining-delete-alert" class="alert alert-warning" style="margin-bottom: 15px;">
+            {% blocktrans with object_name=object %}Bạn có chắc chắn muốn xóa <strong>{{ object_name }}</strong>?{% endblocktrans %}
+          </div>
+          <form id="gn-mining-delete-form" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">{% trans "Xóa" %}</button>
+            {% if cancel_url %}<a href="{{ cancel_url }}" class="btn btn-default">{% trans "Hủy" %}</a>{% endif %}
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

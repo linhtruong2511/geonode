@@ -1,391 +1,339 @@
-{% extends "page.html" %}
+{% extends "mining_detection/app_base.html" %}
 {% load i18n %}
 
-{% block extra_head %}
-
-{% endblock %}
-
-{% block container  %}
-
+{% block mining_content %}
 <style>
-    /* CSS làm đẹp cho thanh trượt (Range Slider) */
-    .custom-range {
-        width: 100%;
-        height: 10px;
-        border-radius: 5px;
-        background: #d3d3d3;
-        outline: none;
-        opacity: 0.8;
-        transition: opacity .2s;
-        margin-top: 10px;
-    }
-    .custom-range:hover { opacity: 1; }
-    .form-section {
-        background: #fff;
-        border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        margin-bottom: 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .form-section-header {
-        background: #f8f9fa;
-        padding: 12px 15px;
-        border-bottom: 1px solid #e0e0e0;
-        border-radius: 6px 6px 0 0;
-        cursor: pointer;
-        font-weight: bold;
-    }
-    .form-section-body { padding: 15px; }
-    .table-responsive { border-radius: 6px; border: 1px solid #e0e0e0; }
-    /* --- TỐI ƯU FORM THANH TRƯỢT --- */
-    .slider-container {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .slider-wrapper {
-        flex: 1; /* Thanh trượt chiếm phần lớn không gian */
-        margin-right: 15px;
-    }
-    .slider-input {
-        width: 70px; /* Cố định chiều rộng ô nhập số */
-    }
-
-    /* --- TỐI ƯU BẢNG DỮ LIỆU --- */
-    .table-custom {
-        background: #fff;
-        border-radius: 6px;
-        overflow: hidden; /* Bo góc bảng */
-    }
-    .table-custom th {
-        background-color: #f4f5f7;
-        color: #555;
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 0.85em;
-        border-bottom: 2px solid #e0e0e0 !important;
-    }
-    .table-custom td {
-        vertical-align: middle !important;
-        border-top: 1px solid #f0f0f0;
-    }
-    .table-custom tr {
-        transition: background-color 0.2s ease;
-    }
-    .table-custom tr:hover {
-        background-color: #f8fbff !important; /* Xanh nhạt khi hover */
-    }
-    .item-info-cell {
-        display: flex;
-        align-items: center;
-        gap: 15px; /* Khoảng cách giữa ảnh và chữ */
-    }
-    .item-thumbnail {
-        width: 50px;
-        height: 50px;
-        object-fit: cover;
-        border-radius: 6px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .item-title {
-        font-weight: 600;
-        color: #333;
-        font-size: 1.05em;
-        margin-bottom: 2px;
-    }
-    .item-meta {
-        font-size: 0.85em;
-        color: #777;
-    }
-    /* Nút badge Coverage ID */
-    .badge-coverage {
-        font-family: monospace;
-        font-size: 0.9em;
-        padding: 5px 8px;
-        background-color: #e1f0fa;
-        color: #0056b3;
-        border: 1px solid #b8daff;
-        border-radius: 4px;
-    }
+  .custom-range {
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    background: #d3d3d3;
+    outline: none;
+    opacity: 0.8;
+    transition: opacity .2s;
+    margin-top: 10px;
+  }
+  .custom-range:hover { opacity: 1; }
+  .form-section {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .form-section-header {
+    background: #f8f9fa;
+    padding: 12px 15px;
+    border-bottom: 1px solid #e0e0e0;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .form-section-body { padding: 15px; }
+  .table-responsive { border-radius: 6px; border: 1px solid #e0e0e0; }
+  .slider-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .slider-wrapper {
+    flex: 1;
+    margin-right: 15px;
+  }
+  .slider-input {
+    width: 70px;
+  }
+  .table-custom {
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .table-custom th {
+    background-color: #f4f5f7;
+    color: #555;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    border-bottom: 2px solid #e0e0e0 !important;
+  }
+  .table-custom td {
+    vertical-align: middle !important;
+    border-top: 1px solid #f0f0f0;
+  }
+  .table-custom tr {
+    transition: background-color 0.2s ease;
+  }
+  .table-custom tr:hover {
+    background-color: #f8fbff !important;
+  }
+  .item-info-cell {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  .item-thumbnail {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .item-title {
+    font-weight: 600;
+    color: #333;
+    font-size: 1.05em;
+    margin-bottom: 2px;
+  }
+  .item-meta {
+    font-size: 0.85em;
+    color: #777;
+  }
+  .badge-coverage {
+    font-family: monospace;
+    font-size: 0.9em;
+    padding: 5px 8px;
+    background-color: #e1f0fa;
+    color: #0056b3;
+    border: 1px solid #b8daff;
+    border-radius: 4px;
+  }
+  .md-page-title {
+    margin-bottom: 10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .md-page-title h4 {
+    margin:0 0 5px;
+  }
 </style>
 
-<div class="gn-resource-page-catalog">
-    <div class="gn-resource-page-catalog-section">
-        <div class="gn-resource-page-catalog-content">
-            <div style="margin-bottom: 10px; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
-                <div>
-                    <h4>{% trans "Mining Detection Job" %}</h4>
-                </div>
-                <div>
-                    <a href="{% url 'mining_detection:job_create' %}" class="btn btn-primary btn">
-                        <i class="fa fa-plus"></i> {% trans "Tạo phân tích mới" %}
-                    </a>
-                </div>
-            </div>
-            
+{% if form.non_field_errors %}
+  <div id="gn-mining-job-create-errors" class="alert alert-danger">
+    {% for error in form.non_field_errors %}<p style="margin:0">{{ error }}</p>{% endfor %}
+  </div>
+{% endif %}
 
-            {% if form.non_field_errors %}
-            <div class="alert alert-danger">
-                {% for error in form.non_field_errors %}<p style="margin:0">{{ error }}</p>{% endfor %}
-            </div>
-            {% endif %}
+<form id="gn-mining-job-create-form" method="post">
+  {% csrf_token %}
+  <input type="hidden" name="bbox_geojson" id="bbox-geojson-input">
 
-            <form method="post" id="md-job-form">
-                {% csrf_token %}
-                <input type="hidden" name="bbox_geojson" id="bbox-geojson-input">
-
-                <div class="md-create-layout row">
-                    
-                    <div class="col-xs-12 col-sm-6 col-md-5 col-lg-4">
-                        
-                        <div class="form-section">
-                            <div class="form-section-header" onclick="toggleSection(this)">
-                                <span><i class="fa fa-info-circle text-primary"></i> {% trans "Thông tin cơ bản" %}</span>
-                            </div>
-                            <div class="form-section-body">
-                                <div class="form-group {% if form.title.errors %}has-error{% endif %}">
-                                    <label>{{ form.title.label }}*</label>
-                                    {{ form.title }}
-                                    {% for e in form.title.errors %}<span class="help-block">{{ e }}</span>{% endfor %}
-                                </div>
-
-                                
-                                <div class="form-group">
-                                    <label>{{ form.output_layer_name.label }}</label>
-                                    {{ form.output_layer_name }}
-                                    <!-- <p class="help-block small">{{ form.output_layer_name.help_text }}</p> -->
-                                </div>
-
-                                <div class="form-group {% if form.coverage_id.errors %}has-error{% endif %}">
-                                    <label>{{ form.coverage_id.label }}*</label>
-                                    {{ form.coverage_id }}
-                                    <!-- <p class="help-block small">{{ form.coverage_id.help_text }}</p> -->
-                                    {% for e in form.coverage_id.errors %}<span class="help-block">{{ e }}</span>{% endfor %}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-section">
-                            <div class="form-section-header" onclick="toggleSection(this)">
-                                <span><i class="fa fa-cogs text-success"></i> {% trans "Tham số AI service" %}</span>
-                            </div>
-                            <div class="form-section-body">
-                                
-                                <div class="form-group">
-                                    <label>{{ form.threshold.label }}</label>
-                                    <div class="slider-container">
-                                        <div class="slider-wrapper">
-                                            <input type="range" id="slider-threshold" class="custom-range" min="0" max="1" step="0.01" value="0.5">
-                                        </div>
-                                        <div class="slider-input">
-                                            {{ form.threshold }}
-                                        </div>
-                                    </div>
-                                    <p class="text-muted" style="font-size: 12px; margin-top: 5px; line-height: 1.4;">
-                                        <i>{{ form.threshold.help_text|default:"(Độ tin cậy tối thiểu: Càng cao thì kết quả càng chính xác nhưng có thể bỏ sót)" }}</i>
-                                    </p>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>{{ form.min_area_m2.label }}</label>
-                                    <div class="slider-container">
-                                        <div class="slider-wrapper">
-                                            <input type="range" id="slider-min-area" class="custom-range" min="0" max="5000" step="10" value="100">
-                                        </div>
-                                        <div class="slider-input">
-                                            {{ form.min_area_m2 }}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>{{ form.tile_size.label }}</label>
-                                    {{ form.tile_size }}
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-xs-6">
-                                        <div class="form-group">
-                                            <label>{{ form.closing_radius.label }}</label>
-                                            {{ form.closing_radius }}
-                                        </div>
-                                    </div>
-                                    <div class="col-xs-6">
-                                        <div class="form-group">
-                                            <label>{{ form.simplify_tolerance.label }}</label>
-                                            {{ form.simplify_tolerance }}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div style="background:#f8f9fa; border-radius:4px; padding:10px 12px; margin-bottom:15px; border: 1px solid #eee;">
-                                    <div class="checkbox" style="margin:0 0 8px;">
-                                        <label style="font-weight:400;">{{ form.smooth }} {{ form.smooth.label }}</label>
-                                    </div>
-                                    <div class="checkbox" style="margin:0 0 8px;">
-                                        <label style="font-weight:400;">{{ form.compute_spectral }} {{ form.compute_spectral.label }}</label>
-                                    </div>
-                                    <div class="checkbox" style="margin:0;">
-                                        <label style="font-weight:400;">{{ form.compute_change }} {{ form.compute_change.label }}</label>
-                                    </div>
-                                </div>
-
-                                <div id="baseline-group" class="form-group" style="display:none;">
-                                    <label>{{ form.baseline_job_id.label }}</label>
-                                    {{ form.baseline_job_id }}
-                                    <p class="help-block small">{{ form.baseline_job_id.help_text }}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn btn-lg btn-block btn-primary" style="margin-bottom: 20px;">
-                            <i class="fa fa-paper-plane"></i> <span class="btn-text">{% trans "Gửi yêu cầu phân tích" %}</span>
-                        </button>
-                    </div>
-
-                    <div class="col-xs-12 col-sm-6 col-md-7 col-lg-8">
-                        <div class="table-responsive" style="border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px;">
-                            <table class="table table-custom" style="margin-bottom: 0;">
-                                <thead>
-                                    <tr>
-                                        <th width="5%" class="text-center">#</th>
-                                        <th width="50%">{% trans "Thông tin phiên bản" %}</th>
-                                        <th width="30%">Coverage ID</th>
-                                        <th width="15%" class="text-right">{% trans "Hành động" %}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in page_obj %}
-                                        <tr class="clickable-row" style="cursor: pointer;" data-coverage="{{item.alternate}}">
-                                            <td class="text-center text-muted">{{item.id}}</td>
-                                            
-                                            <td>
-                                                <div class="item-info-cell">
-                                                    <img src="{{item.thumbnail_url}}" alt="{{item.title}}" class="item-thumbnail">
-                                                    <div>
-                                                        <div class="item-title">{{item.title}}</div>
-                                                        <div class="item-meta">
-                                                            <i class="fa fa-calendar-o"></i> {{item.created|date:"d/m/Y H:i"}}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            
-                                            <td>
-                                                <span class="badge-coverage">{{item.alternate}}</span>
-                                            </td>
-                                            
-                                            <td class="text-right">
-                                                <a href="{{item.detail_url}}" target="_blank" class="btn btn-default btn-sm" onclick="event.stopPropagation();">
-                                                    <i class="fa fa-external-link text-primary"></i> {% trans "Chi tiết" %}
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    {% empty %}
-                                        <tr><td colspan="4" class="text-center text-muted" style="padding: 30px 0;">Không có dữ liệu</td></tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="text-center margin-top-10">
-                            <ul class="pagination pagination-sm">
-                                {% if page_obj.has_previous %}
-                                <li><a href="?page=1">&laquo; Đầu</a></li>
-                                <li><a href="?page={{ page_obj.previous_page_number }}">Trước</a></li>
-                                {% else %}
-                                <li class="disabled"><span>&laquo; Đầu</span></li>
-                                <li class="disabled"><span>Trước</span></li>
-                                {% endif %}
-
-                                <li class="active"><span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
-
-                                {% if page_obj.has_next %}
-                                <li><a href="?page={{ page_obj.next_page_number }}">Sau</a></li>
-                                <li><a href="?page={{ page_obj.paginator.num_pages }}">Cuối &raquo;</a></li>
-                                {% else %}
-                                <li class="disabled"><span>Sau</span></li>
-                                <li class="disabled"><span>Cuối &raquo;</span></li>
-                                {% endif %}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </form>
-            
+  <div class="md-create-layout row">
+    <div class="col-xs-12 col-sm-6 col-md-5 col-lg-4">
+      <div id="gn-mining-job-basic-section" class="form-section">
+        <div class="form-section-header">
+          <span><i class="fa fa-info-circle text-primary"></i> {% trans "Thông tin cơ bản" %}</span>
         </div>
+        <div class="form-section-body">
+          <div class="form-group {% if form.title.errors %}has-error{% endif %}">
+            <label for="{{ form.title.id_for_label }}">{{ form.title.label }}*</label>
+            {{ form.title }}
+            {% for e in form.title.errors %}<span class="help-block">{{ e }}</span>{% endfor %}
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.output_layer_name.id_for_label }}">{{ form.output_layer_name.label }}</label>
+            {{ form.output_layer_name }}
+          </div>
+
+          <div class="form-group {% if form.coverage_id.errors %}has-error{% endif %}">
+            <label for="{{ form.coverage_id.id_for_label }}">{{ form.coverage_id.label }}*</label>
+            {{ form.coverage_id }}
+            {% for e in form.coverage_id.errors %}<span class="help-block">{{ e }}</span>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div id="gn-mining-job-ai-section" class="form-section">
+        <div class="form-section-header">
+          <span><i class="fa fa-cogs text-success"></i> {% trans "Tham số AI service" %}</span>
+        </div>
+        <div class="form-section-body">
+          <div class="form-group">
+            <label for="{{ form.threshold.id_for_label }}">{{ form.threshold.label }}</label>
+            <div class="slider-container">
+              <div class="slider-wrapper">
+                <input type="range" id="slider-threshold" class="custom-range" min="0" max="1" step="0.01" value="0.5">
+              </div>
+              <div class="slider-input">{{ form.threshold }}</div>
+            </div>
+            <p class="text-muted" style="font-size: 12px; margin-top: 5px; line-height: 1.4;">
+              {% if form.threshold.help_text %}
+                <i>{{ form.threshold.help_text }}</i>
+              {% else %}
+                <i>{% trans "(Độ tin cậy tối thiểu: càng cao thì kết quả càng chính xác nhưng có thể bỏ sót)" %}</i>
+              {% endif %}
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.min_area_m2.id_for_label }}">{{ form.min_area_m2.label }}</label>
+            <div class="slider-container">
+              <div class="slider-wrapper">
+                <input type="range" id="slider-min-area" class="custom-range" min="0" max="5000" step="10" value="100">
+              </div>
+              <div class="slider-input">{{ form.min_area_m2 }}</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.tile_size.id_for_label }}">{{ form.tile_size.label }}</label>
+            {{ form.tile_size }}
+          </div>
+
+          <div class="row">
+            <div class="col-xs-6">
+              <div class="form-group">
+                <label for="{{ form.closing_radius.id_for_label }}">{{ form.closing_radius.label }}</label>
+                {{ form.closing_radius }}
+              </div>
+            </div>
+            <div class="col-xs-6">
+              <div class="form-group">
+                <label for="{{ form.simplify_tolerance.id_for_label }}">{{ form.simplify_tolerance.label }}</label>
+                {{ form.simplify_tolerance }}
+              </div>
+            </div>
+          </div>
+
+          <div style="background:#f8f9fa; border-radius:4px; padding:10px 12px; margin-bottom:15px; border: 1px solid #eee;">
+            <div class="checkbox" style="margin:0 0 8px;">
+              <label style="font-weight:400;">{{ form.smooth }} {{ form.smooth.label }}</label>
+            </div>
+            <div class="checkbox" style="margin:0 0 8px;">
+              <label style="font-weight:400;">{{ form.compute_spectral }} {{ form.compute_spectral.label }}</label>
+            </div>
+            <div class="checkbox" style="margin:0;">
+              <label style="font-weight:400;">{{ form.compute_change }} {{ form.compute_change.label }}</label>
+            </div>
+          </div>
+
+          <div id="baseline-group" class="form-group" style="display:none;">
+            <label for="{{ form.baseline_job_id.id_for_label }}">{{ form.baseline_job_id.label }}</label>
+            {{ form.baseline_job_id }}
+            <p class="help-block small">{{ form.baseline_job_id.help_text }}</p>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-lg btn-block btn-primary" style="margin-bottom: 20px;">
+        <i class="fa fa-paper-plane"></i> <span class="btn-text">{% trans "Gửi yêu cầu phân tích" %}</span>
+      </button>
     </div>
-</div>
 
+    <div class="col-xs-12 col-sm-6 col-md-7 col-lg-8">
+      <div id="gn-mining-job-create-datasets" class="table-responsive" style="border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px;">
+        <table class="table table-custom" style="margin-bottom: 0;">
+          <thead>
+            <tr>
+              <th width="5%" class="text-center">#</th>
+              <th width="50%">{% trans "Thông tin phiên bản" %}</th>
+              <th width="30%">{% trans "Coverage ID" %}</th>
+              <th width="15%" class="text-right">{% trans "Hành động" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in page_obj %}
+              <tr class="clickable-row" style="cursor: pointer;" data-coverage="{{ item.alternate }}">
+                <td class="text-center text-muted">{{ item.id }}</td>
+                <td>
+                  <div class="item-info-cell">
+                    <img src="{{ item.thumbnail_url }}" alt="{{ item.title }}" class="item-thumbnail">
+                    <div>
+                      <div class="item-title">{{ item.title }}</div>
+                      <div class="item-meta">
+                        <i class="fa fa-calendar-o"></i> {{ item.created|date:"d/m/Y H:i" }}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge-coverage">{{ item.alternate }}</span></td>
+                <td class="text-right">
+                  <a href="{{ item.detail_url }}" target="_blank" class="btn btn-default btn-sm" onclick="event.stopPropagation();">
+                    <i class="fa fa-external-link text-primary"></i> {% trans "Chi tiết" %}
+                  </a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-center text-muted" style="padding: 30px 0;">{% trans "Không có dữ liệu" %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div id="gn-mining-job-create-pagination" class="text-center margin-top-10">
+        <ul class="pagination pagination-sm">
+          {% if page_obj.has_previous %}
+            <li><a href="?page=1">&laquo; {% trans "Đầu" %}</a></li>
+            <li><a href="?page={{ page_obj.previous_page_number }}">{% trans "Trước" %}</a></li>
+          {% else %}
+            <li class="disabled"><span>&laquo; {% trans "Đầu" %}</span></li>
+            <li class="disabled"><span>{% trans "Trước" %}</span></li>
+          {% endif %}
+
+          <li class="active"><span>{% blocktrans with page=page_obj.number total=page_obj.paginator.num_pages %}Trang {{ page }} / {{ total }}{% endblocktrans %}</span></li>
+
+          {% if page_obj.has_next %}
+            <li><a href="?page={{ page_obj.next_page_number }}">{% trans "Sau" %}</a></li>
+            <li><a href="?page={{ page_obj.paginator.num_pages }}">{% trans "Cuối" %} &raquo;</a></li>
+          {% else %}
+            <li class="disabled"><span>{% trans "Sau" %}</span></li>
+            <li class="disabled"><span>{% trans "Cuối" %} &raquo;</span></li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</form>
 
 <script>
-    const rows = document.querySelectorAll('.clickable-row')
-    const coverageInput = document.querySelector('#id_coverage_id');
-    rows.forEach(row => {
-        row.addEventListener('click', function() {
-            const coverageId = this.getAttribute('data-coverage');
-            
-            if (coverageInput) {
-                coverageInput.value = coverageId;
-                
-                // Hiệu ứng nhẹ để người dùng biết là đã điền (Tùy chọn)
-                coverageInput.style.backgroundColor = '#e8f0fe';
-                this.style.backgroundColor = '#e8f0fe';
-                setTimeout(() => {
-                    coverageInput.style.backgroundColor = '';
-                    this.style.backgroundColor = '';
-                }, 500);
+  document.addEventListener('DOMContentLoaded', function () {
+    var rows = document.querySelectorAll('.clickable-row');
+    var coverageInput = document.querySelector('#id_coverage_id');
 
-                this.style.backgroundColor = "#ddd"
-                
-                coverageInput.focus();
-            }
-        });
-    })
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    
-    // Hàm đồng bộ chung cho Slider và Input text/number
-    function syncSliderAndInput(sliderId, inputName) {
-        const slider = document.getElementById(sliderId);
-        // Tìm ô input do Django render ra dựa vào name attribute
-        const input = document.querySelector(`input[name="${inputName}"]`);
-
-        if (slider && input) {
-            // Khởi tạo: Gán giá trị mặc định từ input sang slider nếu có
-            if (input.value) {
-                slider.value = input.value;
-            } else {
-                input.value = slider.value;
-            }
-
-            // Thêm class form-control cho input của django để nó đẹp hơn
-            input.classList.add('form-control');
-            input.style.height = '30px'; // Làm nhỏ lại cho cân đối với slider
-
-            // Sự kiện 1: Kéo thanh trượt -> Cập nhật ô input
-            slider.addEventListener('input', function() {
-                input.value = this.value;
-            });
-
-            // Sự kiện 2: Gõ vào ô input -> Cập nhật thanh trượt
-            input.addEventListener('input', function() {
-                // Đảm bảo không vượt quá min/max của slider
-                let val = parseFloat(this.value);
-                if (!isNaN(val)) {
-                    slider.value = val;
-                }
-            });
+    Array.prototype.slice.call(rows).forEach(function (row) {
+      row.addEventListener('click', function () {
+        var coverageId = this.getAttribute('data-coverage');
+        if (coverageInput) {
+          coverageInput.value = coverageId;
+          coverageInput.style.backgroundColor = '#e8f0fe';
+          this.style.backgroundColor = '#e8f0fe';
+          setTimeout(function () {
+            coverageInput.style.backgroundColor = '';
+            row.style.backgroundColor = '';
+          }, 500);
+          coverageInput.focus();
         }
+      });
+    });
+
+    function syncSliderAndInput(sliderId, inputName) {
+      var slider = document.getElementById(sliderId);
+      var input = document.querySelector('input[name="' + inputName + '"]');
+      if (slider && input) {
+        if (input.value) {
+          slider.value = input.value;
+        } else {
+          input.value = slider.value;
+        }
+        input.classList.add('form-control');
+        input.style.height = '30px';
+        slider.addEventListener('input', function () {
+          input.value = this.value;
+        });
+        input.addEventListener('input', function () {
+          var val = parseFloat(this.value);
+          if (!isNaN(val)) {
+            slider.value = val;
+          }
+        });
+      }
     }
 
-    // Gọi hàm đồng bộ cho 2 trường
     syncSliderAndInput('slider-threshold', 'threshold');
     syncSliderAndInput('slider-min-area', 'min_area_m2');
-
-});
+  });
 </script>
 {% endblock %}
-
-

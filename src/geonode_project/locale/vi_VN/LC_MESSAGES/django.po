@@ -1,0 +1,1011 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-24 12:15+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: Vietnamese\n"
+"Language: vi_VN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "X/Y must be provided as a complete pair."
+msgstr "X/Y phải được cung cấp đầy đủ cả cặp."
+
+msgid "Latitude/longitude must be provided as a complete pair."
+msgstr "Vĩ độ/kinh độ phải được cung cấp đầy đủ cả cặp."
+
+msgid "Each boundary point must include either X/Y or latitude/longitude."
+msgstr ""
+"Mỗi điểm ranh giới phải có ít nhất một cặp tọa độ hợp lệ (X/Y hoặc vĩ độ/"
+"kinh độ)."
+
+msgid "A mining site needs at least 3 valid boundary points."
+msgstr "Một khu vực khai thác cần ít nhất 3 điểm ranh giới hợp lệ."
+
+msgid "Coverage ID"
+msgstr "ID lớp phủ"
+
+msgid "GeoServer/GeoNode raster layer alternate name."
+msgstr "Tên thay thế của lớp raster trên GeoServer/GeoNode."
+
+msgid "Threshold"
+msgstr "Ngưỡng"
+
+msgid "Minimum Area (m2)"
+msgstr "Diện tích tối thiểu (m²)"
+
+msgid "Tile Size"
+msgstr "Kích thước ô"
+
+msgid "Smooth Result"
+msgstr "Làm mịn kết quả"
+
+msgid "Closing Radius"
+msgstr "Bán kính đóng"
+
+msgid "Simplify Tolerance"
+msgstr "Dung sai đơn giản hóa"
+
+msgid "Compute Spectral"
+msgstr "Tính chỉ số phổ"
+
+msgid "Compute Change"
+msgstr "Tính biến động"
+
+msgid "Baseline Job ID"
+msgstr "ID phiên cơ sở"
+
+msgid "Output Layer Name"
+msgstr "Tên lớp đầu ra"
+
+msgid "End date must be after start date."
+msgstr "Ngày kết thúc phải sau ngày bắt đầu."
+
+msgid "Baseline job ID is required when change detection is enabled."
+msgstr "ID phiên cơ sở là bắt buộc khi bật phát hiện biến động."
+
+msgid "Pending"
+msgstr "Đang chờ"
+
+msgid "Running"
+msgstr "Đang chạy"
+
+msgid "Completed"
+msgstr "Hoàn thành"
+
+msgid "Failed"
+msgstr "Thất bại"
+
+msgid "UUID tra ve tu AI service (POST /analyze -> job_id)"
+msgstr "UUID trả về từ AI service (POST /analyze -> job_id)"
+
+msgid "Ten mo ta cho phien phan tich."
+msgstr "Tên mô tả cho phiên phân tích."
+
+msgid "Vung phan tich (AOI) duoi dang Polygon WGS84."
+msgstr "Vùng phân tích (AOI) dưới dạng Polygon WGS84."
+
+msgid "Ngay bat dau lay anh Sentinel-2"
+msgstr "Ngày bắt đầu lấy ảnh Sentinel-2"
+
+msgid "Ngay ket thuc lay anh Sentinel-2"
+msgstr "Ngày kết thúc lấy ảnh Sentinel-2"
+
+msgid "Phien ban model AI duoc su dung"
+msgstr "Phiên bản model AI được sử dụng"
+
+msgid "Nguong may toi da cho phep (%) khi lay anh WCS"
+msgstr "Ngưỡng mây tối đa cho phép (%) khi lấy ảnh WCS"
+
+msgid "Tham so bo sung gui toi AI service"
+msgstr "Tham số bổ sung gửi tới AI service"
+
+msgid "So lan Celery da poll /status tu AI service"
+msgstr "Số lần Celery đã poll /status từ AI service"
+
+msgid "User tao job"
+msgstr "Người dùng tạo job"
+
+msgid "GeoNode Dataset duoc upload tu AI service."
+msgstr "GeoNode Dataset được upload từ AI service."
+
+msgid "Dataset goc ma job nay dua tren."
+msgstr "Dataset gốc mà job này dựa trên."
+
+msgid "URL layer tren GeoNode"
+msgstr "URL layer trên GeoNode"
+
+msgid "Mining detection job"
+msgstr "Phiên phát hiện khai thác"
+
+msgid "Mining detection jobs"
+msgstr "Các phiên phát hiện khai thác"
+
+msgid "Tong dien tich khai thac (ha)"
+msgstr "Tổng diện tích khai thác (ha)"
+
+msgid "So luong vung phat hien"
+msgstr "Số lượng vùng phát hiện"
+
+msgid "Dien tich vung lon nhat"
+msgstr "Diện tích vùng lớn nhất"
+
+msgid "Dien tich vung nho nhat"
+msgstr "Diện tích vùng nhỏ nhất"
+
+msgid "NDVI trung binh"
+msgstr "NDVI trung bình"
+
+msgid "NDWI trung binh"
+msgstr "NDWI trung bình"
+
+msgid "BSI trung binh"
+msgstr "BSI trung bình"
+
+msgid "Full JSON response"
+msgstr "Phản hồi JSON đầy đủ"
+
+msgid "Inference statistics"
+msgstr "Thống kê suy luận"
+
+msgid "Planned"
+msgstr "Đã lên kế hoạch"
+
+msgid "Licensed"
+msgstr "Đã cấp phép"
+
+msgid "Active"
+msgstr "Đang hoạt động"
+
+msgid "Suspended"
+msgstr "Đã tạm dừng"
+
+msgid "Exhausted"
+msgstr "Đã hết hạn"
+
+msgid "Restored"
+msgstr "Đã khôi phục"
+
+msgid "X/Y phai duoc nhap du ca cap hoac de trong ca hai."
+msgstr "X/Y phải được nhập đủ cả cặp hoặc để trống cả hai."
+
+msgid "Latitude/longitude phai duoc nhap du ca cap hoac de trong ca hai."
+msgstr "Vĩ độ/kinh độ phải được nhập đủ cả cặp hoặc để trống cả hai."
+
+msgid ""
+"Moi diem ranh gioi phai co it nhat mot cap toa do hop le (X/Y hoac latitude/"
+"longitude)."
+msgstr ""
+"Mỗi điểm ranh giới phải có ít nhất một cặp tọa độ hợp lệ (X/Y hoặc vĩ độ/"
+"kinh độ)."
+
+msgid "Daily"
+msgstr "Hàng ngày"
+
+msgid "Weekly"
+msgstr "Hàng tuần"
+
+msgid "Monthly"
+msgstr "Hàng tháng"
+
+msgid "Quarterly"
+msgstr "Hàng quý"
+
+msgid "Yearly"
+msgstr "Hàng năm"
+
+msgid "Low"
+msgstr "Thấp"
+
+msgid "Medium"
+msgstr "Trung bình"
+
+msgid "High"
+msgstr "Cao"
+
+msgid "Open"
+msgstr "Mở"
+
+msgid "Resolved"
+msgstr "Đã giải quyết"
+
+msgid "Closed"
+msgstr "Đã đóng"
+
+msgid "Tổng quan"
+msgstr ""
+
+msgid "Danh mục"
+msgstr ""
+
+msgid "Mỏ khai thác"
+msgstr ""
+
+msgid "Giám sát"
+msgstr ""
+
+msgid "Vi phạm"
+msgstr ""
+
+#, fuzzy
+#| msgid "Tên phiên phân tích"
+msgid "Phiên phân tích"
+msgstr "Tên phiên phân tích"
+
+msgid "Không tìm thấy bản ghi nào."
+msgstr ""
+
+msgid "Chi tiết"
+msgstr "Chi tiết"
+
+msgid "Sửa"
+msgstr ""
+
+msgid "Xóa"
+msgstr ""
+
+#, fuzzy
+#| msgid "Tạo phân tích mới"
+msgid "Tạo mới"
+msgstr "Tạo phân tích mới"
+
+msgid "Lưu"
+msgstr ""
+
+msgid "Bảng điều khiển giám sát khai thác"
+msgstr ""
+
+msgid ""
+"Tổng quan danh mục, mỏ khai thác, giám sát, vi phạm và các phiên phân tích "
+"AI."
+msgstr ""
+
+msgid "Quản lý danh mục mỏ và ranh giới không gian."
+msgstr ""
+
+msgid "Số hiệu"
+msgstr ""
+
+msgid "Tên mỏ"
+msgstr ""
+
+msgid "Khoáng sản"
+msgstr ""
+
+msgid "Trạng thái"
+msgstr "Trạng thái"
+
+msgid "Diện tích (ha)"
+msgstr "Diện tích (ha)"
+
+msgid "Xã/Phường"
+msgstr ""
+
+msgid "Lưu mỏ khai thác"
+msgstr ""
+
+msgid "Đã lưu thông tin mỏ khai thác thành công."
+msgstr ""
+
+msgid "Tạo mỏ khai thác"
+msgstr ""
+
+msgid "Nhập thông tin mỏ và vẽ hoặc chỉnh sửa ranh giới WGS84."
+msgstr ""
+
+msgid "Cập nhật mỏ khai thác"
+msgstr ""
+
+msgid "Chỉnh sửa thông tin mỏ và duy trì ranh giới không gian."
+msgstr ""
+
+msgid "Chi tiết mỏ khai thác"
+msgstr ""
+
+msgid "Xóa mỏ khai thác"
+msgstr ""
+
+msgid "Đợt giám sát"
+msgstr ""
+
+msgid "Theo dõi hoạt động khai thác, trữ lượng và nhật ký kiểm tra."
+msgstr ""
+
+#, fuzzy
+#| msgid "Thời gian chạy"
+msgid "Thời điểm ghi nhận"
+msgstr "Thời gian chạy"
+
+msgid "Chu kỳ"
+msgstr ""
+
+#, fuzzy
+#| msgid "Người tạo"
+msgid "Người kiểm tra"
+msgstr "Người tạo"
+
+msgid "Số vi phạm"
+msgstr ""
+
+msgid "Tạo đợt giám sát"
+msgstr ""
+
+msgid "Lưu đợt giám sát"
+msgstr ""
+
+msgid "Cập nhật đợt giám sát"
+msgstr ""
+
+msgid "Chi tiết đợt giám sát"
+msgstr ""
+
+msgid "Sản lượng thực tế (m3)"
+msgstr ""
+
+msgid "Trữ lượng còn lại (m3)"
+msgstr ""
+
+msgid "Có ghi nhận vi phạm"
+msgstr ""
+
+msgid "Có"
+msgstr ""
+
+msgid "Không"
+msgstr ""
+
+msgid "Ghi chú"
+msgstr ""
+
+msgid "Xóa đợt giám sát"
+msgstr ""
+
+msgid "Rà soát và quản lý các vi phạm đang mở, đã xử lý và đã đóng."
+msgstr ""
+
+msgid "Mức độ"
+msgstr "Mức độ"
+
+msgid "Mức phạt (VND)"
+msgstr ""
+
+msgid "Ngày tạo"
+msgstr "Ngày tạo"
+
+msgid "Tạo vi phạm"
+msgstr ""
+
+msgid "Lưu vi phạm"
+msgstr ""
+
+msgid "Cập nhật vi phạm"
+msgstr ""
+
+#, fuzzy
+#| msgid "Chi tiết"
+msgid "Chi tiết vi phạm"
+msgstr "Chi tiết"
+
+msgid "Mô tả"
+msgstr ""
+
+msgid "Thời điểm xử lý"
+msgstr ""
+
+#, fuzzy
+#| msgid "Mức độ"
+msgid "Mức phạt"
+msgstr "Mức độ"
+
+msgid "Xóa vi phạm"
+msgstr ""
+
+#, fuzzy
+#| msgid "Tên phiên phân tích"
+msgid "Phiên phân tích khai thác"
+msgstr "Tên phiên phân tích"
+
+msgid "Tạo, theo dõi và quản lý các phiên phân tích AI."
+msgstr ""
+
+#, fuzzy
+#| msgid "Tên phiên phân tích"
+msgid "Tên phiên"
+msgstr "Tên phiên phân tích"
+
+#, fuzzy
+#| msgid "NDVI trung binh"
+msgid "NDVI trung bình"
+msgstr "NDVI trung bình"
+
+msgid "Số vùng"
+msgstr "Số vùng"
+
+#, fuzzy
+#| msgid "Chưa có phiên phân tích nào"
+msgid "Chưa có phiên phân tích nào."
+msgstr "Chưa có phiên phân tích nào"
+
+#, fuzzy
+#| msgid "Tên phiên phân tích"
+msgid "Tạo phiên phân tích khai thác"
+msgstr "Tên phiên phân tích"
+
+msgid "Gửi yêu cầu phân tích mới và liên kết tới một raster dataset sẵn có."
+msgstr ""
+
+#, fuzzy, python-format
+#| msgid "Gửi yêu cầu phân tích"
+msgid "Không thể gửi yêu cầu phân tích: %(error)s"
+msgstr "Gửi yêu cầu phân tích"
+
+#, python-format
+msgid "AI service không trả về job_id hợp lệ: %(response)s"
+msgstr ""
+
+#, fuzzy
+#| msgid "Tên phiên phân tích"
+msgid "Đã gửi phiên phân tích thành công."
+msgstr "Tên phiên phân tích"
+
+#, fuzzy
+#| msgid "Tên phiên phân tích"
+msgid "Cập nhật phiên phân tích"
+msgstr "Tên phiên phân tích"
+
+msgid "Chỉ có thể chỉnh sửa job ở trạng thái PENDING hoặc FAILED."
+msgstr ""
+
+msgid "Đã cập nhật cấu hình job thành công."
+msgstr ""
+
+#, fuzzy
+#| msgid "Tên phiên phân tích"
+msgid "Chi tiết phiên phân tích"
+msgstr "Tên phiên phân tích"
+
+#, fuzzy
+#| msgid "Tên phiên phân tích"
+msgid "Xóa phiên phân tích"
+msgstr "Tên phiên phân tích"
+
+msgid "Không thể xóa job đang ở trạng thái RUNNING."
+msgstr ""
+
+msgid "Đã xóa job thành công."
+msgstr ""
+
+msgid "Chỉ có thể chạy lại các job FAILED."
+msgstr ""
+
+#, python-format
+msgid "Chạy lại job thất bại: %(error)s"
+msgstr ""
+
+msgid "Đã gửi yêu cầu chạy lại job thành công."
+msgstr ""
+
+msgid "Xác nhận xóa"
+msgstr ""
+
+#, python-format
+msgid "Bạn có chắc chắn muốn xóa <strong>%(object_name)s</strong>?"
+msgstr ""
+
+msgid "Hủy"
+msgstr ""
+
+#, fuzzy
+#| msgid "Thông tin cơ bản"
+msgid "Thông tin chi tiết"
+msgstr "Thông tin cơ bản"
+
+msgid "Tìm kiếm..."
+msgstr ""
+
+msgid "Lọc"
+msgstr "Lọc"
+
+#, fuzzy
+#| msgid "Xoá bộ lọc"
+msgid "Xóa bộ lọc"
+msgstr "Xoá bộ lọc"
+
+msgid "Thao tác"
+msgstr ""
+
+msgid "Bản ghi danh mục"
+msgstr ""
+
+msgid "Vi phạm đang mở"
+msgstr ""
+
+#, fuzzy
+#| msgid "Đang chạy"
+msgid "Job đang chạy"
+msgstr "Đang chạy"
+
+msgid "Mỏ khai thác gần đây"
+msgstr ""
+
+#, fuzzy
+#| msgid "Chưa có phiên phân tích nào"
+msgid "Chưa có mỏ khai thác nào."
+msgstr "Chưa có phiên phân tích nào"
+
+msgid "Đợt giám sát gần đây"
+msgstr ""
+
+#, fuzzy
+#| msgid "Chưa có phiên phân tích nào"
+msgid "Chưa có đợt giám sát nào."
+msgstr "Chưa có phiên phân tích nào"
+
+msgid "Vi phạm gần đây"
+msgstr ""
+
+#, fuzzy
+#| msgid "Chưa có phiên phân tích nào"
+msgid "Chưa có vi phạm nào."
+msgstr "Chưa có phiên phân tích nào"
+
+msgid "Job gần đây"
+msgstr ""
+
+msgid "Chưa có job nào."
+msgstr ""
+
+msgid "Tạo phân tích mới"
+msgstr "Tạo phân tích mới"
+
+msgid "Thông tin cơ bản"
+msgstr "Thông tin cơ bản"
+
+msgid "Tham số AI service"
+msgstr "Tham số AI service"
+
+msgid ""
+"(Độ tin cậy tối thiểu: càng cao thì kết quả càng chính xác nhưng có thể bỏ "
+"sót)"
+msgstr ""
+
+msgid "Gửi yêu cầu phân tích"
+msgstr "Gửi yêu cầu phân tích"
+
+msgid "Thông tin phiên bản"
+msgstr "Thông tin phiên bản"
+
+msgid "Hành động"
+msgstr "Hành động"
+
+msgid "Không có dữ liệu"
+msgstr ""
+
+msgid "Đầu"
+msgstr ""
+
+msgid "Trước"
+msgstr ""
+
+#, python-format
+msgid "Trang %(page)s / %(total)s"
+msgstr ""
+
+msgid "Sau"
+msgstr ""
+
+msgid "Cuối"
+msgstr ""
+
+msgid "Xác nhận xóa job"
+msgstr ""
+
+#, python-format
+msgid "Bạn có chắc chắn muốn xóa job <strong>%(title)s</strong> không?"
+msgstr ""
+
+msgid "Job ID"
+msgstr ""
+
+msgid "Người tạo"
+msgstr "Người tạo"
+
+msgid "Quay lại"
+msgstr "Quay lại"
+
+#, fuzzy
+#| msgid "Chi tiết"
+msgid "Chi tiết job:"
+msgstr "Chi tiết"
+
+msgid "Phân tích hoàn thành"
+msgstr "Phân tích hoàn thành"
+
+msgid "Đang phân tích..."
+msgstr "Đang phân tích..."
+
+msgid "Phân tích thất bại"
+msgstr "Phân tích thất bại"
+
+msgid "Đang chờ khởi động..."
+msgstr "Đang chờ khởi động..."
+
+msgid "Retry"
+msgstr "Thử lại"
+
+#, fuzzy
+#| msgid "BSI trung binh"
+msgid "BSI trung bình"
+msgstr "BSI trung bình"
+
+msgid "Layer kết quả trên GeoNode"
+msgstr "Layer kết quả trên GeoNode"
+
+#, fuzzy
+#| msgid "Chi tiết"
+msgid "Xem chi tiết"
+msgstr "Chi tiết"
+
+msgid "Tạo bản đồ"
+msgstr "Tạo bản đồ"
+
+msgid "Xem dataset gốc"
+msgstr ""
+
+msgid "Xem trực tiếp trên bản đồ"
+msgstr "Xem trực tiếp trên bản đồ"
+
+msgid "Layer"
+msgstr ""
+
+msgid "Mở MapViewer"
+msgstr ""
+
+#, fuzzy
+#| msgid "Gửi yêu cầu phân tích"
+msgid "Kết quả phân tích"
+msgstr "Gửi yêu cầu phân tích"
+
+msgid "Vùng AOI"
+msgstr ""
+
+msgid "Tham số phân tích"
+msgstr "Tham số phân tích"
+
+msgid "Model"
+msgstr "Model"
+
+msgid "Phiên bản thuật toán AI được dùng để nhận dạng."
+msgstr ""
+
+msgid "Độ tin cậy tối thiểu: càng cao càng chính xác nhưng dễ bỏ sót."
+msgstr ""
+
+msgid "Bỏ qua các đối tượng nhỏ hơn mức này."
+msgstr ""
+
+msgid "Kích thước ô ảnh nhỏ khi đưa vào mô hình xử lý."
+msgstr ""
+
+msgid "Tạo lúc"
+msgstr "Tạo lúc"
+
+msgid "Hoàn thành lúc"
+msgstr "Hoàn thành lúc"
+
+msgid "Thời gian chạy"
+msgstr "Thời gian chạy"
+
+msgid "Chỉ số viễn thám"
+msgstr "Chỉ số viễn thám"
+
+msgid "Theo dõi tiến độ"
+msgstr "Theo dõi tiến độ"
+
+msgid "Diện tích lớn nhất"
+msgstr "Diện tích lớn nhất"
+
+msgid "Diện tích của vùng đối tượng lớn nhất được phát hiện."
+msgstr ""
+
+msgid "Diện tích nhỏ nhất"
+msgstr "Diện tích nhỏ nhất"
+
+msgid "Diện tích của vùng đối tượng nhỏ nhất được phát hiện."
+msgstr ""
+
+msgid ""
+"Chỉ số thực vật chuẩn hóa để đánh giá mức độ phát triển của thảm thực vật."
+msgstr ""
+
+#, fuzzy
+#| msgid "NDWI trung binh"
+msgid "NDWI trung bình"
+msgstr "NDWI trung bình"
+
+msgid "Chỉ số nước chuẩn hóa để phát hiện và đánh giá vùng có nước hoặc độ ẩm."
+msgstr ""
+
+msgid "Chỉ số đất trống để nhận diện khu vực bề mặt ít hoặc không có thực vật."
+msgstr ""
+
+msgid "Mức độ nghiêm trọng dựa trên tổng hợp các chỉ số quang phổ."
+msgstr ""
+
+msgid "Mã alternate"
+msgstr ""
+
+msgid "Mã định danh của lớp dữ liệu kết quả trên hệ thống bản đồ."
+msgstr ""
+
+msgid "Cờ kích hoạt tính toán các chỉ số quang phổ như NDVI, NDWI."
+msgstr ""
+
+msgid "Trạng thái: Đã kết nối"
+msgstr ""
+
+msgid "Trạng thái: Đã ngắt kết nối"
+msgstr ""
+
+msgid "Cấu hình job"
+msgstr ""
+
+msgid "Raster dataset gần đây"
+msgstr ""
+
+msgid "Dataset"
+msgstr ""
+
+msgid "Alternate"
+msgstr ""
+
+msgid "Chọn"
+msgstr ""
+
+msgid "Không có raster dataset nào."
+msgstr ""
+
+msgid "Tổng số jobs"
+msgstr "Tổng số jobs"
+
+msgid "Hoàn thành"
+msgstr "Hoàn thành"
+
+msgid "Đang chạy"
+msgstr "Đang chạy"
+
+msgid "Lỗi"
+msgstr "Lỗi"
+
+msgid "Tìm theo tên job..."
+msgstr "Tìm theo tên job..."
+
+msgid "Tất cả trạng thái"
+msgstr "Tất cả trạng thái"
+
+msgid "Tên phiên phân tích"
+msgstr "Tên phiên phân tích"
+
+msgid "Layer GeoNode"
+msgstr "Layer GeoNode"
+
+msgid "Không phát hiện đối tượng"
+msgstr "Không phát hiện đối tượng"
+
+msgid "Thử lại job này?"
+msgstr ""
+
+msgid "Chưa có phiên phân tích nào"
+msgstr "Chưa có phiên phân tích nào"
+
+msgid "Bắt đầu bằng cách tạo phiên phân tích đầu tiên."
+msgstr "Bắt đầu bằng cách tạo phiên phân tích đầu tiên."
+
+msgid "Recent Jobs."
+msgstr "Các phiên gần đây."
+
+#, fuzzy
+#| msgid "Thông tin cơ bản"
+msgid "Thông tin mỏ"
+msgstr "Thông tin cơ bản"
+
+msgid "Tên"
+msgstr ""
+
+msgid "Loại khoáng sản"
+msgstr ""
+
+msgid "Khu quy hoạch"
+msgstr ""
+
+msgid "Hệ tọa độ"
+msgstr ""
+
+msgid "Thêm đợt giám sát"
+msgstr ""
+
+msgid "Xem trước ranh giới"
+msgstr ""
+
+msgid "Bản ghi này chưa có đủ điểm WGS84 để hiển thị polygon trên bản đồ."
+msgstr ""
+
+msgid "Điểm ranh giới"
+msgstr ""
+
+msgid "Thứ tự"
+msgstr ""
+
+msgid "Vĩ độ"
+msgstr ""
+
+#, fuzzy
+#| msgid "Hành động"
+msgid "Kinh độ"
+msgstr "Hành động"
+
+msgid "Chưa có điểm ranh giới."
+msgstr ""
+
+msgid "Giám sát và vi phạm"
+msgstr ""
+
+msgid "Chưa có vi phạm liên kết với mỏ này."
+msgstr ""
+
+msgid "Thông tin mỏ khai thác"
+msgstr ""
+
+msgid "Thêm điểm"
+msgstr ""
+
+msgid ""
+"Nhấp vào bản đồ để điền cặp vĩ độ/kinh độ trống tiếp theo hoặc kéo marker để "
+"chỉnh polygon."
+msgstr ""
+
+msgid "Điểm"
+msgstr ""
+
+msgid "Tạo loại khoáng sản"
+msgstr ""
+
+msgid "Chi tiết loại khoáng sản"
+msgstr ""
+
+msgid "Cập nhật loại khoáng sản"
+msgstr ""
+
+msgid "Xóa loại khoáng sản"
+msgstr ""
+
+msgid "Quản lý loại khoáng sản được sử dụng trong hệ thống giám sát khai thác."
+msgstr ""
+
+msgid "Mã"
+msgstr ""
+
+#, fuzzy
+#| msgid "Tạo bản đồ"
+msgid "Tạo hệ tọa độ"
+msgstr "Tạo bản đồ"
+
+msgid "Chi tiết hệ tọa độ"
+msgstr ""
+
+msgid "Cập nhật hệ tọa độ"
+msgstr ""
+
+msgid "Xóa hệ tọa độ"
+msgstr ""
+
+msgid "Quản lý hệ tọa độ dùng cho dữ liệu không gian của module."
+msgstr ""
+
+msgid "Kinh tuyến trục"
+msgstr ""
+
+msgid "Múi chiếu"
+msgstr ""
+
+msgid "Tỉnh/Thành phố"
+msgstr ""
+
+msgid "Tạo tỉnh/thành phố"
+msgstr ""
+
+msgid "Chi tiết tỉnh/thành phố"
+msgstr ""
+
+msgid "Cập nhật tỉnh/thành phố"
+msgstr ""
+
+msgid "Xóa tỉnh/thành phố"
+msgstr ""
+
+msgid "Quản lý danh mục tỉnh/thành phố."
+msgstr ""
+
+msgid "Quận/Huyện"
+msgstr ""
+
+msgid "Tạo quận/huyện"
+msgstr ""
+
+msgid "Chi tiết quận/huyện"
+msgstr ""
+
+msgid "Cập nhật quận/huyện"
+msgstr ""
+
+msgid "Xóa quận/huyện"
+msgstr ""
+
+msgid "Quản lý danh mục quận/huyện theo tỉnh."
+msgstr ""
+
+msgid "Tạo xã/phường"
+msgstr ""
+
+msgid "Chi tiết xã/phường"
+msgstr ""
+
+msgid "Cập nhật xã/phường"
+msgstr ""
+
+msgid "Xóa xã/phường"
+msgstr ""
+
+msgid "Quản lý danh mục xã/phường theo quận huyện."
+msgstr ""
+
+msgid "Tạo khu quy hoạch"
+msgstr ""
+
+msgid "Chi tiết khu quy hoạch"
+msgstr ""
+
+msgid "Cập nhật khu quy hoạch"
+msgstr ""
+
+msgid "Xóa khu quy hoạch"
+msgstr ""
+
+msgid "Quản lý thông tin khu quy hoạch liên quan đến khai thác."
+msgstr ""
+
+msgid "Ngày phê duyệt"
+msgstr ""
+
+msgid "Tài liệu"
+msgstr ""
+
+#~ msgid "My Geonode"
+#~ msgstr "Geonode của tôi"
+
+#~ msgid "sharing my geospatial data, my maps and my apps"
+#~ msgstr "Chia sẻ dữ liệu không gian địa lý, bản đồ và ứng dụng của tôi"
+
+#~ msgid "Mining Detection Job"
+#~ msgstr "Phiên phát hiện khai thác"
+
+#~ msgid "Job Detail: "
+#~ msgstr "Chi tiết phiên: "
+
+#~ msgid "Compute spectral"
+#~ msgstr "Tính chỉ số phổ"
+
+#~ msgid "NDVI tb"
+#~ msgstr "NDVI tb"
+
+#~ msgid "Chú thích"
+#~ msgstr "Chú thích"

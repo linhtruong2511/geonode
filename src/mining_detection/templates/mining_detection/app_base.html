@@ -1,0 +1,622 @@
+{% extends 'page.html' %}
+{% load i18n %}
+
+{% block extra_style %}
+  {{ block.super }}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <style>
+    /* ─── CSS Variables ───────────────────────────────── */
+    :root {
+      --sidebar-width: 240px;
+      --sidebar-collapsed-width: 56px;
+      --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      --radius: 8px;
+    }
+
+    /* ─── Layout Shell ────────────────────────────────── */
+    #mining-shell {
+      display: flex;
+      min-height: calc(100vh - 50px);
+    }
+
+    /* ─── Sidebar ─────────────────────────────────────── */
+    #mining-sidebar {
+      width: var(--sidebar-width);
+      min-height: 100%;
+      background: #fff;
+      border-right: 1px solid #dee2e6;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: width var(--transition);
+      overflow: hidden;
+      position: relative;
+      z-index: 100;
+    }
+
+    #mining-sidebar.collapsed {
+      width: var(--sidebar-collapsed-width);
+    }
+
+    /* Toggle button */
+    .sidebar-toggle-wrap {
+      display: flex;
+      justify-content: flex-end;
+      padding: 8px 10px 4px;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    #sidebar-toggle {
+      background: none;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: color 0.15s, background 0.15s;
+      line-height: 1;
+    }
+
+    #sidebar-toggle:hover {
+      color: #333;
+      background: #f5f5f5;
+    }
+
+    #sidebar-toggle .icon-bar {
+      display: block;
+      width: 16px;
+      height: 2px;
+      background: currentColor;
+      border-radius: 1px;
+      margin: 2px 0;
+    }
+
+    /* Nav items */
+    .sidebar-nav {
+      flex: 1;
+      padding: 6px 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .sidebar-section-label {
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #999;
+      padding: 14px 14px 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity var(--transition);
+    }
+
+    #mining-sidebar.collapsed .sidebar-section-label {
+      opacity: 0;
+    }
+
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      color: #555;
+      text-decoration: none;
+      white-space: nowrap;
+      position: relative;
+      transition: color 0.15s, background 0.15s;
+      border-left: 3px solid transparent;
+      cursor: pointer;
+    }
+
+    .sidebar-nav-item:hover {
+      color: #23527c;
+      background: #f5f5f5;
+      text-decoration: none;
+    }
+
+    .sidebar-nav-item.active {
+      color: #23527c;
+      background: #f5f5f5;
+      border-left-color: #337ab7;
+    }
+
+    .sidebar-nav-item .nav-icon {
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .sidebar-nav-item .nav-label {
+      opacity: 1;
+      transition: opacity var(--transition);
+      overflow: hidden;
+      line-height: 1.2;
+    }
+
+    #mining-sidebar.collapsed .sidebar-nav-item .nav-label {
+      opacity: 0;
+    }
+
+    /* Dropdown */
+    .sidebar-dropdown-toggle::after {
+      content: '\f107';
+      margin-left: auto;
+      transition: transform 0.2s;
+      opacity: 0.5;
+    }
+
+    #mining-sidebar.collapsed .sidebar-dropdown-toggle::after {
+      display: none;
+    }
+
+    .sidebar-dropdown-toggle.open::after {
+      transform: rotate(-180deg);
+    }
+
+    .sidebar-dropdown-menu {
+      background: #f9f9f9;
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.25s ease;
+    }
+
+    .sidebar-dropdown-menu.open {
+      max-height: 300px;
+    }
+
+    #mining-sidebar.collapsed .sidebar-dropdown-menu {
+      display: none;
+    }
+
+    .sidebar-dropdown-menu a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px 8px 47px;
+      color: #555;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .sidebar-dropdown-menu a:hover {
+      color: #23527c;
+      background: #f0f0f0;
+    }
+
+    .sidebar-dropdown-menu a.active {
+      color: #337ab7;
+    }
+
+    /* Tooltip khi collapsed */
+    #mining-sidebar.collapsed .sidebar-nav-item:hover::before {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: calc(var(--sidebar-collapsed-width) + 6px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: #333;
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      white-space: nowrap;
+      z-index: 999;
+      pointer-events: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    /* Sidebar footer */
+    .sidebar-footer {
+      padding: 12px 14px;
+      border-top: 1px solid #dee2e6;
+      flex-shrink: 0;
+    }
+
+    .sidebar-footer-text {
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity var(--transition);
+    }
+
+    #mining-sidebar.collapsed .sidebar-footer-text {
+      opacity: 0;
+    }
+
+    /* ─── Main Content ─────────────────────────────────── */
+    #mining-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #mining-topbar {
+      background: #fff;
+      border-bottom: 1px solid #dee2e6;
+      padding: 0 20px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .topbar-breadcrumb {
+      color: #888;
+    }
+
+    .topbar-breadcrumb span {
+      color: #333;
+    }
+
+    #mining-content-body {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    /* ─── Page header ─────────────────────────────────── */
+    .md-page-title {
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .md-page-title h4 {
+      margin: 0 0 4px;
+      color: #333;
+    }
+
+    .md-page-title p {
+      margin: 0;
+      color: #888;
+    }
+
+    /* ─── Cards ───────────────────────────────────────── */
+    .md-card {
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .md-card-header {
+      background: #f8f9fa;
+      padding: 8px 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6c757d;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .md-card-body {
+      padding: 14px;
+    }
+
+    /* ─── KV rows ─────────────────────────────────────── */
+    .md-kv-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f3f5;
+      gap: 12px;
+    }
+
+    .md-kv-row:last-child { border-bottom: none; }
+
+    .md-kv-label {
+      color: #6c757d;
+    }
+
+    .md-kv-value {
+      text-align: right;
+      max-width: 60%;
+      word-break: break-word;
+    }
+
+    /* ─── Stat cards ──────────────────────────────────── */
+    .md-stat-num-card {
+      text-align: center;
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: var(--radius);
+      padding: 14px 10px;
+      margin-bottom: 15px;
+    }
+
+    .md-stat-num-card .big {
+    }
+
+    .md-stat-num-card .lbl {
+      color: #6c757d;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* ─── Tables ──────────────────────────────────────── */
+    .md-table th {
+      background-color: #f8f9fa;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #6c757d;
+      border-top: none !important;
+    }
+
+    .md-table td {
+      vertical-align: middle !important;
+    }
+
+    /* ─── Empty state ─────────────────────────────────── */
+    .md-empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: #777;
+    }
+
+    /* ─── Form box ────────────────────────────────────── */
+    .md-form-box {
+      border: 1px solid #e5e7ea;
+      border-radius: 6px;
+      padding: 12px 14px;
+      background: #fff;
+      margin-bottom: 15px;
+    }
+
+    .md-form-box h5 {
+      margin: 0 0 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #6c757d;
+    }
+
+    /* ─── Help ────────────────────────────────────────── */
+    .md-help-block {
+      color: #777;
+      margin-top: 5px;
+    }
+
+    /* ─── Overlay mobile ──────────────────────────────── */
+    #sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 99;
+    }
+
+    /* ─── Responsive ──────────────────────────────────── */
+    @media (max-width: 767px) {
+      #mining-sidebar {
+        position: fixed;
+        top: 0; left: 0;
+        height: 100%;
+        transform: translateX(-100%);
+        transition: transform var(--transition), width var(--transition);
+        z-index: 200;
+      }
+
+      #mining-sidebar.mobile-open {
+        transform: translateX(0);
+        width: var(--sidebar-width) !important;
+      }
+
+      #mining-sidebar.mobile-open .sidebar-nav-item .nav-label,
+      #mining-sidebar.mobile-open .sidebar-section-label,
+      #mining-sidebar.mobile-open .sidebar-footer-text,
+      #mining-sidebar.mobile-open .sidebar-dropdown-toggle::after {
+        opacity: 1 !important;
+        width: auto !important;
+      }
+
+      #sidebar-overlay.open { display: block; }
+
+      .md-kv-row { display: block; }
+      .md-kv-value { text-align: left; max-width: none; margin-top: 4px; }
+      #mining-content-body { padding: 14px; }
+      #mining-topbar { padding: 0 14px; }
+    }
+  </style>
+  {% block mining_extra_head %}{% endblock %}
+{% endblock %}
+
+{% block container %}
+
+<!-- Mobile overlay -->
+<div id="sidebar-overlay"></div>
+
+<div id="{{ page_id|default:'gn-mining-page' }}" class="gn-resource-page-catalog">
+  <div id="mining-shell">
+    <!-- ══ SIDEBAR ══════════════════════════════════════ -->
+    <aside id="mining-sidebar">
+      <div class="sidebar-toggle-wrap">
+        <button id="sidebar-toggle" aria-label="Toggle sidebar">
+          <span class="icon-bar"></span>
+        </button>
+      </div>
+      <nav class="sidebar-nav">
+        {% for section in app_sections %}
+          {% if section.children %}
+            <!-- Dropdown section -->
+            <span class="sidebar-section-label">{{ section.label }}</span>
+            <div class="sidebar-nav-item sidebar-dropdown-toggle {% if active_section == section.key %}active open{% endif %}"
+                 data-tooltip="{{ section.label }}"
+                 onclick="toggleSidebarDropdown(this)">
+              <span class="nav-icon">
+                <i class="fa fa-{{ section.icon|default:'folder' }}"></i>
+              </span>
+              <span class="nav-label">{{ section.label }}</span>
+            </div>
+            <div class="sidebar-dropdown-menu {% if active_section == section.key %}open{% endif %}">
+              {% for child in section.children %}
+                <a href="{{ child.url }}"
+                   class="{% if request.path == child.url %}active{% endif %}">
+                  <i class="fa fa-circle-o" style="font-size:8px; opacity:0.5;"></i>
+                  {{ child.label }}
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <a href="{{ section.url }}"
+               class="sidebar-nav-item {% if section.key == active_section %}active{% endif %}"
+               data-tooltip="{{ section.label }}"
+               {% if section.key == active_section %}aria-current="page"{% endif %}>
+              <span class="nav-icon">
+                <i class="fa fa-{{ section.icon|default:'circle' }}"></i>
+              </span>
+              <span class="nav-label">{{ section.label }}</span>
+            </a>
+          {% endif %}
+        {% endfor %}
+
+        {# Fallback default nav if app_sections not provided #}
+        {% if not app_sections %}
+          <span class="sidebar-section-label">Chính</span>
+          <a href="#" class="sidebar-nav-item active" data-tooltip="Tổng quan">
+            <span class="nav-icon"><i class="fa fa-dashboard"></i></span>
+            <span class="nav-label">Tổng quan</span>
+          </a>
+          <a href="#" class="sidebar-nav-item" data-tooltip="Danh mục">
+            <span class="nav-icon"><i class="fa fa-list"></i></span>
+            <span class="nav-label">Danh mục</span>
+          </a>
+          <a href="#" class="sidebar-nav-item" data-tooltip="Mỏ khai thác">
+            <span class="nav-icon"><i class="fa fa-map-marker"></i></span>
+            <span class="nav-label">Mỏ khai thác</span>
+          </a>
+
+          <span class="sidebar-section-label">Quản lý</span>
+          <a href="#" class="sidebar-nav-item" data-tooltip="Giám sát">
+            <span class="nav-icon"><i class="fa fa-line-chart"></i></span>
+            <span class="nav-label">Giám sát</span>
+          </a>
+          <a href="#" class="sidebar-nav-item" data-tooltip="Vi phạm">
+            <span class="nav-icon"><i class="fa fa-warning"></i></span>
+            <span class="nav-label">Vi phạm</span>
+          </a>
+
+          <span class="sidebar-section-label">Phân tích</span>
+          <a href="#" class="sidebar-nav-item" data-tooltip="Phiên phân tích">
+            <span class="nav-icon"><i class="fa fa-flask"></i></span>
+            <span class="nav-label">Phiên phân tích</span>
+          </a>
+        {% endif %}
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-text">Mining Detection v1.0</div>
+      </div>
+
+    </aside>
+    <!-- ══ END SIDEBAR ══════════════════════════════════ -->
+
+    <!-- ══ MAIN CONTENT ═════════════════════════════════ -->
+    <div id="mining-content">
+
+      <!-- Content topbar -->
+      <div id="mining-topbar">
+        <!-- Mobile hamburger -->
+        <button class="visible-xs btn btn-link" id="mobile-menu-btn"
+                style="padding:0; color:#555; font-size:18px; margin-right:12px; border:none; background:none;">
+          <i class="fa fa-bars"></i>
+        </button>
+
+        <div class="topbar-breadcrumb">
+          Mining Detection /
+          <span>{{ page_title|default:"Tổng quan" }}</span>
+        </div>
+
+        {% if primary_action %}
+          <div>
+            <a href="{{ primary_action.url }}" class="btn btn-sm btn-primary">
+              <i class="fa fa-plus"></i>
+              <span class="hidden-xs">{{ primary_action.label }}</span>
+            </a>
+          </div>
+        {% else %}
+          <div></div>
+        {% endif %}
+      </div>
+
+      <!-- Page body -->
+      <div id="mining-content-body">
+
+        <div class="md-page-title">
+          <div>
+            <h4>{{ page_title }}</h4>
+            {% if page_subtitle %}
+              <p class="text-muted">{{ page_subtitle }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        {% block mining_content %}{% endblock %}
+
+      </div>
+    </div>
+    <!-- ══ END MAIN CONTENT ══════════════════════════════ -->
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script>
+    (function () {
+      var sidebar    = document.getElementById('mining-sidebar');
+      var toggle     = document.getElementById('sidebar-toggle');
+      var overlay    = document.getElementById('sidebar-overlay');
+      var mobileBtn  = document.getElementById('mobile-menu-btn');
+      var STORAGE_KEY = 'mining_sidebar_collapsed';
+
+      /* ── Restore persisted state (desktop only) ── */
+      if (window.innerWidth > 767 && localStorage.getItem(STORAGE_KEY) === '1') {
+        sidebar.classList.add('collapsed');
+      }
+
+      /* ── Desktop toggle ── */
+      toggle.addEventListener('click', function () {
+        if (window.innerWidth <= 767) return; // handled by mobile button
+        sidebar.classList.toggle('collapsed');
+        localStorage.setItem(STORAGE_KEY,
+          sidebar.classList.contains('collapsed') ? '1' : '0');
+      });
+
+      /* ── Mobile open ── */
+      if (mobileBtn) {
+        mobileBtn.addEventListener('click', function () {
+          sidebar.classList.add('mobile-open');
+          overlay.classList.add('open');
+        });
+      }
+
+      /* ── Close on overlay click ── */
+      overlay.addEventListener('click', function () {
+        sidebar.classList.remove('mobile-open');
+        overlay.classList.remove('open');
+      });
+    })();
+
+    /* ── Sidebar dropdown toggle ── */
+    function toggleSidebarDropdown(el) {
+      var menu = el.nextElementSibling;
+      if (!menu || !menu.classList.contains('sidebar-dropdown-menu')) return;
+      el.classList.toggle('open');
+      menu.classList.toggle('open');
+    }
+  </script>
+  {% block mining_scripts %}{% endblock %}
+{% endblock %}

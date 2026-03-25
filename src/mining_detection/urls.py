@@ -1,72 +1,255 @@
-"""
-mining_detection/urls.py — URL routing cho Django template views
-"""
-
 from django.urls import path
-from . import template_views, views
-from .views import UploadExecution, UploadResultDetection
+from django.utils.translation import gettext_lazy as _
 from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import RedirectView
+
+from .forms import (
+    CoordinateSystemForm,
+    DistrictForm,
+    MineralTypeForm,
+    PlanningZoneForm,
+    ProvinceForm,
+    WardForm,
+)
+from .models import CoordinateSystem, District, MineralType, PlanningZone, Province, Ward
+from .template_views import (
+    DashboardView,
+    JobCreateView,
+    JobDeleteView,
+    JobDetailView,
+    JobListView,
+    JobUpdateView,
+    MiningSiteCreateView,
+    MiningSiteDeleteView,
+    MiningSiteDetailView,
+    MiningSiteListView,
+    MiningSiteUpdateView,
+    MonitoringCreateView,
+    MonitoringDeleteView,
+    MonitoringDetailView,
+    MonitoringListView,
+    MonitoringUpdateView,
+    ReferenceCreateView,
+    ReferenceDeleteView,
+    ReferenceDetailView,
+    ReferenceListView,
+    ReferenceUpdateView,
+    ViolationCreateView,
+    ViolationDeleteView,
+    ViolationDetailView,
+    ViolationListView,
+    ViolationUpdateView,
+    job_retry_view,
+    job_status_api,
+)
+from .views import UploadExecution, UploadResultDetection
 
 app_name = "mining_detection"
 
-urlpatterns = [
-    # List tất cả jobs
-    path(
-        "",
-        template_views.JobListView.as_view(),
-        name="job_list",
+reference_patterns = [
+    (
+        "mineral-types",
+        MineralType,
+        MineralTypeForm,
+        _("Loại khoáng sản"),
+        _("Tạo loại khoáng sản"),
+        _("Chi tiết loại khoáng sản"),
+        _("Cập nhật loại khoáng sản"),
+        _("Xóa loại khoáng sản"),
+        _("Quản lý loại khoáng sản được sử dụng trong hệ thống giám sát khai thác."),
+        ["code", "name"],
+        [(_("Mã"), "code"), (_("Tên"), "name"), (_("Mô tả"), lambda obj: obj.description or "-")],
+        [(_("Mã"), "code"), (_("Tên"), "name"), (_("Mô tả"), lambda obj: obj.description or "-")],
     ),
-    # Form tạo job mới
-    path(
-        "new/",
-        template_views.JobCreateView.as_view(),
-        name="job_create",
+    (
+        "coordinate-systems",
+        CoordinateSystem,
+        CoordinateSystemForm,
+        _("Hệ tọa độ"),
+        _("Tạo hệ tọa độ"),
+        _("Chi tiết hệ tọa độ"),
+        _("Cập nhật hệ tọa độ"),
+        _("Xóa hệ tọa độ"),
+        _("Quản lý hệ tọa độ dùng cho dữ liệu không gian của module."),
+        ["name"],
+        [(_("Tên"), "name"), (_("Kinh tuyến trục"), "central_meridian"), (_("Múi chiếu"), "projection_zone")],
+        [
+            (_("Tên"), "name"),
+            (_("Kinh tuyến trục"), "central_meridian"),
+            (_("Múi chiếu"), "projection_zone"),
+            (_("Mô tả"), lambda obj: obj.description or "-"),
+        ],
     ),
-    # Chi tiết một job
-    path(
-        "<int:pk>/",
-        template_views.JobDetailView.as_view(),
-        name="job_detail",
+    (
+        "provinces",
+        Province,
+        ProvinceForm,
+        _("Tỉnh/Thành phố"),
+        _("Tạo tỉnh/thành phố"),
+        _("Chi tiết tỉnh/thành phố"),
+        _("Cập nhật tỉnh/thành phố"),
+        _("Xóa tỉnh/thành phố"),
+        _("Quản lý danh mục tỉnh/thành phố."),
+        ["code", "name"],
+        [(_("Mã"), "code"), (_("Tên"), "name")],
+        [(_("Mã"), "code"), (_("Tên"), "name")],
     ),
-    # AJAX: polling trạng thái
-    path(
-        "<int:pk>/status/",
-        template_views.job_status_api,
-        name="job_status_api",
+    (
+        "districts",
+        District,
+        DistrictForm,
+        _("Quận/Huyện"),
+        _("Tạo quận/huyện"),
+        _("Chi tiết quận/huyện"),
+        _("Cập nhật quận/huyện"),
+        _("Xóa quận/huyện"),
+        _("Quản lý danh mục quận/huyện theo tỉnh."),
+        ["code", "name", "province__name"],
+        [(_("Mã"), "code"), (_("Tên"), "name"), (_("Tỉnh/Thành phố"), "province.name")],
+        [(_("Mã"), "code"), (_("Tên"), "name"), (_("Tỉnh/Thành phố"), "province.name")],
     ),
-    # Retry job FAILED
-    path(
-        "<int:pk>/retry/",
-        template_views.job_retry_view,
-        name="job_retry",
+    (
+        "wards",
+        Ward,
+        WardForm,
+        _("Xã/Phường"),
+        _("Tạo xã/phường"),
+        _("Chi tiết xã/phường"),
+        _("Cập nhật xã/phường"),
+        _("Xóa xã/phường"),
+        _("Quản lý danh mục xã/phường theo quận huyện."),
+        ["code", "name", "district__name"],
+        [(_("Mã"), "code"), (_("Tên"), "name"), (_("Quận/Huyện"), "district.name")],
+        [(_("Mã"), "code"), (_("Tên"), "name"), (_("Quận/Huyện"), "district.name")],
     ),
-    
-    path(
-        "<str:execution_id>/upload-result",
-        UploadExecution.as_view()
-    ),
-    
-    path(
-        "upload",
-        csrf_exempt(UploadResultDetection.as_view({'post': 'create'}))
+    (
+        "planning-zones",
+        PlanningZone,
+        PlanningZoneForm,
+        _("Khu quy hoạch"),
+        _("Tạo khu quy hoạch"),
+        _("Chi tiết khu quy hoạch"),
+        _("Cập nhật khu quy hoạch"),
+        _("Xóa khu quy hoạch"),
+        _("Quản lý thông tin khu quy hoạch liên quan đến khai thác."),
+        ["code", "document_reference"],
+        [(_("Mã"), "code"), (_("Ngày phê duyệt"), "approved_date"), (_("Tài liệu"), lambda obj: obj.document_reference or "-")],
+        [
+            (_("Mã"), "code"),
+            (_("Ngày phê duyệt"), "approved_date"),
+            (_("Tài liệu"), lambda obj: obj.document_reference or "-"),
+            (_("Mô tả"), lambda obj: obj.description or "-"),
+        ],
     ),
 ]
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Thêm vào urls.py chính của GeoNode project:
-# ──────────────────────────────────────────────────────────────────────────────
-# Trong geonode/urls.py hoặc project urls.py:
-#
-#   from django.urls import path, include
-#
-#   urlpatterns += [
-#       path("mining-detection/", include("mining_detection.urls", namespace="mining_detection")),
-#   ]
-#
-# Kết quả:
-#   /mining-detection/            → danh sách jobs
-#   /mining-detection/new/        → tạo job mới
-#   /mining-detection/<pk>/       → chi tiết job
-#   /mining-detection/<pk>/status/ → AJAX polling
-#   /mining-detection/<pk>/retry/  → retry job
-# ──────────────────────────────────────────────────────────────────────────────
+urlpatterns = [
+    path("", DashboardView.as_view(), name="dashboard"),
+    path("sites/", MiningSiteListView.as_view(), name="site_list"),
+    path("sites/new/", MiningSiteCreateView.as_view(), name="site_create"),
+    path("sites/<int:pk>/", MiningSiteDetailView.as_view(), name="site_detail"),
+    path("sites/<int:pk>/edit/", MiningSiteUpdateView.as_view(), name="site_update"),
+    path("sites/<int:pk>/delete/", MiningSiteDeleteView.as_view(), name="site_delete"),
+    path("monitoring/", MonitoringListView.as_view(), name="monitoring_list"),
+    path("monitoring/new/", MonitoringCreateView.as_view(), name="monitoring_create"),
+    path("monitoring/<int:pk>/", MonitoringDetailView.as_view(), name="monitoring_detail"),
+    path("monitoring/<int:pk>/edit/", MonitoringUpdateView.as_view(), name="monitoring_update"),
+    path("monitoring/<int:pk>/delete/", MonitoringDeleteView.as_view(), name="monitoring_delete"),
+    path("violations/", ViolationListView.as_view(), name="violation_list"),
+    path("violations/new/", ViolationCreateView.as_view(), name="violation_create"),
+    path("violations/<int:pk>/", ViolationDetailView.as_view(), name="violation_detail"),
+    path("violations/<int:pk>/edit/", ViolationUpdateView.as_view(), name="violation_update"),
+    path("violations/<int:pk>/delete/", ViolationDeleteView.as_view(), name="violation_delete"),
+    path("jobs/", JobListView.as_view(), name="job_list"),
+    path("jobs/new/", JobCreateView.as_view(), name="job_create"),
+    path("jobs/<int:pk>/", JobDetailView.as_view(), name="job_detail"),
+    path("jobs/<int:pk>/edit/", JobUpdateView.as_view(), name="job_update"),
+    path("jobs/<int:pk>/delete/", JobDeleteView.as_view(), name="job_delete"),
+    path("jobs/<int:pk>/status/", job_status_api, name="job_status_api"),
+    path("jobs/<int:pk>/retry/", job_retry_view, name="job_retry"),
+    path("<str:execution_id>/upload-result", UploadExecution.as_view()),
+    path("upload", csrf_exempt(UploadResultDetection.as_view({"post": "create"}))),
+    path("new/", RedirectView.as_view(pattern_name="mining_detection:job_create", permanent=False)),
+    path("<int:pk>/", RedirectView.as_view(pattern_name="mining_detection:job_detail", permanent=False)),
+    path("<int:pk>/status/", RedirectView.as_view(pattern_name="mining_detection:job_status_api", permanent=False)),
+    path("<int:pk>/retry/", RedirectView.as_view(pattern_name="mining_detection:job_retry", permanent=False)),
+]
+
+for (
+    slug,
+    model,
+    form_class,
+    title,
+    create_title,
+    detail_title,
+    update_title,
+    delete_title,
+    subtitle,
+    search_fields,
+    table_columns,
+    detail_fields,
+) in reference_patterns:
+    base_name = slug.replace("-", "_")
+    urlpatterns += [
+        path(
+            f"reference/{slug}/",
+            ReferenceListView.as_view(
+                model=model,
+                page_title=title,
+                page_subtitle=subtitle,
+                page_id=f"gn-mining-reference-{slug}-list",
+                search_fields=search_fields,
+                table_columns=table_columns,
+                create_url_name=f"mining_detection:reference_{base_name}_create",
+                detail_url_name=f"mining_detection:reference_{base_name}_detail",
+                edit_url_name=f"mining_detection:reference_{base_name}_update",
+                delete_url_name=f"mining_detection:reference_{base_name}_delete",
+            ),
+            name=f"reference_{base_name}_list",
+        ),
+        path(
+            f"reference/{slug}/new/",
+            ReferenceCreateView.as_view(
+                model=model,
+                form_class=form_class,
+                page_title=create_title,
+                page_id=f"gn-mining-reference-{slug}-create",
+                success_url_name=f"mining_detection:reference_{base_name}_list",
+            ),
+            name=f"reference_{base_name}_create",
+        ),
+        path(
+            f"reference/{slug}/<int:pk>/",
+            ReferenceDetailView.as_view(
+                model=model,
+                page_title=detail_title,
+                page_id=f"gn-mining-reference-{slug}-detail",
+                detail_fields=detail_fields,
+                edit_url_name=f"mining_detection:reference_{base_name}_update",
+                delete_url_name=f"mining_detection:reference_{base_name}_delete",
+            ),
+            name=f"reference_{base_name}_detail",
+        ),
+        path(
+            f"reference/{slug}/<int:pk>/edit/",
+            ReferenceUpdateView.as_view(
+                model=model,
+                form_class=form_class,
+                page_title=update_title,
+                page_id=f"gn-mining-reference-{slug}-update",
+                success_url_name=f"mining_detection:reference_{base_name}_detail",
+            ),
+            name=f"reference_{base_name}_update",
+        ),
+        path(
+            f"reference/{slug}/<int:pk>/delete/",
+            ReferenceDeleteView.as_view(
+                model=model,
+                page_title=delete_title,
+                page_id=f"gn-mining-reference-{slug}-delete",
+                cancel_url_name=f"mining_detection:reference_{base_name}_detail",
+                success_url_name=f"mining_detection:reference_{base_name}_list",
+            ),
+            name=f"reference_{base_name}_delete",
+        ),
+    ]

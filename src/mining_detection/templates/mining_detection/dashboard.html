@@ -1,0 +1,105 @@
+{% extends "mining_detection/app_base.html" %}
+{% load i18n %}
+
+{% block mining_content %}
+  <div id="gn-mining-dashboard-stats" class="row">
+    <div class="col-sm-6 col-md-4">
+      <div class="md-stat-num-card">
+        <div class="big">{{ stats.reference_total }}</div>
+        <div class="lbl">{% trans "Bản ghi danh mục" %}</div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-4">
+      <div class="md-stat-num-card">
+        <div class="big">{{ stats.sites_total }}</div>
+        <div class="lbl">{% trans "Mỏ khai thác" %}</div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-4">
+      <div class="md-stat-num-card">
+        <div class="big">{{ stats.monitoring_total }}</div>
+        <div class="lbl">{% trans "Đợt giám sát" %}</div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-4">
+      <div class="md-stat-num-card">
+        <div class="big">{{ stats.violations_open }}</div>
+        <div class="lbl">{% trans "Vi phạm đang mở" %}</div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-4">
+      <div class="md-stat-num-card">
+        <div class="big">{{ stats.jobs_total }}</div>
+        <div class="lbl">{% trans "Phiên phân tích" %}</div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-4">
+      <div class="md-stat-num-card">
+        <div class="big">{{ stats.jobs_running }}</div>
+        <div class="lbl">{% trans "Job đang chạy" %}</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gn-mining-dashboard-recent" class="row">
+    <div class="col-md-6">
+      <div id="gn-mining-dashboard-sites" class="md-card">
+        <div class="md-card-header"><i class="fa fa-map-marker"></i> {% trans "Mỏ khai thác gần đây" %}</div>
+        <div class="md-card-body">
+          <ul class="list-unstyled">
+            {% for site in recent_sites %}
+              <li style="margin-bottom: 8px;"><a href="{% url 'mining_detection:site_detail' pk=site.pk %}">{{ site.name }}</a></li>
+            {% empty %}
+              <li class="text-muted">{% trans "Chưa có mỏ khai thác nào." %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div id="gn-mining-dashboard-monitoring" class="md-card">
+        <div class="md-card-header"><i class="fa fa-line-chart"></i> {% trans "Đợt giám sát gần đây" %}</div>
+        <div class="md-card-body">
+          <ul class="list-unstyled">
+            {% for record in recent_monitoring %}
+              <li style="margin-bottom: 8px;"><a href="{% url 'mining_detection:monitoring_detail' pk=record.pk %}">{{ record.mining_site.name }} - {{ record.recorded_at|date:"d/m/Y H:i" }}</a></li>
+            {% empty %}
+              <li class="text-muted">{% trans "Chưa có đợt giám sát nào." %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div id="gn-mining-dashboard-violations" class="md-card">
+        <div class="md-card-header"><i class="fa fa-warning"></i> {% trans "Vi phạm gần đây" %}</div>
+        <div class="md-card-body">
+          <ul class="list-unstyled">
+            {% for violation in recent_violations %}
+              <li style="margin-bottom: 8px;"><a href="{% url 'mining_detection:violation_detail' pk=violation.pk %}">{{ violation.monitoring_record.mining_site.name }} - {{ violation.get_status_display }}</a></li>
+            {% empty %}
+              <li class="text-muted">{% trans "Chưa có vi phạm nào." %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div id="gn-mining-dashboard-jobs" class="md-card">
+        <div class="md-card-header"><i class="fa fa-cog"></i> {% trans "Job gần đây" %}</div>
+        <div class="md-card-body">
+          <ul class="list-unstyled">
+            {% for job in recent_jobs %}
+              <li style="margin-bottom: 8px;">
+                <a href="{% url 'mining_detection:job_detail' pk=job.pk %}">{{ job.title }}</a>
+                <span class="label {% if job.status == 'COMPLETED' %}label-success{% elif job.status == 'FAILED' %}label-danger{% elif job.status == 'RUNNING' %}label-warning{% else %}label-default{% endif %}">{{ job.get_status_display }}</span>
+              </li>
+            {% empty %}
+              <li class="text-muted">{% trans "Chưa có job nào." %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

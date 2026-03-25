@@ -1,0 +1,85 @@
+{% extends "mining_detection/app_base.html" %}
+{% load i18n %}
+
+{% block mining_content %}
+  <div class="row">
+    <div class="col-md-6">
+      <div id="gn-mining-job-form-card" class="md-card">
+        <div class="md-card-header"><i class="fa fa-cog"></i> {% trans "Cấu hình job" %}</div>
+        <div class="md-card-body">
+          <form id="gn-mining-job-form" method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+              </div>
+            {% endif %}
+
+            <div class="row">
+              {% for field in form %}
+                <div class="col-sm-6">
+                  <div class="form-group {% if field.errors %}has-error{% endif %}">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<p class="md-help-block">{{ field.help_text }}</p>{% endif %}
+                    {% for error in field.errors %}<span class="help-block">{{ error }}</span>{% endfor %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+
+            <button class="btn btn-primary" type="submit">{{ submit_label }}</button>
+            <a href="{% url 'mining_detection:job_list' %}" class="btn btn-default">{% trans "Hủy" %}</a>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div id="gn-mining-job-dataset-card" class="md-card">
+        <div class="md-card-header"><i class="fa fa-database"></i> {% trans "Raster dataset gần đây" %}</div>
+        <div class="md-card-body">
+          <div class="table-responsive">
+            <table id="gn-mining-job-dataset-table" class="table md-table">
+              <thead>
+                <tr>
+                  <th>{% trans "Dataset" %}</th>
+                  <th>{% trans "Alternate" %}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in page_obj %}
+                  <tr>
+                    <td>{{ item.title }}</td>
+                    <td style="font-family: monospace;">{{ item.alternate }}</td>
+                    <td class="text-right">
+                      <button class="btn btn-xs btn-default" type="button" data-coverage="{{ item.alternate }}">{% trans "Chọn" %}</button>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="3" class="text-center text-muted">{% trans "Không có raster dataset nào." %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block mining_scripts %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var coverageInput = document.getElementById('id_coverage_id');
+      Array.prototype.slice.call(document.querySelectorAll('[data-coverage]')).forEach(function (button) {
+        button.addEventListener('click', function () {
+          if (coverageInput) {
+            coverageInput.value = this.getAttribute('data-coverage');
+            coverageInput.focus();
+          }
+        });
+      });
+    });
+  </script>
+{% endblock %}

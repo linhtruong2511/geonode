@@ -168,3 +168,15 @@ MAPSTORE_BASELAYERS = [
         "args": ["Empty Background", {"visibility": False}]
     }
 ]
+
+LANGUAGES = (
+    ('vi-vn', 'Tiếng Việt'),
+    ('en-us', 'English'),
+    ('it-it', 'Italiano'),
+)
+
+MAPSTORE_TRANSLATIONS_PATH = [
+    '/static/mapstore/ms-translations',
+    '/static/mapstore/gn-translations',
+    '/static/mapstore/project-translations'
+]

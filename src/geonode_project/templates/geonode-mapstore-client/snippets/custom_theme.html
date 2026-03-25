@@ -1,0 +1,32 @@
+
+<style>
+    {% block extra_css %}
+        {{ custom_theme.extra_css }}
+    {% endblock %}
+</style>
+{% block content %}
+    <style>
+        * {
+            font-synthesis: none !important;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body,
+        body *:not(i):not(.fa):not(.glyphicon) {
+            font-family: 
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Roboto,
+                "Helvetica Neue",
+                Arial,
+                sans-serif !important;
+        }
+
+        .msgapi .gn-theme,
+        .msgapi .gn-theme-custom {
+            --ms-font-family-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --ms-font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+    </style>
+{% endblock %}

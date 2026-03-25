@@ -1,0 +1,248 @@
+{% extends "mining_detection/app_base.html" %}
+{% load i18n %}
+
+{% block mining_extra_head %}
+  <style>
+    #site-boundary-map {
+      height: 420px;
+      border-radius: 6px;
+      border: 1px solid #dee2e6;
+      background: #f8f9fa;
+    }
+  </style>
+{% endblock %}
+
+{% block mining_content %}
+  <form id="gn-mining-site-form" method="post">
+    {% csrf_token %}
+    {{ formset.management_form }}
+
+    {% if form.non_field_errors %}
+      <div id="gn-mining-site-form-errors" class="alert alert-danger">
+        {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+      </div>
+    {% endif %}
+    {% if formset.non_form_errors %}
+      <div class="alert alert-danger">
+        {% for error in formset.non_form_errors %}<div>{{ error }}</div>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="row">
+      <div class="col-md-6">
+        <div id="gn-mining-site-info" class="md-card">
+          <div class="md-card-header"><i class="fa fa-info-circle"></i> {% trans "Thông tin mỏ khai thác" %}</div>
+          <div class="md-card-body">
+            <div class="row">
+              {% for field in form %}
+                <div class="col-sm-6">
+                  <div class="form-group {% if field.errors %}has-error{% endif %}">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<p class="md-help-block">{{ field.help_text }}</p>{% endif %}
+                    {% for error in field.errors %}<span class="help-block">{{ error }}</span>{% endfor %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div id="gn-mining-boundary-formset" class="md-card">
+          <div class="md-card-header">
+            <i class="fa fa-crosshairs"></i> {% trans "Điểm ranh giới" %}
+            <button type="button" class="btn btn-default btn-xs pull-right" id="add-boundary-row"><i class="fa fa-plus"></i> {% trans "Thêm điểm" %}</button>
+          </div>
+          <div class="md-card-body">
+            <div class="table-responsive">
+              <table id="gn-mining-boundary-table" class="table md-table">
+                <thead>
+                  <tr>
+                    <th>{% trans "Thứ tự" %}</th>
+                    <th>X</th>
+                    <th>Y</th>
+                    <th>{% trans "Vĩ độ" %}</th>
+                    <th>{% trans "Kinh độ" %}</th>
+                    <th>{% trans "Xóa" %}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for boundary_form in formset %}
+                    <tr class="boundary-row">
+                      <td>{{ boundary_form.id }}{{ boundary_form.point_order }}</td>
+                      <td>{{ boundary_form.x }}</td>
+                      <td>{{ boundary_form.y }}</td>
+                      <td>{{ boundary_form.latitude }}</td>
+                      <td>{{ boundary_form.longitude }}</td>
+                      <td>{{ boundary_form.DELETE }}</td>
+                    </tr>
+                    {% for hidden in boundary_form.hidden_fields %}{% if hidden.name != boundary_form.id.name %}{{ hidden }}{% endif %}{% endfor %}
+                    {% for field in boundary_form.visible_fields %}
+                      {% for error in field.errors %}<tr><td colspan="6" class="text-danger">{{ error }}</td></tr>{% endfor %}
+                    {% endfor %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="gn-mining-site-form-actions">
+          <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+          {% if object %}
+            <a href="{% url 'mining_detection:site_detail' pk=object.pk %}" class="btn btn-default">{% trans "Hủy" %}</a>
+          {% else %}
+            <a href="{% url 'mining_detection:site_list' %}" class="btn btn-default">{% trans "Hủy" %}</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div id="gn-mining-site-map-card" class="md-card">
+          <div class="md-card-header"><i class="fa fa-map"></i> {% trans "Xem trước ranh giới" %}</div>
+          <div class="md-card-body">
+            <p class="text-muted">{% trans "Nhấp vào bản đồ để điền cặp vĩ độ/kinh độ trống tiếp theo hoặc kéo marker để chỉnh polygon." %}</p>
+            <div id="site-boundary-map"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+{% endblock %}
+
+{% block mining_scripts %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var tableBody = document.querySelector('#gn-mining-boundary-table tbody');
+      var totalForms = document.getElementById('id_boundary_points-TOTAL_FORMS');
+      var map = L.map('site-boundary-map').setView([16.2, 107.8], 6);
+      var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      });
+      var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        maxZoom: 19
+      });
+      var markers = [];
+      var polygon = null;
+      var pointLabel = "{% trans 'Điểm' %}";
+
+      satelliteLayer.addTo(map);
+      L.control.layers({
+        'OpenStreetMap': streetLayer,
+        'Satellite': satelliteLayer
+      }, null, { position: 'topright' }).addTo(map);
+
+      function getRows() {
+        return Array.prototype.slice.call(document.querySelectorAll('.boundary-row')).filter(function (row) {
+          var deleteBox = row.querySelector('input[type="checkbox"]');
+          return !(deleteBox && deleteBox.checked);
+        });
+      }
+
+      function orderRows() {
+        getRows().forEach(function (row, index) {
+          var orderInput = row.querySelector('input[name$="-point_order"]');
+          if (orderInput) {
+            orderInput.value = index + 1;
+          }
+        });
+      }
+
+      function pointFromRow(row) {
+        var latInput = row.querySelector('input[name$="-latitude"]');
+        var lngInput = row.querySelector('input[name$="-longitude"]');
+        var lat = parseFloat(latInput.value);
+        var lng = parseFloat(lngInput.value);
+        if (!isFinite(lat) || !isFinite(lng)) {
+          return null;
+        }
+        return { lat: lat, lng: lng, row: row };
+      }
+
+      function syncMapFromTable() {
+        markers.forEach(function (marker) { map.removeLayer(marker); });
+        markers = [];
+        if (polygon) {
+          map.removeLayer(polygon);
+          polygon = null;
+        }
+
+        var points = getRows().map(pointFromRow).filter(function (point) { return point; });
+        points.forEach(function (point, index) {
+          var marker = L.marker([point.lat, point.lng], { draggable: true }).addTo(map);
+          marker.bindTooltip(pointLabel + ' ' + (index + 1));
+          marker.on('dragend', function (event) {
+            var pos = event.target.getLatLng();
+            point.row.querySelector('input[name$="-latitude"]').value = pos.lat.toFixed(8);
+            point.row.querySelector('input[name$="-longitude"]').value = pos.lng.toFixed(8);
+            syncMapFromTable();
+          });
+          markers.push(marker);
+        });
+
+        if (points.length >= 3) {
+          polygon = L.polygon(points.map(function (point) { return [point.lat, point.lng]; }), {
+            color: '#337ab7',
+            fillColor: '#5bc0de',
+            fillOpacity: 0.2
+          }).addTo(map);
+          map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
+        } else if (points.length > 0) {
+          map.fitBounds(L.featureGroup(markers).getBounds(), { padding: [20, 20] });
+        }
+      }
+
+      function wireRow(row) {
+        Array.prototype.slice.call(row.querySelectorAll('input[name$="-latitude"], input[name$="-longitude"]')).forEach(function (input) {
+          input.addEventListener('input', syncMapFromTable);
+        });
+        var deleteBox = row.querySelector('input[type="checkbox"]');
+        if (deleteBox) {
+          deleteBox.addEventListener('change', function () {
+            row.style.display = this.checked ? 'none' : '';
+            orderRows();
+            syncMapFromTable();
+          });
+        }
+      }
+
+      map.on('click', function (event) {
+        var rows = getRows().filter(function (row) {
+          var lat = row.querySelector('input[name$="-latitude"]').value;
+          var lng = row.querySelector('input[name$="-longitude"]').value;
+          return !(lat && lng);
+        });
+        var row = rows[0];
+        if (!row) {
+          return;
+        }
+        row.querySelector('input[name$="-latitude"]').value = event.latlng.lat.toFixed(8);
+        row.querySelector('input[name$="-longitude"]').value = event.latlng.lng.toFixed(8);
+        syncMapFromTable();
+      });
+
+      document.getElementById('add-boundary-row').addEventListener('click', function () {
+        var index = parseInt(totalForms.value, 10);
+        var row = document.createElement('tr');
+        row.className = 'boundary-row';
+        row.innerHTML = '' +
+          '<td><input type="number" name="boundary_points-' + index + '-point_order" class="form-control"></td>' +
+          '<td><input type="number" step="0.01" name="boundary_points-' + index + '-x" class="form-control"></td>' +
+          '<td><input type="number" step="0.01" name="boundary_points-' + index + '-y" class="form-control"></td>' +
+          '<td><input type="number" step="0.00000001" name="boundary_points-' + index + '-latitude" class="form-control"></td>' +
+          '<td><input type="number" step="0.00000001" name="boundary_points-' + index + '-longitude" class="form-control"></td>' +
+          '<td><input type="checkbox" name="boundary_points-' + index + '-DELETE"></td>';
+        tableBody.appendChild(row);
+        totalForms.value = index + 1;
+        wireRow(row);
+        orderRows();
+      });
+
+      Array.prototype.slice.call(document.querySelectorAll('.boundary-row')).forEach(wireRow);
+      orderRows();
+      syncMapFromTable();
+    });
+  </script>
+{% endblock %}

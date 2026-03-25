@@ -1,7 +1,7 @@
-{% extends "geonode-mapstore-client/resource_page_catalog.html" %}
+{% extends "mining_detection/app_base.html" %}
 {% load i18n %}
 
-{% block content %}
+{% block mining_content %}
 <style>
   .badge-COMPLETED { background-color:#d4edda; color:#155724; }
   .badge-RUNNING   { background-color:#fff3cd; color:#856404; }
@@ -16,7 +16,7 @@
     padding:1rem 1.25rem; text-align:center;
   }
   .md-stat-card .stat-number { font-size:2rem; font-weight:600; line-height:1.1; margin:0; }
-  .md-stat-card .stat-label  { font-size:12px; color:#6c757d; margin:4px 0 0; font-weight: 600;}
+  .md-stat-card .stat-label  { font-size:12px; color:#6c757d; margin:4px 0 0; font-weight:600; }
   .md-table th {
     background-color:#f8f9fa; font-size:12px; text-transform:uppercase;
     letter-spacing:0.04em; color:#6c757d; font-weight:600; border-top:none;
@@ -27,236 +27,184 @@
   .running-pulse { animation:pulse 1.5s ease-in-out infinite; }
   .ndvi-neg { color:#dc3545; font-weight:600; }
   .ndvi-pos { color:#28a745; font-weight:600; }
-
   .pagination li.active a {
-        background-color: #007bff;
-        color: white;
-        border-color: #007bff;
-        pointer-events: none; /* Không cho click lại trang hiện tại */
-    }
-    .pagination li.disabled span {
-        padding: 4px 12px;
-        display: inline-block;
-    }
+    background-color:#007bff; color:white; border-color:#007bff; pointer-events:none;
+  }
+  .pagination li.disabled span {
+    padding:4px 12px; display:inline-block;
+  }
+  .md-page-title {
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .md-page-title h4 {
+    margin: 0 0 5px;
+  }
+  .btn-link.active-link {
+    font-weight: bold;
+    text-decoration: underline;
+    color: #23527c;
+  }
+  .btn-group .btn-link {
+    border: none;
+    margin: 0 5px;
+  }
 </style>
 
-
-<div class="gn-resource-page-catalog-section">
-    <div class="gn-resource-page-catalog-content">
-        <div style="margin-bottom: 10px; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
-            <div>
-                <h4>{% trans "Mining Detection" %}</h4>
-            </div>
-            <div>
-                <a href="{% url 'mining_detection:job_create' %}" class="btn btn-primary btn">
-                    <i class="fa fa-plus"></i> {% trans "Tạo phân tích mới" %}
-                </a>
-            </div>
-        </div>
-        
-        <div class="row" style="margin-bottom:1.5rem;">
-            <div class="col-xs-6 col-sm-3">
-                <div class="md-stat-card">
-                <b class="stat-number">{{ stats.total }}</b>
-                <p class="stat-label" style="font-weight: 600;">{% trans "Tổng số jobs" %}</p>
-                </div>
-            </div>
-            <div class="col-xs-6 col-sm-3">
-                <div class="md-stat-card" style="border-color:#c3e6cb;">
-                <b class="stat-number" style="color:#155724;">{{ stats.completed }}</b>
-                <p class="stat-label" style="font-weight: 600;">{% trans "Hoàn thành" %}</p>
-                </div>
-            </div>
-            <div class="col-xs-6 col-sm-3">
-                <div class="md-stat-card" style="border-color:#ffeeba;">
-                <b class="stat-number running-pulse" style="color:#856404;">{{ stats.running }}</b>
-                <p class="stat-label" style="font-weight: 600;">{% trans "Đang chạy" %}</p>
-                </div>
-            </div>
-            <div class="col-xs-6 col-sm-3">
-                <div class="md-stat-card" style="border-color:#f5c6cb;">
-                <b class="stat-number" style="color:#721c24;">{{ stats.failed }}</b>
-                <p class="stat-label" style="font-weight: 600;">{% trans "Lỗi" %}</p>
-                </div>
-            </div>
-        </div>
-
-        <form method="get" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-            <input type="text" name="q" value="{{ search_query }}" class="form-control"
-                    style="flex:1; min-width:180px;" placeholder="{% trans 'Tìm theo tên job...' %}">
-            <select name="status" class="form-control" style="width:auto;">
-                <option value="">{% trans "Tất cả trạng thái" %}</option>
-                {% for val, label in status_choices %}
-                <option value="{{ val }}" {% if current_status == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-default">
-                <i class="fa fa-search"></i> {% trans "Lọc" %}
-            </button>
-            {% if search_query or current_status %}
-                <a href="{% url 'mining_detection:job_list' %}" class="btn btn-link">{% trans "Xoá bộ lọc" %}</a>
-            {% endif %}
-        </form>
-
-        {% if jobs %}
-        <div class="table-responsive">
-            <table class="table md-table">
-                <thead>
-                <tr>
-                    <th>{% trans "Tên phiên phân tích" %}</th>
-                    <th>{% trans "Trạng thái" %}</th>
-                    <th>{% trans "Diện tích (ha)" %}</th>
-                    <th>{% trans "NDVI tb" %}</th>
-                    <th>{% trans "Số vùng" %}</th>
-                    <th>{% trans "Layer GeoNode" %}</th>
-                    <th>{% trans "Ngày tạo" %}</th>
-                    <th>{% trans "Chú thích" %}</th>
-                    <th></th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for job in jobs %}
-                <tr>
-                    <td>
-                        <a href="{% url 'mining_detection:job_detail' pk=job.pk %}" style="font-weight:600;">
-                            {{ job.title }}
-                        </a><br>
-                        <small class="text-muted" style="font-family:monospace; font-size:11px;">{{ job.job_id }}</small>
-                    </td>
-                    <td>
-                        <span class="status-badge badge-{{ job.status }}
-                                {% if job.status == 'RUNNING' %}running-pulse{% endif %}">
-                            {{ job.get_status_display }}
-                        </span>
-                    </td>
-                    <td>{% if job.statistics %}{{ job.statistics.total_area_ha|floatformat:1 }}{% else %}—{% endif %}</td>
-                    <td>
-                    {% if job.statistics %}
-                        <span class="{% if job.statistics.avg_ndvi < 0 %}ndvi-neg{% else %}ndvi-pos{% endif %}">
-                        {{ job.statistics.avg_ndvi|floatformat:3 }}
-                        </span>
-                    {% else %}—{% endif %}
-                    </td>
-                    <td>{{ job.statistics.count|default:"—" }}</td>
-                    <td>
-                    {% if job.result_dataset %}
-                        <a href="{{ job.result_dataset.detail_url }}/" target="_blank"
-                        class="text-info" style="font-family:monospace; font-size:12px;">
-                        Chi tiết <i class="fa fa-external-link fa-sm"></i>
-                        </a>
-                    {% else %}<span class="text-muted">—</span>{% endif %}
-                    </td>
-                    <td><small>{{ job.created_at|date:"d/m/Y H:i" }}</small></td>
-                    <td>
-                        {% if job.statistics.count < 1 %}
-                            <span class="text-danger">{% trans "Không phát hiện đối tượng" %}</span>
-                        {% else %}
-                            <span class="text-muted"></span>
-                        {% endif %}
-                    </td>
-                    <td class="text-right" style="white-space:nowrap;">
-                    <a href="{% url 'mining_detection:job_detail' pk=job.pk %}"
-                        class="btn btn-xs btn-default">{% trans "Chi tiết" %}</a>
-                    {% if job.status == 'FAILED' and request.user == job.created_by %}
-                        <form method="post" action="{% url 'mining_detection:job_retry' pk=job.pk %}"
-                            style="display:inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-xs btn-warning"
-                                onclick="return confirm('Thử lại job này?')">
-                            {% trans "Retry" %}
-                        </button>
-                        </form>
-                    {% endif %}
-                    </td>
-                    
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        {% if is_paginated %}
-        <div class="text-center">
-            <ul class="pagination">
-                {# Nút Quay lại #}
-                {% if page_obj.has_previous %}
-                <li><a href="?page={{ page_obj.previous_page_number }}&q={{ search_query }}&status={{ current_status }}">&laquo;</a></li>
-                {% endif %}
-
-                {# Hiển thị các số trang #}
-                {% for num in paginator.page_range %}
-                    {# Luôn hiển thị trang đầu, trang cuối, và các trang cách trang hiện tại khoảng 2 đơn vị #}
-                    {% if num == 1 or num == paginator.num_pages or num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
-                        
-                        <li class="{% if num == page_obj.number %}active{% endif %}">
-                            <a href="?page={{ num }}&q={{ search_query }}&status={{ current_status }}">{{ num }}</a>
-                        </li>
-
-                    {# Hiển thị dấu ba chấm nếu có khoảng cách lớn #}
-                    {% elif num == page_obj.number|add:-3 or num == page_obj.number|add:3 %}
-                        <li class="disabled"><span>...</span></li>
-                    {% endif %}
-                {% endfor %}
-
-                {# Nút Tiếp theo #}
-                {% if page_obj.has_next %}
-                <li><a href="?page={{ page_obj.next_page_number }}&q={{ search_query }}&status={{ current_status }}">&raquo;</a></li>
-                {% endif %}
-            </ul>
-        </div>
-        {% endif %}
-
-        {% else %}
-        <div class="alert alert-info text-center" style="padding:3rem;">
-            <i class="fa fa-search fa-3x" style="margin-bottom:1rem; display:block; color:#bee5eb;"></i>
-            <h4>{% trans "Chưa có phiên phân tích nào" %}</h4>
-            <p>{% trans "Bắt đầu bằng cách tạo phiên phân tích đầu tiên." %}</p>
-            <a href="{% url 'mining_detection:job_create' %}" class="btn btn-primary">
-                {% trans "Tạo phân tích mới" %}
-            </a>
-        </div>
-        {% endif %}
-        
-        <hr>
-
-        <div style="margin-bottom: 10px; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
-            <div>
-                <h4>{% trans "Recent Jobs." %}</h4>
-            </div>
-        </div>
-        <div id="mining-detection-grid"></div>
+<div id="gn-mining-job-stats" class="row" style="margin-bottom:1.5rem;">
+  <div class="col-xs-6 col-sm-3">
+    <div class="md-stat-card">
+      <b class="stat-number">{{ stats.total }}</b>
+      <p class="stat-label">{% trans "Tổng số jobs" %}</p>
     </div>
+  </div>
+  <div class="col-xs-6 col-sm-3">
+    <div class="md-stat-card" style="border-color:#c3e6cb;">
+      <b class="stat-number" style="color:#155724;">{{ stats.completed }}</b>
+      <p class="stat-label">{% trans "Hoàn thành" %}</p>
+    </div>
+  </div>
+  <div class="col-xs-6 col-sm-3">
+    <div class="md-stat-card" style="border-color:#ffeeba;">
+      <b class="stat-number running-pulse" style="color:#856404;">{{ stats.running }}</b>
+      <p class="stat-label">{% trans "Đang chạy" %}</p>
+    </div>
+  </div>
+  <div class="col-xs-6 col-sm-3">
+    <div class="md-stat-card" style="border-color:#f5c6cb;">
+      <b class="stat-number" style="color:#721c24;">{{ stats.failed }}</b>
+      <p class="stat-label">{% trans "Lỗi" %}</p>
+    </div>
+  </div>
 </div>
 
+<form id="gn-mining-job-filter-form" method="get" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+  <input
+    id="gn-mining-job-filter-query"
+    type="text"
+    name="q"
+    value="{{ search_query }}"
+    class="form-control"
+    style="flex:1; min-width:180px;"
+    placeholder="{% trans 'Tìm theo tên job...' %}"
+  >
+  <select id="gn-mining-job-filter-status" name="status" class="form-control" style="width:auto;">
+    <option value="">{% trans "Tất cả trạng thái" %}</option>
+    {% for val, label in status_choices %}
+      <option value="{{ val }}" {% if current_status == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-default">
+    <i class="fa fa-search"></i> {% trans "Lọc" %}
+  </button>
+  {% if search_query or current_status %}
+    <a href="{% url 'mining_detection:job_list' %}" class="btn btn-link">{% trans "Xóa bộ lọc" %}</a>
+  {% endif %}
+</form>
 
-{% endblock content %}
+{% if jobs %}
+  <div id="gn-mining-job-table-wrap" class="table-responsive">
+    <table id="gn-mining-job-table" class="table md-table">
+      <thead>
+        <tr>
+          <th>{% trans "Tên phiên phân tích" %}</th>
+          <th>{% trans "Trạng thái" %}</th>
+          <th>{% trans "Diện tích (ha)" %}</th>
+          <th>{% trans "NDVI trung bình" %}</th>
+          <th>{% trans "Số vùng" %}</th>
+          <th>{% trans "Layer GeoNode" %}</th>
+          <th>{% trans "Ngày tạo" %}</th>
+          <th>{% trans "Ghi chú" %}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+          <tr>
+            <td>
+              <a href="{% url 'mining_detection:job_detail' pk=job.pk %}" style="font-weight:600;">{{ job.title }}</a><br>
+              <small class="text-muted" style="font-family:monospace; font-size:11px;">{{ job.job_id }}</small>
+            </td>
+            <td>
+              <span class="status-badge badge-{{ job.status }} {% if job.status == 'RUNNING' %}running-pulse{% endif %}">
+                {{ job.get_status_display }}
+              </span>
+            </td>
+            <td>{% if job.statistics %}{{ job.statistics.total_area_ha|floatformat:1 }}{% else %}&mdash;{% endif %}</td>
+            <td>
+              {% if job.statistics %}
+                <span class="{% if job.statistics.avg_ndvi < 0 %}ndvi-neg{% else %}ndvi-pos{% endif %}">
+                  {{ job.statistics.avg_ndvi|floatformat:3 }}
+                </span>
+              {% else %}&mdash;{% endif %}
+            </td>
+            <td>{{ job.statistics.count|default:"—" }}</td>
+            <td>
+              {% if job.result_dataset %}
+                <a href="{{ job.result_dataset.detail_url }}/" target="_blank" class="text-info" style="font-family:monospace; font-size:12px;">
+                  {% trans "Chi tiết" %} <i class="fa fa-external-link fa-sm"></i>
+                </a>
+              {% else %}
+                <span class="text-muted">&mdash;</span>
+              {% endif %}
+            </td>
+            <td><small>{{ job.created_at|date:"d/m/Y H:i" }}</small></td>
+            <td>
+              {% if job.statistics and job.statistics.count < 1 %}
+                <span class="text-danger">{% trans "Không phát hiện đối tượng" %}</span>
+              {% endif %}
+            </td>
+            <td class="text-right" style="white-space:nowrap;">
+              <a href="{% url 'mining_detection:job_detail' pk=job.pk %}" class="btn btn-xs btn-default">{% trans "Chi tiết" %}</a>
+              {% if job.status == 'FAILED' and request.user == job.created_by %}
+                <form method="post" action="{% url 'mining_detection:job_retry' pk=job.pk %}" style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-xs btn-warning" onclick="return confirm('{% trans "Thử lại job này?" %}')">
+                    {% trans "Retry" %}
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-{% block ms_plugins %}
-msPluginsBlocks = [
-    {
-        "name": "ResourcesGrid",
-        "cfg": {
-            "id": "mining-catalog",
-            "targetSelector": "#mining-detection-grid",
-            "defaultQuery": {
-                "f": "dataset",
-                "filter{category.identifier.in}": ["mining_detection"],
-            },
-            "menuItems": []
-        }
-    },
-    {
-        "name": "ResourcesFiltersForm",
-        "cfg": {
-            "fields": [
-                { "type": "search" },
-                {
-                    "type": "date-range",
-                    "filterKey": "date",
-                    "labelId": "gnviewer.dateFilter"
-                }
-            ]
-        }
-    }
-];
-{% endblock ms_plugins %}
+  {% if is_paginated %}
+    <div id="gn-mining-job-pagination" class="text-center">
+      <ul class="pagination">
+        {% if page_obj.has_previous %}
+          <li><a href="?page={{ page_obj.previous_page_number }}&q={{ search_query }}&status={{ current_status }}">&laquo;</a></li>
+        {% endif %}
+
+        {% for num in paginator.page_range %}
+          {% if num == 1 or num == paginator.num_pages or num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
+            <li class="{% if num == page_obj.number %}active{% endif %}">
+              <a href="?page={{ num }}&q={{ search_query }}&status={{ current_status }}">{{ num }}</a>
+            </li>
+          {% elif num == page_obj.number|add:-3 or num == page_obj.number|add:3 %}
+            <li class="disabled"><span>...</span></li>
+          {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+          <li><a href="?page={{ page_obj.next_page_number }}&q={{ search_query }}&status={{ current_status }}">&raquo;</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  {% endif %}
+{% else %}
+  <div id="gn-mining-job-empty-state" class="alert alert-info text-center" style="padding:3rem;">
+    <i class="fa fa-search fa-3x" style="margin-bottom:1rem; display:block; color:#bee5eb;"></i>
+    <h4>{% trans "Chưa có phiên phân tích nào" %}</h4>
+    <p>{% trans "Bắt đầu bằng cách tạo phiên phân tích đầu tiên." %}</p>
+    <a href="{% url 'mining_detection:job_create' %}" class="btn btn-primary">{% trans "Tạo phân tích mới" %}</a>
+  </div>
+{% endif %}
+
+{% endblock mining_content %}

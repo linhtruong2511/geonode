@@ -1,0 +1,37 @@
+{% extends "mining_detection/app_base.html" %}
+{% load i18n %}
+
+{% block mining_content %}
+  <div id="gn-mining-form-card" class="md-card">
+    <div class="md-card-body">
+      <form id="gn-mining-form" method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div id="gn-mining-form-errors" class="alert alert-danger">
+            {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="row">
+          {% for field in form %}
+            <div class="col-sm-6">
+              <div class="md-form-box">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                  {{ field }}
+                  {% if field.help_text %}<p class="md-help-block">{{ field.help_text }}</p>{% endif %}
+                  {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div id="gn-mining-form-actions" style="margin-top: 5px;">
+          <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+          {% if cancel_url %}<a href="{{ cancel_url }}" class="btn btn-default">{% trans "Hủy" %}</a>{% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

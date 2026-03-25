@@ -1,11 +1,7 @@
-{% extends 'page.html' %}
+{% extends "mining_detection/app_base.html" %}
 {% load i18n %}
 
-{% block extra_head %}
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-{% endblock %}
-
-{% block container %}
+{% block mining_extra_head %}
   <style>
     .md-status-banner {
       border-radius: 8px;
@@ -38,18 +34,12 @@
       border: 1px solid #d6d8db;
     }
     @keyframes pulse {
-      0%,
-      100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.4;
-      }
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
     }
     .pulse {
       animation: pulse 1.2s ease-in-out infinite;
     }
-    
     .md-info-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -81,6 +71,7 @@
       padding: 5px 0;
       border-bottom: 1px solid #f1f3f5;
       font-size: 13px;
+      gap: 12px;
     }
     .md-kv-row:last-child {
       border-bottom: none;
@@ -92,7 +83,7 @@
       font-weight: 600;
       text-align: right;
       max-width: 60%;
-      word-break: break-all;
+      word-break: break-word;
     }
     .val-danger {
       color: #dc3545;
@@ -103,7 +94,6 @@
     .val-success {
       color: #155724;
     }
-    
     .md-stat-row {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -130,29 +120,6 @@
     .md-stat-num-card.highlight {
       border-color: #337ab7;
     }
-    
-    #detail-map {
-      height: 320px;
-      border-radius: 6px;
-      border: 1px solid #dee2e6;
-    }
-    
-    .md-progress-wrap {
-      background: #e9ecef;
-      border-radius: 4px;
-      height: 5px;
-      overflow: hidden;
-      margin-top: 8px;
-    }
-    .md-progress-bar {
-      height: 5px;
-      background: #28a745; /* Đổi sang màu xanh lá cho giống tiến độ */
-      border-radius: 4px;
-      transition: width 0.4s ease; /* Thêm hiệu ứng mượt mà khi tăng % */
-      width: 0%; /* Mặc định ban đầu */
-    }
-    /* @keyframes progress { from{width:15%} to{width:80%} } */
-    
     .md-layer-link {
       display: inline-flex;
       align-items: center;
@@ -170,29 +137,17 @@
       background: #cce5ff;
       text-decoration: none;
     }
-    
-    @media (max-width: 768px) {
-      .md-info-grid {
-        grid-template-columns: 1fr;
-      }
-      .md-stat-row {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    
     .fa-info-circle {
-      margin-left: 5px; /* Cách chữ 5px */
-      cursor: help; /* Hiển thị chuột dạng dấu chấm hỏi khi hover */
-      font-size: 0.9em; /* Thu nhỏ icon lại một chút cho đỡ thô */
+      margin-left: 5px;
+      cursor: help;
+      font-size: 0.9em;
     }
-    
     #result-map {
       height: 420px;
       border-radius: 6px;
       border: 1px solid #dee2e6;
       background: #f8f9fa;
     }
-    
     .map-layer-toggle {
       position: absolute;
       top: 10px;
@@ -204,7 +159,6 @@
       padding: 8px 10px;
       font-size: 12px;
     }
-    
     .map-layer-toggle label {
       display: flex;
       align-items: center;
@@ -213,493 +167,405 @@
       margin: 3px 0;
       font-weight: 500;
     }
+    @media (max-width: 768px) {
+      .md-info-grid {
+        grid-template-columns: 1fr;
+      }
+      .md-stat-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
   </style>
+{% endblock %}
 
-  <div class="gn-resource-page-catalog">
-    <div class="gn-resource-page-catalog-section">
-      <div class="gn-resource-page-catalog-content">
-        <div style="margin-bottom: 10px; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
-          <div>
-            <a href="{% url 'mining_detection:job_list' %}" class="btn btn-link"><i class="fa fa-arrow-left"></i> {% trans 'Quay lại' %}</a>
-            <h4>{% trans 'Job Detail: ' %}{{ job.title }}</h4>
-            <p class="text-muted">{{ job.job_id }}</p>
-          </div>
-        </div>
+{% block mining_content %}
 
-        {# ── Status Banner ── #}
-        <div class="md-status-banner {{ job.status }}" id="status-banner">
-          <span style="font-size:20px; flex-shrink:0;">
-            {% if job.status == 'COMPLETED' or job.status == 'SUCCESS' %}
-              ✅
-            {% elif job.status == 'RUNNING' or job.status == 'PENDING' %}
-              <span class="pulse">⏳</span>
-            {% elif job.status == 'FAILED' %}
-              ❌
-            {% else %}
-              🕐
-            {% endif %}
-          </span>
-          <div style="flex:1;">
-            <div id="status-text" style="margin-bottom: 8px; font-weight: bold;">
-                {% if job.status == 'COMPLETED' %}
-                    {% trans 'Phân tích hoàn thành' %}
-                    {% if job.completed_at %}
-                        — {{ job.completed_at|date:'d/m/Y H:i' }}
-                    {% endif %}
-                {% elif job.status == 'RUNNING' %}
-                    <span id="message_progress_id">{% trans 'Đang phân tích...' %}</span>
-                {% elif job.status == 'FAILED' %}
-                    <span class="text-danger">{% trans 'Phân tích thất bại' %}</span>
-                {% else %}
-                    {% trans 'Đang chờ khởi động...' %}
-                {% endif %}
-            </div>
+<div id="gn-mining-job-status" class="md-status-banner {{ job.status }}">
+  <span style="font-size:20px; flex-shrink:0;">
+    {% if job.status == 'COMPLETED' or job.status == 'SUCCESS' %}
+      ✓
+    {% elif job.status == 'RUNNING' or job.status == 'PENDING' %}
+      <span class="pulse">⌛</span>
+    {% elif job.status == 'FAILED' %}
+      ✕
+    {% else %}
+      ○
+    {% endif %}
+  </span>
+  <div style="flex:1;">
+    <div id="status-text" style="margin-bottom: 8px; font-weight: bold;">
+      {% if job.status == 'COMPLETED' %}
+        {% trans "Phân tích hoàn thành" %}
+        {% if job.completed_at %} - {{ job.completed_at|date:'d/m/Y H:i' }}{% endif %}
+      {% elif job.status == 'RUNNING' %}
+        <span id="message_progress_id">{% trans "Đang phân tích..." %}</span>
+      {% elif job.status == 'FAILED' %}
+        <span class="text-danger">{% trans "Phân tích thất bại" %}</span>
+      {% else %}
+        {% trans "Đang chờ khởi động..." %}
+      {% endif %}
+    </div>
 
-            <div class="progress-container" style="background-color: #e9ecef; border-radius: 10px; height: 12px; width: 100%; overflow: hidden; position: relative;">
-              <div id="progress-bar-fill" 
-                  style="height: 100%; background-color: #28a745; width: {% if job.status == 'COMPLETED' %}100%{% else %}0%{% endif %}; transition: width 0.4s ease;">
-              </div>
-            </div>
-            <small id="progress-text" style="display: block; margin-top: 4px; color: #666;">
-              {% if job.status == 'COMPLETED' %}100%{% else %}0%{% endif %}
-            </small>
+    <div class="progress-container" style="background-color: #e9ecef; border-radius: 10px; height: 12px; width: 100%; overflow: hidden; position: relative;">
+      <div id="progress-bar-fill" style="height: 100%; background-color: #28a745; width: {% if job.status == 'COMPLETED' %}100%{% else %}0%{% endif %}; transition: width 0.4s ease;"></div>
+    </div>
+    <small id="progress-text" style="display: block; margin-top: 4px; color: #666;">
+      {% if job.status == 'COMPLETED' %}100%{% else %}0%{% endif %}
+    </small>
+  </div>
+  {% if job.status == 'FAILED' and request.user == job.created_by %}
+    <form method="post" action="{% url 'mining_detection:job_retry' pk=job.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-warning btn-sm"><i class="fa fa-refresh"></i> {% trans "Retry" %}</button>
+    </form>
+  {% endif %}
+</div>
 
-          </div>
-          {% if job.status == 'FAILED' and request.user == job.created_by %}
-            <form method="post" action="{% url 'mining_detection:job_retry' pk=job.pk %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-warning btn-sm"><i class="fa fa-refresh"></i> {% trans 'Retry' %}</button>
-            </form>
-          {% endif %}
-        </div>
-
-        {# ── Statistics numbers (COMPLETED only) ── #}
-        {% if job.statistics %}
-          <div class="md-stat-row">
-            <div class="md-stat-num-card highlight">
-              <div class="big" style="color:#337ab7;">{{ job.statistics.total_area_ha|floatformat:1 }}</div>
-              <div class="lbl">
-                {% trans 'Diện tích (ha)' %}
-              </div>
-            </div>
-            <div class="md-stat-num-card">
-              <div class="big">{{ job.statistics.count }}</div>
-              <div class="lbl">
-                {% trans 'Số vùng' %}
-              </div>
-            </div>
-            <div class="md-stat-num-card">
-              <div class="big {% if job.statistics.avg_ndvi < 0 %}
-                  
-                  
-                  
-                  
-                  
-                  
-                  
-                  
-                  
-                  
-                  val-danger
-
-
-
-
-
-
-
-
-
-
-                {% else %}
-                  
-                  
-                  
-                  
-                  
-                  
-                  
-                  
-                  
-                  
-                  val-success
-
-
-
-
-
-
-
-
-
-
-                {% endif %}">{{ job.statistics.avg_ndvi|floatformat:3 }}</div>
-              <div class="lbl">NDVI tb</div>
-            </div>
-            <div class="md-stat-num-card">
-              <div class="big val-warning">{{ job.statistics.avg_bsi|floatformat:3 }}</div>
-              <div class="lbl">BSI tb</div>
-            </div>
-          </div>
-
-          {# Layer kết quả #}
-          {% if job.result_dataset or job.shapefile_url %}
-            <div class="md-card" style="margin-bottom:1.5rem;">
-              <div class="md-card-header">
-                <i class="fa fa-map-marker"></i> {% trans 'Layer kết quả trên GeoNode' %}
-              </div>
-              <div class="md-card-body" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                {% if job.result_dataset %}
-                  <a href="{{ job.result_dataset.detail_url }}" target="_blank" class="md-layer-link">
-                    <i class="fa fa-database"></i>
-                    Xem chi tiết
-                    <i class="fa fa-external-link fa-sm"></i>
-                  </a>
-                  <a href="/catalogue/#/map/new?gn-dataset={{ job.result_dataset.pk }}:vector" target="_blank" class="btn btn-sm btn-success"><i class="fa fa-map"></i> {% trans 'Tạo bản đồ' %}</a>
-                {% endif %}
-                <a href="{{ job.base_dataset.detail_url }}" target="_blank" class="md-layer-link">
-                  <i class="fa fa-database"></i>
-                  Xem dataset gốc
-                  <i class="fa fa-external-link fa-sm"></i>
-                </a>
-              </div>
-            </div>
-          {% endif %}
-        {% endif %}
-
-        {% if job.result_dataset %}
-          <div class="md-card" style="margin-bottom:1.5rem; position: relative;">
-            <div class="md-card-header" style="display:flex; justify-content:space-between; align-items:center;">
-              <span><i class="fa fa-map"></i> {% trans 'Xem trực tiếp trên bản đồ' %}</span>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <span style="font-size:11px; color:#6c757d; font-weight:400;">Layer: <code>{{ job.result_dataset.alternate }}</code></span>
-                <a href="/catalogue/#/map/new?gn-dataset={{ job.result_dataset.pk }}:vector" target="_blank" class="btn btn-xs btn-outline-primary"><i class="fa fa-external-link"></i> Mở MapViewer</a>
-              </div>
-            </div>
-            <div class="md-card-body" style="padding: 0; position: relative;">
-              <div id="result-map"></div>
-              <div class="map-layer-toggle">
-                <label>
-                  <input type="checkbox" id="toggle-result-layer" checked />
-                  <span style="display:inline-block;width:14px;height:14px;background:#e74c3c;border-radius:2px;opacity:0.8;"></span>
-                  Kết quả phân tích
-                </label>
-                <label>
-                  <input type="checkbox" id="toggle-aoi" checked />
-                  <span style="display:inline-block;width:14px;height:14px;border:2px solid #3498db;border-radius:2px;"></span>
-                  Vùng AOI
-                </label>
-              </div>
-            </div>
-          </div>
-        {% endif %}
-
-        <div class="md-info-grid">
-          <div class="md-card">
-            <div class="md-card-header">
-              <i class="fa fa-cog"></i> {% trans 'Tham số phân tích' %}
-            </div>
-            <div class="md-card-body">
-              <div class="md-kv-row">
-                <span class="md-kv-label">Coverage ID</span>
-                <span class="md-kv-value" style="font-family:monospace;">{{ job.extra_params.coverage_id|default:'—' }}</span>
-              </div>
-
-              <div class="md-kv-row">
-                <span class="md-kv-label">{% trans 'Model' %}</span>
-                <span class="md-kv-value">
-                  {{ job.model_version }}
-                  <br /><small class="text-muted"><i>(Phiên bản thuật toán AI được sử dụng để nhận dạng)</i></small>
-                </span>
-              </div>
-
-              <div class="md-kv-row" style="margin-bottom: 10px;">
-                <span class="md-kv-label">Threshold</span>
-                <span class="md-kv-value" style="text-align: right;">
-                  <strong>{{ job.extra_params.threshold|default:'—' }}</strong>
-                  <br />
-                  <small class="text-muted" style="display: block; font-size: 0.85em; line-height: 1.2;"><i>(Độ tin cậy tối thiểu: Càng cao càng chính xác, dễ bỏ sót)</i></small>
-                </span>
-              </div>
-
-              <div class="md-kv-row">
-                <span class="md-kv-label">Min area (m²)</span>
-                <span class="md-kv-value">
-                  {{ job.extra_params.min_area_m2|default:'—' }}
-                  <br /><small class="text-muted"><i>(Bỏ qua các đối tượng có diện tích nhỏ hơn mức này)</i></small>
-                </span>
-              </div>
-
-              <div class="md-kv-row">
-                <span class="md-kv-label">Tile size</span>
-                <span class="md-kv-value">
-                  {{ job.extra_params.tile_size|default:'—' }} px
-                  <br /><small class="text-muted"><i>(Kích thước ô ảnh nhỏ khi đưa vào mô hình xử lý)</i></small>
-                </span>
-              </div>
-
-              <hr /> <div class="md-kv-row">
-                <span class="md-kv-label">{% trans 'Người tạo' %}</span>
-                <span class="md-kv-value">{{ job.created_by.username|default:'—' }}</span>
-              </div>
-
-              <div class="md-kv-row">
-                <span class="md-kv-label">{% trans 'Tạo lúc' %}</span>
-                <span class="md-kv-value">{{ job.created_at|date:'d/m/Y H:i' }}</span>
-              </div>
-
-              {% if job.completed_at %}
-                <div class="md-kv-row">
-                  <span class="md-kv-label">{% trans 'Hoàn thành lúc' %}</span>
-                  <span class="md-kv-value">{{ job.completed_at|date:'d/m/Y H:i' }}</span>
-                </div>
-              {% endif %}
-
-              {% if job.duration_seconds %}
-                <div class="md-kv-row">
-                  <span class="md-kv-label">{% trans 'Thời gian chạy' %}</span>
-                  <span class="md-kv-value">{{ job.duration_seconds }}s</span>
-                </div>
-              {% endif %}
-            </div>
-          </div>
-
-          <div class="md-card">
-            <div class="md-card-header">
-              <i class="fa fa-bar-chart"></i>
-              {% if job.statistics %}
-                {% trans 'Chỉ số viễn thám' %}
-              {% else %}
-                {% trans 'Theo dõi tiến độ' %}
-              {% endif %}
-            </div>
-            <div class="md-card-body">
-              {% if job.statistics %}
-                <div class="md-kv-row">
-                  <span class="md-kv-label">
-                    {% trans 'Diện tích lớn nhất' %}
-                    <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="Diện tích của vùng đối tượng lớn nhất được phát hiện"></i>
-                  </span>
-                  <span class="md-kv-value">{{ job.statistics.max_area_ha|floatformat:2 }} ha</span>
-                </div>
-                <div class="md-kv-row">
-                  <span class="md-kv-label">
-                    {% trans 'Diện tích nhỏ nhất' %}
-                    <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="Diện tích của vùng đối tượng nhỏ nhất được phát hiện"></i>
-                  </span>
-                  <span class="md-kv-value">{{ job.statistics.min_area_ha|floatformat:2 }} ha</span>
-                </div>
-                <div class="md-kv-row">
-                  <span class="md-kv-label">
-                    NDVI tb
-                    <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="Chỉ số thực vật chuẩn hóa (Đánh giá mức độ phát triển của cây/rừng)"></i>
-                  </span>
-                  <span class="md-kv-value {% if job.statistics.avg_ndvi < 0 %}val-danger{% endif %}">{{ job.statistics.avg_ndvi|floatformat:4 }}</span>
-                </div>
-                <div class="md-kv-row">
-                  <span class="md-kv-label">
-                    NDWI tb
-                    <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="Chỉ số nước chuẩn hóa (Phát hiện và đánh giá vùng có nước/độ ẩm)"></i>
-                  </span>
-                  <span class="md-kv-value">{{ job.statistics.avg_ndwi|floatformat:4 }}</span>
-                </div>
-                <div class="md-kv-row">
-                  <span class="md-kv-label">
-                    BSI tb
-                    <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="Chỉ số đất trống (Nhận diện các vùng đất trống, bề mặt không có thực vật)"></i>
-                  </span>
-                  <span class="md-kv-value val-warning">{{ job.statistics.avg_bsi|floatformat:4 }}</span>
-                </div>
-                <div class="md-kv-row">
-                  <span class="md-kv-label">
-                    {% trans 'Mức độ' %}
-                    <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="Mức độ nghiêm trọng dựa trên tổng hợp các chỉ số quang phổ"></i>
-                  </span>
-                  <span class="md-kv-value">
-                    <span class="label
-                          {% if job.statistics.severity_label == 'Nghiêm trọng' %} label-danger
-                          {% elif job.statistics.severity_label == 'Trung bình' %} label-warning 
-                          {% else %} label-success
-                          {% endif %}">
-                      {{ job.statistics.severity_label }}
-                    </span>
-                  </span>
-                </div>
-                <div class="md-kv-row">
-                  <span class="md-kv-label">
-                    Mã alternate
-                    <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="Mã định danh của lớp dữ liệu trả về trên hệ thống bản đồ"></i>
-                  </span>
-                  <span class="md-kv-value val-warning">{{ job.result_dataset.alternate }}</span>
-                </div>
-              {% else %}
-                <div class="md-kv-row">
-                  <span class="md-kv-label">{% trans 'Trạng thái' %}</span>
-                  <span class="md-kv-value" id="detail-status-text">{{ job.get_status_display }}</span>
-                </div>
-                <div class="md-kv-row">
-                  <span class="md-kv-label">
-                    {% trans 'Compute spectral' %}
-                    <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="Cờ kích hoạt tính toán các chỉ số quang phổ (NDVI, NDWI...)"></i>
-                  </span>
-                  <span class="md-kv-value">
-                    {% if job.extra_params.compute_spectral %}
-                      <span class="val-success">✓ Có</span>
-                    {% else %}
-                      <span class="text-muted">Không</span>
-                    {% endif %}
-                  </span>
-                </div>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
+{% if job.statistics %}
+  <div id="gn-mining-job-stats" class="md-stat-row">
+    <div class="md-stat-num-card highlight">
+      <div class="big" style="color:#337ab7;">{{ job.statistics.total_area_ha|floatformat:1 }}</div>
+      <div class="lbl">{% trans "Diện tích (ha)" %}</div>
+    </div>
+    <div class="md-stat-num-card">
+      <div class="big">{{ job.statistics.count }}</div>
+      <div class="lbl">{% trans "Số vùng" %}</div>
+    </div>
+    <div class="md-stat-num-card">
+      <div class="big {% if job.statistics.avg_ndvi < 0 %}val-danger{% else %}val-success{% endif %}">{{ job.statistics.avg_ndvi|floatformat:3 }}</div>
+      <div class="lbl">{% trans "NDVI trung bình" %}</div>
+    </div>
+    <div class="md-stat-num-card">
+      <div class="big val-warning">{{ job.statistics.avg_bsi|floatformat:3 }}</div>
+      <div class="lbl">{% trans "BSI trung bình" %}</div>
     </div>
   </div>
 
+  {% if job.result_dataset or job.shapefile_url %}
+    <div id="gn-mining-job-result-layer" class="md-card" style="margin-bottom:1.5rem;">
+      <div class="md-card-header">
+        <i class="fa fa-map-marker"></i> {% trans "Layer kết quả trên GeoNode" %}
+      </div>
+      <div class="md-card-body" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        {% if job.result_dataset %}
+          <a href="{{ job.result_dataset.detail_url }}" target="_blank" class="md-layer-link">
+            <i class="fa fa-database"></i>
+            {% trans "Xem chi tiết" %}
+            <i class="fa fa-external-link fa-sm"></i>
+          </a>
+          <a href="/catalogue/#/map/new?gn-dataset={{ job.result_dataset.pk }}:vector" target="_blank" class="btn btn-sm btn-success"><i class="fa fa-map"></i> {% trans "Tạo bản đồ" %}</a>
+        {% endif %}
+        {% if job.base_dataset %}
+          <a href="{{ job.base_dataset.detail_url }}" target="_blank" class="md-layer-link">
+            <i class="fa fa-database"></i>
+            {% trans "Xem dataset gốc" %}
+            <i class="fa fa-external-link fa-sm"></i>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endif %}
 
+{% if job.result_dataset %}
+  <div id="gn-mining-job-map-card" class="md-card" style="margin-bottom:1.5rem; position: relative;">
+    <div class="md-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+      <span><i class="fa fa-map"></i> {% trans "Xem trực tiếp trên bản đồ" %}</span>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span style="font-size:11px; color:#6c757d; font-weight:400;">{% trans "Layer" %}: <code>{{ job.result_dataset.alternate }}</code></span>
+        <a href="/catalogue/#/map/new?gn-dataset={{ job.result_dataset.pk }}:vector" target="_blank" class="btn btn-xs btn-default"><i class="fa fa-external-link"></i> {% trans "Mở MapViewer" %}</a>
+      </div>
+    </div>
+    <div class="md-card-body" style="padding: 0; position: relative;">
+      <div id="result-map"></div>
+      <div class="map-layer-toggle">
+        <label>
+          <input type="checkbox" id="toggle-result-layer" checked />
+          <span style="display:inline-block;width:14px;height:14px;background:#e74c3c;border-radius:2px;opacity:0.8;"></span>
+          {% trans "Kết quả phân tích" %}
+        </label>
+        <label>
+          <input type="checkbox" id="toggle-aoi" checked />
+          <span style="display:inline-block;width:14px;height:14px;border:2px solid #3498db;border-radius:2px;"></span>
+          {% trans "Vùng AOI" %}
+        </label>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+<div id="gn-mining-job-detail-grid" class="md-info-grid">
+  <div id="gn-mining-job-params" class="md-card">
+    <div class="md-card-header">
+      <i class="fa fa-cog"></i> {% trans "Tham số phân tích" %}
+    </div>
+    <div class="md-card-body">
+      <div class="md-kv-row">
+        <span class="md-kv-label">{% trans "Coverage ID" %}</span>
+        <span class="md-kv-value" style="font-family:monospace;">{{ job.extra_params.coverage_id|default:'—' }}</span>
+      </div>
+      <div class="md-kv-row">
+        <span class="md-kv-label">{% trans "Model" %}</span>
+        <span class="md-kv-value">
+          {{ job.model_version }}
+          <br><small class="text-muted"><i>{% trans "Phiên bản thuật toán AI được dùng để nhận dạng." %}</i></small>
+        </span>
+      </div>
+      <div class="md-kv-row">
+        <span class="md-kv-label">{% trans "Threshold" %}</span>
+        <span class="md-kv-value">
+          <strong>{{ job.extra_params.threshold|default:'—' }}</strong>
+          <br><small class="text-muted"><i>{% trans "Độ tin cậy tối thiểu: càng cao càng chính xác nhưng dễ bỏ sót." %}</i></small>
+        </span>
+      </div>
+      <div class="md-kv-row">
+        <span class="md-kv-label">{% trans "Minimum Area (m2)" %}</span>
+        <span class="md-kv-value">
+          {{ job.extra_params.min_area_m2|default:'—' }}
+          <br><small class="text-muted"><i>{% trans "Bỏ qua các đối tượng nhỏ hơn mức này." %}</i></small>
+        </span>
+      </div>
+      <div class="md-kv-row">
+        <span class="md-kv-label">{% trans "Tile Size" %}</span>
+        <span class="md-kv-value">
+          {{ job.extra_params.tile_size|default:'—' }} px
+          <br><small class="text-muted"><i>{% trans "Kích thước ô ảnh nhỏ khi đưa vào mô hình xử lý." %}</i></small>
+        </span>
+      </div>
+      <hr>
+      <div class="md-kv-row">
+        <span class="md-kv-label">{% trans "Người tạo" %}</span>
+        <span class="md-kv-value">{{ job.created_by.username|default:'—' }}</span>
+      </div>
+      <div class="md-kv-row">
+        <span class="md-kv-label">{% trans "Tạo lúc" %}</span>
+        <span class="md-kv-value">{{ job.created_at|date:'d/m/Y H:i' }}</span>
+      </div>
+      {% if job.completed_at %}
+        <div class="md-kv-row">
+          <span class="md-kv-label">{% trans "Hoàn thành lúc" %}</span>
+          <span class="md-kv-value">{{ job.completed_at|date:'d/m/Y H:i' }}</span>
+        </div>
+      {% endif %}
+      {% if job.duration_seconds %}
+        <div class="md-kv-row">
+          <span class="md-kv-label">{% trans "Thời gian chạy" %}</span>
+          <span class="md-kv-value">{{ job.duration_seconds }}s</span>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div id="gn-mining-job-metrics" class="md-card">
+    <div class="md-card-header">
+      <i class="fa fa-bar-chart"></i>
+      {% if job.statistics %}
+        {% trans "Chỉ số viễn thám" %}
+      {% else %}
+        {% trans "Theo dõi tiến độ" %}
+      {% endif %}
+    </div>
+    <div class="md-card-body">
+      {% if job.statistics %}
+        <div class="md-kv-row">
+          <span class="md-kv-label">
+            {% trans "Diện tích lớn nhất" %}
+            <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="{% trans 'Diện tích của vùng đối tượng lớn nhất được phát hiện.' %}"></i>
+          </span>
+          <span class="md-kv-value">{{ job.statistics.max_area_ha|floatformat:2 }} ha</span>
+        </div>
+        <div class="md-kv-row">
+          <span class="md-kv-label">
+            {% trans "Diện tích nhỏ nhất" %}
+            <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="{% trans 'Diện tích của vùng đối tượng nhỏ nhất được phát hiện.' %}"></i>
+          </span>
+          <span class="md-kv-value">{{ job.statistics.min_area_ha|floatformat:2 }} ha</span>
+        </div>
+        <div class="md-kv-row">
+          <span class="md-kv-label">
+            {% trans "NDVI trung bình" %}
+            <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="{% trans 'Chỉ số thực vật chuẩn hóa để đánh giá mức độ phát triển của thảm thực vật.' %}"></i>
+          </span>
+          <span class="md-kv-value {% if job.statistics.avg_ndvi < 0 %}val-danger{% endif %}">{{ job.statistics.avg_ndvi|floatformat:4 }}</span>
+        </div>
+        <div class="md-kv-row">
+          <span class="md-kv-label">
+            {% trans "NDWI trung bình" %}
+            <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="{% trans 'Chỉ số nước chuẩn hóa để phát hiện và đánh giá vùng có nước hoặc độ ẩm.' %}"></i>
+          </span>
+          <span class="md-kv-value">{{ job.statistics.avg_ndwi|floatformat:4 }}</span>
+        </div>
+        <div class="md-kv-row">
+          <span class="md-kv-label">
+            {% trans "BSI trung bình" %}
+            <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="{% trans 'Chỉ số đất trống để nhận diện khu vực bề mặt ít hoặc không có thực vật.' %}"></i>
+          </span>
+          <span class="md-kv-value val-warning">{{ job.statistics.avg_bsi|floatformat:4 }}</span>
+        </div>
+        <div class="md-kv-row">
+          <span class="md-kv-label">
+            {% trans "Mức độ" %}
+            <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="{% trans 'Mức độ nghiêm trọng dựa trên tổng hợp các chỉ số quang phổ.' %}"></i>
+          </span>
+          <span class="md-kv-value">
+            <span class="label {% if job.statistics.severity_label == 'Nghiêm trọng' %}label-danger{% elif job.statistics.severity_label == 'Trung bình' %}label-warning{% else %}label-success{% endif %}">
+              {{ job.statistics.severity_label }}
+            </span>
+          </span>
+        </div>
+        {% if job.result_dataset %}
+          <div class="md-kv-row">
+            <span class="md-kv-label">
+              {% trans "Mã alternate" %}
+              <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="{% trans 'Mã định danh của lớp dữ liệu kết quả trên hệ thống bản đồ.' %}"></i>
+            </span>
+            <span class="md-kv-value val-warning">{{ job.result_dataset.alternate }}</span>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="md-kv-row">
+          <span class="md-kv-label">{% trans "Trạng thái" %}</span>
+          <span class="md-kv-value" id="detail-status-text">{{ job.get_status_display }}</span>
+        </div>
+        <div class="md-kv-row">
+          <span class="md-kv-label">
+            {% trans "Compute Spectral" %}
+            <i class="fa fa-info-circle text-muted" data-toggle="tooltip" data-placement="top" title="{% trans 'Cờ kích hoạt tính toán các chỉ số quang phổ như NDVI, NDWI.' %}"></i>
+          </span>
+          <span class="md-kv-value">
+            {% if job.extra_params.compute_spectral %}
+              <span class="val-success">✓ {% trans "Có" %}</span>
+            {% else %}
+              <span class="text-muted">{% trans "Không" %}</span>
+            {% endif %}
+          </span>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
 {% endblock %}
 
-{% block scripts %}
-  {{ block.super }}
-
+{% block mining_scripts %}
   {% if job.result_dataset %}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', function () {
-
         var mapEl = document.getElementById('result-map');
         if (!mapEl || typeof L === 'undefined') {
-          console.error('Map container hoặc Leaflet chưa sẵn sàng');
           return;
         }
 
         var map = L.map('result-map');
-
-        // ── 1. Basemap nền (OSM) ─────────────────────────────────────────
-        var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 19,
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19
         }).addTo(map);
 
-        // ── 2. WMS AOI (dataset gốc) ──────────────────────────────────────
         var aoiLayer = null;
+        var resultLayer = null;
         {% if job.base_dataset %}
-        aoiLayer = L.tileLayer.wms('/geoserver/geonode/wms', {
-          layers:      '{{ job.base_dataset.alternate }}',
-          format:      'image/png',
-          transparent: true,
-          version:     '1.1.0',
-        }).addTo(map);
-
-        // ── 3. WMS kết quả phân tích ─────────────────────────────────────
-        var resultLayer = L.tileLayer.wms('/geoserver/geonode/wms', {
-          layers:      '{{ job.result_dataset.alternate }}',
-          format:      'image/png',
-          transparent: true,  
-          version:     '1.1.0',
-          attribution: 'Mining Detection'
-        }).addTo(map);
-
-        fetch('/api/v2/datasets/?alternate={{ job.result_dataset.alternate }}')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          var ds = data.datasets && data.datasets[0];
-          if (ds && ds.extent && ds.extent.coords) {
-            var c = ds.extent.coords; // [minLng, minLat, maxLng, maxLat]
-            map.fitBounds([
-              [c[1], c[0]],  // [minLat, minLng]
-              [c[3], c[2]]   // [maxLat, maxLng]
-            ], { padding: [40, 40] });
-          } else {
-            map.setView([16.0, 106.0], 7);
-          }
-          setTimeout(function(){ map.invalidateSize(); }, 200);
-        })
-        .catch(function() { map.setView([16.0, 106.0], 7); });
-
+          aoiLayer = L.tileLayer.wms('/geoserver/geonode/wms', {
+            layers: '{{ job.base_dataset.alternate }}',
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.0'
+          })
         {% endif %}
 
-        // invalidateSize sau khi container chắc chắn đã render
-        setTimeout(function () { map.invalidateSize(); }, 200);
+        resultLayer = L.tileLayer.wms('/geoserver/geonode/wms', {
+          layers: '{{ job.result_dataset.alternate }}',
+          format: 'image/png',
+          transparent: true,
+          version: '1.1.0',
+          attribution: 'Mining Detection'
+        })
 
-        // ── 5. Toggle checkboxes ──────────────────────────────────────────
+        fetch('/api/v2/datasets/?alternate={{ job.result_dataset.alternate }}')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var ds = data.datasets && data.datasets[0];
+            if (ds && ds.extent && ds.extent.coords) {
+              var c = ds.extent.coords;
+              console.log('hi', c)
+              map.fitBounds([[c[1], c[0]], [c[3], c[2]]], { padding: [40, 40] });
+            } else {
+              map.setView([16.0, 106.0], 7);
+            }
+
+            if (aoiLayer) map.addLayer(aoiLayer);
+            map.addLayer(resultLayer);
+
+            setTimeout(function () { 
+              map.invalidateSize(); 
+              map.fitBounds([[c[1], c[0]], [c[3], c[2]]], { padding: [40, 40] });
+            }, 5000);
+          })
+          .catch(function () {
+              console.log('err');
+            map.setView([16.0, 106.0], 7);
+          });
+
         document.getElementById('toggle-result-layer').addEventListener('change', function () {
-          this.checked ? map.addLayer(resultLayer) : map.removeLayer(resultLayer);
+          if (this.checked) {
+            map.addLayer(resultLayer);
+          } else {
+            map.removeLayer(resultLayer);
+          }
         });
 
         document.getElementById('toggle-aoi').addEventListener('change', function () {
-          if (!aoiLayer) return;
-          this.checked ? map.addLayer(aoiLayer) : map.removeLayer(aoiLayer);
+          if (!aoiLayer) {
+            return;
+          }
+          if (this.checked) {
+            map.addLayer(aoiLayer);
+          } else {
+            map.removeLayer(aoiLayer);
+          }
         });
-
       });
     </script>
   {% endif %}
 
   {% if job.status == 'RUNNING' or job.status == 'PENDING' %}
-  <script>
-    console.log('Connecting to WebSocket for job updates...');
-    const job_id = '{{ job.job_id }}';
-    const ws = new WebSocket(`ws://localhost:8001/ws/status/${job_id}`);
+    <script>
+      const job_id = '{{ job.job_id }}';
+      const ws = new WebSocket(`ws://localhost:8001/ws/status/${job_id}`);
 
-    const reSendToServer = (message) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(message));
-      } else {
-        console.warn('WebSocket chưa kết nối, không thể gửi tin nhắn:', message);
-      }
-    };
+      ws.onopen = function () {
+        $('#ws_status').text('{% trans "Trạng thái: Đã kết nối" %}').css('color', 'green');
+      };
 
-    ws.onopen = function(event) {
-      $('#ws_status').text('Trạng thái: Đã kết nối').css('color', 'green');
-    };
-    ws.onmessage = function(event) {
-      const data = JSON.parse(event.data);
-      console.log('Received WebSocket message:', data);
-
-
-      if (data.status) {
-        $('#detail-status-text').text(data.status);
-        // $('#status-text').text(data.status);
-        status = data.status;
-        if (status == "COMPLETE" || status == "SUCCESS"){
-          fetch('/api/v2/mining-jobs/notify_complete/', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({ job_id: job_id })
-          })
-            .then(response => response.json())
-            .then(result => {
-              window.location.reload(); // Tải lại trang để cập nhật thông tin mới nhất
+      ws.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        if (data.status) {
+          $('#detail-status-text').text(data.status);
+          if (data.status === 'COMPLETE' || data.status === 'SUCCESS') {
+            fetch('/api/v2/mining-jobs/notify_complete/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+              },
+              body: JSON.stringify({ job_id: job_id })
             })
-            .catch(error => {
-              console.error('Error fetching complete notification:', error);
-            });
+              .then(function (response) { return response.json(); })
+              .then(function () { window.location.reload(); });
+          }
         }
-      }
-      if (data.progress) {
+        if (data.progress) {
           const progressVal = parseFloat(data.progress).toFixed(0);
           $('#progress-bar-fill').css('width', progressVal + '%');
           $('#progress-text').text(progressVal + '%');
-      }
-
-      if (data.message) {
+        }
+        if (data.message) {
           $('#message_progress_id').text(data.message);
-      }
+        }
+      };
 
-
-    };
-    ws.onclose = function(event) {
-      console.log('WebSocket connection closed:', event);
-      $('#ws_status').text('Trạng thái: Đã ngắt kết nối').css('color', 'red');
-    };
-  </script>
+      ws.onclose = function () {
+        $('#ws_status').text('{% trans "Trạng thái: Đã ngắt kết nối" %}').css('color', 'red');
+      };
+    </script>
   {% endif %}
-
 {% endblock %}

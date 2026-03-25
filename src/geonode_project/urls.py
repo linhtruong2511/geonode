@@ -26,8 +26,6 @@ from django.urls import path, include
 
 # You can register your own urlpatterns here
 urlpatterns += [
-    path('analysis/', include('analysis.urls')),
-    path('api/', include('analysis.api_urls')),
     path("mining-detection/", include("mining_detection.urls", namespace="mining_detection")),
     path('api/v2/', include('mining_detection.api_urls')),
 ]
