@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
 from geonode.resource.models import ExecutionRequest
-from .tasks import get_dataset_from_execution_id
+from .tasks import get_dataset_from_execution_id, get_monitoring_dataset_from_execution_id
 from .models import JobStatus, MiningDetectionJob
 from .serializers import (
     MiningDetectionJobCreateSerializer,
@@ -168,6 +168,46 @@ class UploadExecution(APIView):
         except:
             return Response("Eror: Execution id không hợp lệ", 400)
  
+@method_decorator(csrf_exempt, name='dispatch')
+class UploadSentinelData(ImporterViewSet):
+    permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        site_id = request.data.get('site_id')
+        if not user_id:
+            return Response(
+                {"detail": "Missing user_id."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Inject user nếu request anonymous
+        if request.user.is_anonymous:
+            user = User.objects.get(pk=user_id)
+            if user is None:
+                logger.error(f"Invalid user_id={user_id}")
+                return Response(
+                    {"detail": "Invalid user."},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+
+            request._request.user = user  # inject vào Django request gốc
+            request.user = user           # inject vào DRF request wrapper
+
+        logger.info(f"Upload sentinel data by user={request.user}")
+
+        response = super().create(request, *args, **kwargs)
+        if response.status_code in [200, 201]:
+            logger.info(f"Sentinel data upload created with execution_id={response.data.get('execution_id')}")
+            execution_id = response.data.get('execution_id')
+            if execution_id and site_id:
+                get_monitoring_dataset_from_execution_id.apply_async(
+                    args=[execution_id, site_id], queue='default'
+                ) 
+            else:
+                logger.warning(f"Missing execution_id or site_id for monitoring dataset linking: execution_id={execution_id}, site_id={site_id}")
+        return response 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class UploadResultDetection(ImporterViewSet):
     permission_classes = [AllowAny]

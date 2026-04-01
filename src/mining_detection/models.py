@@ -352,7 +352,16 @@ class MiningSite(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
     notes = models.TextField(blank=True, verbose_name="Notes")
-
+    is_auto_monitoring = models.BooleanField(default=False, verbose_name="Tự động giám sát")
+    monitoring_datasets = models.ManyToManyField(
+        "layers.Dataset",
+        blank=True,
+        related_name="monitored_mining_sites",
+        verbose_name="Monitoring Datasets",
+    )
+    monitoring_dataset_cloud_cover = models.IntegerField(default=20, validators=[MinValueValidator(0), MaxValueValidator(100)], verbose_name="Monitoring Dataset Cloud Cover (%)")
+    
+    
     class Meta:
         db_table = "mining_site"
         verbose_name = "Mining Site"
@@ -369,6 +378,17 @@ class MiningSite(models.Model):
             longitude__isnull=False,
         ).count() >= 3
 
+    def get_latlon_bounds(self):
+        return self.boundary_points.filter(
+            latitude__isnull=False,
+            longitude__isnull=False,
+        ).aggregate(
+            min_lon=models.Min("longitude"),
+            max_lon=models.Max("longitude"),
+            min_lat=models.Min("latitude"),
+            max_lat=models.Max("latitude"),
+        )
+        
 
 class BoundaryPoint(models.Model):
     mining_site = models.ForeignKey(

@@ -66,6 +66,9 @@
   .table-custom tr:hover {
     background-color: #f8fbff !important;
   }
+  .table-custom tr.is-selected-dataset {
+    background-color: #e8f0fe !important;
+  }
   .item-info-cell {
     display: flex;
     align-items: center;
@@ -108,6 +111,64 @@
   .md-page-title h4 {
     margin:0 0 5px;
   }
+  .dataset-search-box {
+    margin-bottom: 12px;
+  }
+  .dataset-search-box .input-group-addon {
+    background: #f4f5f7;
+    border-color: #e0e0e0;
+    color: #666;
+  }
+  .dataset-search-help {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #777;
+  }
+  .dataset-advanced-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 0;
+    margin-top: 8px;
+    color: #337ab7;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .dataset-advanced-toggle:hover,
+  .dataset-advanced-toggle:focus {
+    color: #23527c;
+    text-decoration: none;
+  }
+  .dataset-advanced-panel {
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fafbfc;
+  }
+  .dataset-bbox-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .dataset-bbox-summary {
+    font-size: 12px;
+    color: #555;
+    line-height: 1.5;
+  }
+  .dataset-bbox-summary code {
+    font-size: 11px;
+    white-space: normal;
+  }
+  #dataset-search-map {
+    height: 280px;
+    border: 1px solid #dfe3e8;
+    border-radius: 6px;
+    background: #f8f9fa;
+  }
 </style>
 
 {% if form.non_field_errors %}
@@ -116,11 +177,12 @@
   </div>
 {% endif %}
 
-<form id="gn-mining-job-create-form" method="post">
-  {% csrf_token %}
-  <input type="hidden" name="bbox_geojson" id="bbox-geojson-input">
 
-  <div class="md-create-layout row">
+  {% comment %} <input type="hidden" name="bbox_geojson" id="bbox-geojson-input"> {% endcomment %}
+
+<div class="md-create-layout row">
+  <form id="gn-mining-job-create-form" method="post">
+  {% csrf_token %}
     <div class="col-xs-12 col-sm-6 col-md-5 col-lg-4">
       <div id="gn-mining-job-basic-section" class="form-section">
         <div class="form-section-header">
@@ -136,6 +198,13 @@
           <div class="form-group">
             <label for="{{ form.output_layer_name.id_for_label }}">{{ form.output_layer_name.label }}</label>
             {{ form.output_layer_name }}
+          </div>
+
+          <div class="form-group {% if form.model_id.errors %}has-error{% endif %}">
+            <label for="{{ form.model_id.id_for_label }}">{{ form.model_id.label }}*</label>
+            {{ form.model_id }}
+            {% if form.model_id.help_text %}<p class="help-block small">{{ form.model_id.help_text }}</p>{% endif %}
+            {% for e in form.model_id.errors %}<span class="help-block">{{ e }}</span>{% endfor %}
           </div>
 
           <div class="form-group {% if form.coverage_id.errors %}has-error{% endif %}">
@@ -222,92 +291,177 @@
         <i class="fa fa-paper-plane"></i> <span class="btn-text">{% trans "Gửi yêu cầu phân tích" %}</span>
       </button>
     </div>
+  </form>
 
-    <div class="col-xs-12 col-sm-6 col-md-7 col-lg-8">
-      <div id="gn-mining-job-create-datasets" class="table-responsive" style="border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px;">
-        <table class="table table-custom" style="margin-bottom: 0;">
-          <thead>
-            <tr>
-              <th width="5%" class="text-center">#</th>
-              <th width="50%">{% trans "Thông tin phiên bản" %}</th>
-              <th width="30%">{% trans "Coverage ID" %}</th>
-              <th width="15%" class="text-right">{% trans "Hành động" %}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for item in page_obj %}
-              <tr class="clickable-row" style="cursor: pointer;" data-coverage="{{ item.alternate }}">
-                <td class="text-center text-muted">{{ item.id }}</td>
-                <td>
-                  <div class="item-info-cell">
-                    <img src="{{ item.thumbnail_url }}" alt="{{ item.title }}" class="item-thumbnail">
-                    <div>
-                      <div class="item-title">{{ item.title }}</div>
-                      <div class="item-meta">
-                        <i class="fa fa-calendar-o"></i> {{ item.created|date:"d/m/Y H:i" }}
-                      </div>
+  <div class="col-xs-12 col-sm-6 col-md-7 col-lg-8">
+    <div id="gn-mining-job-create-datasets" class="table-responsive" style="border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px;">
+      <form method="get" class="dataset-search-box">
+        <input type="hidden" name="bbox" id="dataset-bbox-input" value="{{ request.GET.bbox|default:'' }}">
+        <input type="hidden" name="bbox_min_lon" id="dataset-bbox-min-lon" value="{{ request.GET.bbox_min_lon|default:'' }}">
+        <input type="hidden" name="bbox_min_lat" id="dataset-bbox-min-lat" value="{{ request.GET.bbox_min_lat|default:'' }}">
+        <input type="hidden" name="bbox_max_lon" id="dataset-bbox-max-lon" value="{{ request.GET.bbox_max_lon|default:'' }}">
+        <input type="hidden" name="bbox_max_lat" id="dataset-bbox-max-lat" value="{{ request.GET.bbox_max_lat|default:'' }}">
+        <div class="input-group">
+          <span class="input-group-addon"><i class="fa fa-search"></i></span>
+          <input
+            type="text"
+            id="dataset-search-input"
+            name="q"
+            value="{{ search_query }}"
+            class="form-control"
+            placeholder="{% trans 'Tìm theo ID, tên dataset, coverage ID, ngày tạo...' %}"
+            {% if not page_obj.object_list and not search_query and not request.GET.bbox %}disabled{% endif %}
+          >
+          <span class="input-group-btn">
+            <button type="submit" class="btn btn-default">{% trans "Tìm" %}</button>
+            {% if search_query or request.GET.bbox %}<a href="?" class="btn btn-default">{% trans "Bỏ lọc" %}</a>{% endif %}
+          </span>
+        </div>
+        <div class="dataset-search-help">
+          {% trans "Có thể nhập nhiều từ khóa để tìm theo tên dataset, coverage ID, ID hoặc ngày tạo trên toàn bộ danh sách raster dataset." %}
+        </div>
+        <a
+          class="btn btn-link btn-sm dataset-advanced-toggle"
+          role="button"
+          data-toggle="collapse"
+          href="#dataset-advanced-search"
+          aria-expanded="{% if request.GET.bbox %}true{% else %}false{% endif %}"
+          aria-controls="dataset-advanced-search"
+        >
+          <i class="fa fa-sliders"></i> {% trans "Tìm kiếm nâng cao theo bbox" %}
+        </a>
+        <div id="dataset-advanced-search" class="collapse{% if request.GET.bbox %} in{% endif %}">
+          <div class="dataset-advanced-panel">
+            <div class="dataset-bbox-toolbar">
+              <div id="dataset-bbox-summary" class="dataset-bbox-summary">
+                {% if request.GET.bbox %}
+                  {% trans "BBOX hiện tại:" %}
+                  <code>{{ request.GET.bbox }}</code>
+                {% else %}
+                  {% trans "Di chuyển hoặc zoom bản đồ để lấy bbox làm điều kiện tìm kiếm." %}
+                {% endif %}
+              </div>
+              <div>
+                <button type="button" id="dataset-bbox-apply" class="btn btn-default btn-sm">
+                  <i class="fa fa-crop"></i> {% trans "Lấy bbox hiện tại" %}
+                </button>
+                <button type="button" id="dataset-bbox-reset" class="btn btn-default btn-sm">
+                  <i class="fa fa-eraser"></i> {% trans "Xóa bbox" %}
+                </button>
+              </div>
+            </div>
+            <div id="dataset-search-map"></div>
+            <div class="dataset-search-help">
+              {% trans "Khi thay đổi khung nhìn trên bản đồ, form sẽ cập nhật các tham số bbox để gửi xuống backend ở lần tìm kiếm tiếp theo." %}
+            </div>
+          </div>
+        </div>
+      </form>
+      <table class="table table-custom" style="margin-bottom: 0;">
+        <thead>
+          <tr>
+            <th width="5%" class="text-center">#</th>
+            <th width="50%">{% trans "Thông tin phiên bản" %}</th>
+            <th width="30%">{% trans "Coverage ID" %}</th>
+            <th width="15%" class="text-right">{% trans "Hành động" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in page_obj %}
+            <tr
+              class="clickable-row"
+              style="cursor: pointer;"
+              data-coverage="{{ item.alternate }}"
+              data-dataset-id="{{ item.pk }}"
+              data-bbox-x0="{{ item.bbox_x0|default_if_none:'' }}"
+              data-bbox-y0="{{ item.bbox_y0|default_if_none:'' }}"
+              data-bbox-x1="{{ item.bbox_x1|default_if_none:'' }}"
+              data-bbox-y1="{{ item.bbox_y1|default_if_none:'' }}"
+            >
+              <td class="text-center text-muted">{{ item.id }}</td>
+              <td>
+                <div class="item-info-cell">
+                  <img src="{{ item.thumbnail_url }}" alt="{{ item.title }}" class="item-thumbnail">
+                  <div>
+                    <div class="item-title">{{ item.title }}</div>
+                    <div class="item-meta">
+                      <i class="fa fa-calendar-o"></i> {{ item.created|date:"d/m/Y H:i" }}
                     </div>
                   </div>
-                </td>
-                <td><span class="badge-coverage">{{ item.alternate }}</span></td>
-                <td class="text-right">
-                  <a href="{{ item.detail_url }}" target="_blank" class="btn btn-default btn-sm" onclick="event.stopPropagation();">
-                    <i class="fa fa-external-link text-primary"></i> {% trans "Chi tiết" %}
-                  </a>
-                </td>
-              </tr>
-            {% empty %}
-              <tr><td colspan="4" class="text-center text-muted" style="padding: 30px 0;">{% trans "Không có dữ liệu" %}</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+                </div>
+              </td>
+              <td><span class="badge-coverage">{{ item.alternate }}</span></td>
+              <td class="text-right">
+                <a href="{{ item.detail_url }}" target="_blank" class="btn btn-default btn-sm" onclick="event.stopPropagation();">
+                  <i class="fa fa-external-link text-primary"></i> {% trans "Chi tiết" %}
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-muted" style="padding: 30px 0;">
+                {% if search_query or request.GET.bbox %}
+                  {% trans "Không tìm thấy dataset phù hợp với điều kiện tìm kiếm." %}
+                {% else %}
+                  {% trans "Không có dữ liệu" %}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
 
-      <div id="gn-mining-job-create-pagination" class="text-center margin-top-10">
-        <ul class="pagination pagination-sm">
-          {% if page_obj.has_previous %}
-            <li><a href="?page=1">&laquo; {% trans "Đầu" %}</a></li>
-            <li><a href="?page={{ page_obj.previous_page_number }}">{% trans "Trước" %}</a></li>
-          {% else %}
-            <li class="disabled"><span>&laquo; {% trans "Đầu" %}</span></li>
-            <li class="disabled"><span>{% trans "Trước" %}</span></li>
-          {% endif %}
+    <div id="gn-mining-job-create-pagination" class="text-center margin-top-10">
+      <ul class="pagination pagination-sm">
+        {% if page_obj.has_previous %}
+          <li><a href="?page=1{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if request.GET.bbox %}&bbox={{ request.GET.bbox|urlencode }}{% endif %}{% if request.GET.bbox_min_lon %}&bbox_min_lon={{ request.GET.bbox_min_lon|urlencode }}{% endif %}{% if request.GET.bbox_min_lat %}&bbox_min_lat={{ request.GET.bbox_min_lat|urlencode }}{% endif %}{% if request.GET.bbox_max_lon %}&bbox_max_lon={{ request.GET.bbox_max_lon|urlencode }}{% endif %}{% if request.GET.bbox_max_lat %}&bbox_max_lat={{ request.GET.bbox_max_lat|urlencode }}{% endif %}">&laquo; {% trans "Đầu" %}</a></li>
+          <li><a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if request.GET.bbox %}&bbox={{ request.GET.bbox|urlencode }}{% endif %}{% if request.GET.bbox_min_lon %}&bbox_min_lon={{ request.GET.bbox_min_lon|urlencode }}{% endif %}{% if request.GET.bbox_min_lat %}&bbox_min_lat={{ request.GET.bbox_min_lat|urlencode }}{% endif %}{% if request.GET.bbox_max_lon %}&bbox_max_lon={{ request.GET.bbox_max_lon|urlencode }}{% endif %}{% if request.GET.bbox_max_lat %}&bbox_max_lat={{ request.GET.bbox_max_lat|urlencode }}{% endif %}">{% trans "Trước" %}</a></li>
+        {% else %}
+          <li class="disabled"><span>&laquo; {% trans "Đầu" %}</span></li>
+          <li class="disabled"><span>{% trans "Trước" %}</span></li>
+        {% endif %}
 
-          <li class="active"><span>{% blocktrans with page=page_obj.number total=page_obj.paginator.num_pages %}Trang {{ page }} / {{ total }}{% endblocktrans %}</span></li>
+        <li class="active"><span>{% blocktrans with page=page_obj.number total=page_obj.paginator.num_pages %}Trang {{ page }} / {{ total }}{% endblocktrans %}</span></li>
 
-          {% if page_obj.has_next %}
-            <li><a href="?page={{ page_obj.next_page_number }}">{% trans "Sau" %}</a></li>
-            <li><a href="?page={{ page_obj.paginator.num_pages }}">{% trans "Cuối" %} &raquo;</a></li>
-          {% else %}
-            <li class="disabled"><span>{% trans "Sau" %}</span></li>
-            <li class="disabled"><span>{% trans "Cuối" %} &raquo;</span></li>
-          {% endif %}
-        </ul>
-      </div>
+        {% if page_obj.has_next %}
+          <li><a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if request.GET.bbox %}&bbox={{ request.GET.bbox|urlencode }}{% endif %}{% if request.GET.bbox_min_lon %}&bbox_min_lon={{ request.GET.bbox_min_lon|urlencode }}{% endif %}{% if request.GET.bbox_min_lat %}&bbox_min_lat={{ request.GET.bbox_min_lat|urlencode }}{% endif %}{% if request.GET.bbox_max_lon %}&bbox_max_lon={{ request.GET.bbox_max_lon|urlencode }}{% endif %}{% if request.GET.bbox_max_lat %}&bbox_max_lat={{ request.GET.bbox_max_lat|urlencode }}{% endif %}">{% trans "Sau" %}</a></li>
+          <li><a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if request.GET.bbox %}&bbox={{ request.GET.bbox|urlencode }}{% endif %}{% if request.GET.bbox_min_lon %}&bbox_min_lon={{ request.GET.bbox_min_lon|urlencode }}{% endif %}{% if request.GET.bbox_min_lat %}&bbox_min_lat={{ request.GET.bbox_min_lat|urlencode }}{% endif %}{% if request.GET.bbox_max_lon %}&bbox_max_lon={{ request.GET.bbox_max_lon|urlencode }}{% endif %}{% if request.GET.bbox_max_lat %}&bbox_max_lat={{ request.GET.bbox_max_lat|urlencode }}{% endif %}">{% trans "Cuối" %} &raquo;</a></li>
+        {% else %}
+          <li class="disabled"><span>{% trans "Sau" %}</span></li>
+          <li class="disabled"><span>{% trans "Cuối" %} &raquo;</span></li>
+        {% endif %}
+      </ul>
     </div>
   </div>
-</form>
+</div>
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     var rows = document.querySelectorAll('.clickable-row');
     var coverageInput = document.querySelector('#id_coverage_id');
+    var searchMapEl = document.getElementById('dataset-search-map');
+    var bboxInput = document.getElementById('dataset-bbox-input');
+    var bboxMinLonInput = document.getElementById('dataset-bbox-min-lon');
+    var bboxMinLatInput = document.getElementById('dataset-bbox-min-lat');
+    var bboxMaxLonInput = document.getElementById('dataset-bbox-max-lon');
+    var bboxMaxLatInput = document.getElementById('dataset-bbox-max-lat');
+    var bboxSummary = document.getElementById('dataset-bbox-summary');
+    var bboxApplyButton = document.getElementById('dataset-bbox-apply');
+    var bboxResetButton = document.getElementById('dataset-bbox-reset');
+    var advancedSearchCollapse = document.getElementById('dataset-advanced-search');
+    var searchMap = null;
+    var selectedDatasetGroup = null;
+    var selectedDatasetLayer = null;
+    var searchBboxGroup = null;
+    var searchBboxLayer = null;
+    var datasetFetchToken = 0;
 
-    Array.prototype.slice.call(rows).forEach(function (row) {
-      row.addEventListener('click', function () {
-        var coverageId = this.getAttribute('data-coverage');
-        if (coverageInput) {
-          coverageInput.value = coverageId;
-          coverageInput.style.backgroundColor = '#e8f0fe';
-          this.style.backgroundColor = '#e8f0fe';
-          setTimeout(function () {
-            coverageInput.style.backgroundColor = '';
-            row.style.backgroundColor = '';
-          }, 500);
-          coverageInput.focus();
-        }
+    function setActiveDatasetRow(activeRow) {
+      Array.prototype.slice.call(rows).forEach(function (row) {
+        row.classList.toggle('is-selected-dataset', row === activeRow);
       });
-    });
+    }
 
     function syncSliderAndInput(sliderId, inputName) {
       var slider = document.getElementById(sliderId);
@@ -332,8 +486,417 @@
       }
     }
 
+    function parseCoordValue(value) {
+      if (typeof value === 'number') {
+        return value;
+      }
+      if (typeof value !== 'string') {
+        return NaN;
+      }
+      return parseFloat(value.replace(/\s+/g, '').replace(',', '.'));
+    }
+
+    function buildBounds(minLon, minLat, maxLon, maxLat) {
+      minLon = parseCoordValue(minLon);
+      minLat = parseCoordValue(minLat);
+      maxLon = parseCoordValue(maxLon);
+      maxLat = parseCoordValue(maxLat);
+      if (![minLon, minLat, maxLon, maxLat].every(function (value) { return isFinite(value); })) {
+        return null;
+      }
+      var bounds = L.latLngBounds([[minLat, minLon], [maxLat, maxLon]]);
+      return bounds.isValid() ? bounds : null;
+    }
+
+    function formatCoord(value) {
+      return Number(value).toFixed(6);
+    }
+
+    function buildBoundsFromInputs() {
+      return buildBounds(
+        bboxMinLonInput && bboxMinLonInput.value,
+        bboxMinLatInput && bboxMinLatInput.value,
+        bboxMaxLonInput && bboxMaxLonInput.value,
+        bboxMaxLatInput && bboxMaxLatInput.value
+      );
+    }
+
+    function buildBoundsFromFlatArray(coords) {
+      if (!coords || coords.length < 4) {
+        return null;
+      }
+      return buildBounds(coords[0], coords[1], coords[2], coords[3]);
+    }
+
+    function collectCoordinatePairs(value, pairs) {
+      if (!value) {
+        return;
+      }
+      if (Array.isArray(value) && value.length >= 2 && !Array.isArray(value[0]) && !Array.isArray(value[1])) {
+        var lon = parseCoordValue(value[0]);
+        var lat = parseCoordValue(value[1]);
+        if (isFinite(lat) && isFinite(lon)) {
+          pairs.push([lat, lon]);
+        }
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach(function (item) {
+          collectCoordinatePairs(item, pairs);
+        });
+      }
+    }
+
+    function buildBoundsFromCoords(value) {
+      if (!value) {
+        return null;
+      }
+      if (Array.isArray(value) && value.length === 4 && value.every(function (item) { return !Array.isArray(item); })) {
+        return buildBoundsFromFlatArray(value);
+      }
+      var pairs = [];
+      collectCoordinatePairs(value, pairs);
+      if (!pairs.length) {
+        return null;
+      }
+      return L.latLngBounds(pairs);
+    }
+
+    function buildBoundsFromDataset(ds) {
+      if (!ds) {
+        return null;
+      }
+
+      var directBounds = buildBounds(ds.bbox_x0, ds.bbox_y0, ds.bbox_x1, ds.bbox_y1);
+      if (directBounds) {
+        return directBounds;
+      }
+
+      if (ds.extent && ds.extent.coords) {
+        directBounds = buildBoundsFromCoords(ds.extent.coords);
+        if (directBounds) {
+          return directBounds;
+        }
+      }
+
+      if (ds.ll_bbox_polygon && ds.ll_bbox_polygon.coordinates) {
+        directBounds = buildBoundsFromCoords(ds.ll_bbox_polygon.coordinates);
+        if (directBounds) {
+          return directBounds;
+        }
+      }
+
+      if (ds.bbox_polygon && ds.bbox_polygon.coordinates) {
+        directBounds = buildBoundsFromCoords(ds.bbox_polygon.coordinates);
+        if (directBounds) {
+          return directBounds;
+        }
+      }
+
+      return null;
+    }
+
+    function extractDatasetPayload(data) {
+      if (!data) {
+        return null;
+      }
+      if (data.dataset) {
+        return data.dataset;
+      }
+      if (data.resource) {
+        return data.resource;
+      }
+      if (data.datasets && data.datasets.length) {
+        return data.datasets[0];
+      }
+      return data;
+    }
+
+    function updateBboxSummary(message, bboxValue) {
+      if (!bboxSummary) {
+        return;
+      }
+      if (bboxValue) {
+        bboxSummary.innerHTML = message + ' <code>' + bboxValue + '</code>';
+      } else {
+        bboxSummary.textContent = message;
+      }
+    }
+
+    function updateSearchBboxOverlay(bounds) {
+      if (!searchBboxGroup) {
+        return;
+      }
+      if (searchBboxLayer) {
+        searchBboxGroup.removeLayer(searchBboxLayer);
+        searchBboxLayer = null;
+      }
+      if (bounds && bounds.isValid()) {
+        searchBboxLayer = L.rectangle(bounds, {
+          color: '#337ab7',
+          weight: 2,
+          fill: false,
+          dashArray: '6,4'
+        });
+        searchBboxGroup.addLayer(searchBboxLayer);
+      }
+    }
+
+    function updateSelectedDatasetOverlay(bounds) {
+      if (!selectedDatasetGroup) {
+        return;
+      }
+      if (selectedDatasetLayer) {
+        selectedDatasetGroup.removeLayer(selectedDatasetLayer);
+        selectedDatasetLayer = null;
+      }
+      if (bounds && bounds.isValid()) {
+        selectedDatasetLayer = L.rectangle(bounds, {
+          color: '#f39c12',
+          weight: 2,
+          fillColor: '#f1c40f',
+          fillOpacity: 0.12
+        });
+        selectedDatasetGroup.addLayer(selectedDatasetLayer);
+      }
+    }
+
+    function setBboxValues(bounds) {
+      if (!bounds || !bboxInput || !bboxMinLonInput || !bboxMinLatInput || !bboxMaxLonInput || !bboxMaxLatInput) {
+        return;
+      }
+      var minLon = formatCoord(bounds.getWest());
+      var minLat = formatCoord(bounds.getSouth());
+      var maxLon = formatCoord(bounds.getEast());
+      var maxLat = formatCoord(bounds.getNorth());
+      var bboxValue = [minLon, minLat, maxLon, maxLat].join(',');
+      bboxInput.value = bboxValue;
+      bboxMinLonInput.value = minLon;
+      bboxMinLatInput.value = minLat;
+      bboxMaxLonInput.value = maxLon;
+      bboxMaxLatInput.value = maxLat;
+      updateSearchBboxOverlay(bounds);
+      updateBboxSummary('{% trans "BBOX hiện tại:" %}', bboxValue);
+    }
+
+    function clearBboxValues() {
+      if (bboxInput) {
+        bboxInput.value = '';
+      }
+      if (bboxMinLonInput) {
+        bboxMinLonInput.value = '';
+      }
+      if (bboxMinLatInput) {
+        bboxMinLatInput.value = '';
+      }
+      if (bboxMaxLonInput) {
+        bboxMaxLonInput.value = '';
+      }
+      if (bboxMaxLatInput) {
+        bboxMaxLatInput.value = '';
+      }
+      updateSearchBboxOverlay(null);
+      updateBboxSummary('{% trans "Di chuyển hoặc zoom bản đồ để lấy bbox làm điều kiện tìm kiếm." %}');
+    }
+
+    function ensureSearchMapVisible(callback) {
+      if (!searchMap || !advancedSearchCollapse) {
+        if (callback) {
+          callback();
+        }
+        return;
+      }
+
+      var runCallback = function () {
+        window.setTimeout(function () {
+          searchMap.invalidateSize();
+          if (callback) {
+            callback();
+          }
+        }, 220);
+      };
+
+      if (!advancedSearchCollapse.classList.contains('in') && window.jQuery) {
+        window.jQuery(advancedSearchCollapse).one('shown.bs.collapse', runCallback).collapse('show');
+        return;
+      }
+
+      runCallback();
+    }
+
+    function zoomToDatasetBounds(bounds) {
+      if (!searchMap || !bounds || !bounds.isValid()) {
+        return;
+      }
+      ensureSearchMapVisible(function () {
+        updateSelectedDatasetOverlay(bounds);
+        searchMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+      });
+    }
+
+    function cacheBoundsOnRow(row, bounds) {
+      if (!row || !bounds || !bounds.isValid()) {
+        return;
+      }
+      row.setAttribute('data-bbox-x0', bounds.getWest());
+      row.setAttribute('data-bbox-y0', bounds.getSouth());
+      row.setAttribute('data-bbox-x1', bounds.getEast());
+      row.setAttribute('data-bbox-y1', bounds.getNorth());
+    }
+
+    function zoomToDatasetFromRow(row) {
+      if (!searchMap || !row) {
+        return;
+      }
+
+      var directBounds = buildBounds(
+        row.getAttribute('data-bbox-x0'),
+        row.getAttribute('data-bbox-y0'),
+        row.getAttribute('data-bbox-x1'),
+        row.getAttribute('data-bbox-y1')
+      );
+      if (directBounds) {
+        zoomToDatasetBounds(directBounds);
+        return;
+      }
+
+      var datasetId = row.getAttribute('data-dataset-id');
+      if (!datasetId) {
+        return;
+      }
+
+      datasetFetchToken += 1;
+      var requestToken = datasetFetchToken;
+      fetch('/api/v2/datasets/' + datasetId + '/')
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+          if (requestToken !== datasetFetchToken) {
+            return;
+          }
+          var bounds = buildBoundsFromDataset(extractDatasetPayload(data));
+          if (!bounds) {
+            return;
+          }
+          cacheBoundsOnRow(row, bounds);
+          zoomToDatasetBounds(bounds);
+        })
+        .catch(function () {
+        });
+    }
+
+    Array.prototype.slice.call(rows).forEach(function (row) {
+      row.addEventListener('click', function () {
+        var coverageId = this.getAttribute('data-coverage');
+        setActiveDatasetRow(this);
+        if (coverageInput) {
+          coverageInput.value = coverageId;
+          coverageInput.style.backgroundColor = '#e8f0fe';
+          setTimeout(function () {
+            coverageInput.style.backgroundColor = '';
+          }, 500);
+          coverageInput.focus();
+        }
+        zoomToDatasetFromRow(this);
+      });
+    });
+
+    if (coverageInput && coverageInput.value) {
+      Array.prototype.slice.call(rows).some(function (row) {
+        if (row.getAttribute('data-coverage') === coverageInput.value) {
+          setActiveDatasetRow(row);
+          return true;
+        }
+        return false;
+      });
+    }
+
     syncSliderAndInput('slider-threshold', 'threshold');
     syncSliderAndInput('slider-min-area', 'min_area_m2');
+
+    if (!searchMapEl || typeof L === 'undefined') {
+      return;
+    }
+
+    searchMap = L.map('dataset-search-map');
+    var defaultView = [16.0, 106.0];
+    var defaultZoom = 6;
+    var streetBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
+    });
+    var satelliteBaseLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        attribution: 'Tiles &copy; Esri',
+        maxZoom: 19
+      }
+    );
+    streetBaseLayer.addTo(searchMap);
+
+    selectedDatasetGroup = L.featureGroup().addTo(searchMap);
+    searchBboxGroup = L.featureGroup().addTo(searchMap);
+
+    L.control.layers(
+      {
+        '{% trans "Street Map" %}': streetBaseLayer,
+        '{% trans "Satellite" %}': satelliteBaseLayer
+      },
+      {
+        '{% trans "Selected Dataset" %}': selectedDatasetGroup,
+        '{% trans "Search BBOX" %}': searchBboxGroup
+      },
+      { collapsed: false }
+    ).addTo(searchMap);
+
+    var initialBounds = buildBoundsFromInputs();
+    if (initialBounds) {
+      searchMap.fitBounds(initialBounds, { padding: [20, 20], maxZoom: 14 });
+      setBboxValues(initialBounds);
+    } else {
+      searchMap.setView(defaultView, defaultZoom);
+      clearBboxValues();
+    }
+
+    function captureCurrentMapBounds() {
+      setBboxValues(searchMap.getBounds());
+    }
+
+    searchMap.on('dragend', captureCurrentMapBounds);
+    searchMap.on('zoomend', captureCurrentMapBounds);
+
+    if (bboxApplyButton) {
+      bboxApplyButton.addEventListener('click', function () {
+        captureCurrentMapBounds();
+      });
+    }
+
+    if (bboxResetButton) {
+      bboxResetButton.addEventListener('click', function () {
+        clearBboxValues();
+        searchMap.setView(defaultView, defaultZoom);
+      });
+    }
+
+    function invalidateSearchMap() {
+      window.setTimeout(function () {
+        searchMap.invalidateSize();
+        var bounds = buildBoundsFromInputs();
+        if (bounds) {
+          searchMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 });
+        }
+      }, 180);
+    }
+
+    if (advancedSearchCollapse) {
+      if (window.jQuery) {
+        window.jQuery(advancedSearchCollapse).on('shown.bs.collapse', invalidateSearchMap);
+      } else {
+        advancedSearchCollapse.addEventListener('shown.bs.collapse', invalidateSearchMap);
+      }
+      if (advancedSearchCollapse.classList.contains('in')) {
+        invalidateSearchMap();
+      }
+    }
   });
 </script>
 {% endblock %}

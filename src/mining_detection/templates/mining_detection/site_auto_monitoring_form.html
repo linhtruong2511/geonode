@@ -1,0 +1,70 @@
+{% extends "mining_detection/app_base.html" %}
+{% load i18n %}
+
+{% block mining_content %}
+  <div class="row">
+    <div class="col-md-5">
+      <div class="md-card">
+        <div class="md-card-header"><i class="fa fa-info-circle"></i> {% trans "Thông số hiện tại" %}</div>
+        <div class="md-card-body">
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Mỏ khai thác" %}</span><span class="md-kv-value">{{ site.name }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Tự động giám sát" %}</span><span class="md-kv-value">{% if site.is_auto_monitoring %}<span class="label label-success">{% trans "Đang bật" %}</span>{% else %}<span class="label label-default">{% trans "Chưa bật" %}</span>{% endif %}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Cloud hiện tại" %}</span><span class="md-kv-value">{{ site.monitoring_dataset_cloud_cover }}%</span></div>
+
+          <hr />
+
+          <h4 style="margin-top: 0;">{% trans "Boundary WGS84" %}</h4>
+          {% if has_valid_bounds %}
+            <div class="md-kv-row"><span class="md-kv-label">Min Lon</span><span class="md-kv-value">{{ latlon_bounds.min_lon }}</span></div>
+            <div class="md-kv-row"><span class="md-kv-label">Max Lon</span><span class="md-kv-value">{{ latlon_bounds.max_lon }}</span></div>
+            <div class="md-kv-row"><span class="md-kv-label">Min Lat</span><span class="md-kv-value">{{ latlon_bounds.min_lat }}</span></div>
+            <div class="md-kv-row"><span class="md-kv-label">Max Lat</span><span class="md-kv-value">{{ latlon_bounds.max_lat }}</span></div>
+          {% else %}
+            <div class="alert alert-warning" style="margin-bottom: 0;">{% trans "Mỏ này chưa có đủ tọa độ WGS84 để tạo yêu cầu tải ảnh tự động." %}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-7">
+      <div class="md-card">
+        <div class="md-card-header"><i class="fa fa-cog"></i> {% trans "Thiết lập tải ảnh" %}</div>
+        <div class="md-card-body">
+          <form method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+              </div>
+            {% endif %}
+
+            <div class="alert alert-info">{% if site.is_auto_monitoring %}{% trans "Bạn có thể cập nhật lại khoảng ngày, ngưỡng cloud cover hoặc tắt giám sát tự động cho mỏ này." %}{% else %}{% trans "Khi lưu, hệ thống sẽ bật giám sát tự động cho mỏ này, lưu ngưỡng cloud cover và gửi ngay một yêu cầu tải ảnh đầu tiên." %}{% endif %}</div>
+
+            <div class="row">
+              {% for field in form %}
+                <div class="col-sm-6">
+                  <div class="md-form-box">
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.help_text %}<p class="md-help-block">{{ field.help_text }}</p>{% endif %}
+                      {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+
+            <div style="margin-top: 8px;">
+              <button type="submit" class="btn btn-warning" {% if not has_valid_bounds %}disabled{% endif %}>{{ submit_label }}</button>
+              {% if site.is_auto_monitoring %}
+                <button type="submit" name="action" value="disable" class="btn btn-danger">{% trans "Tắt giám sát tự động" %}</button>
+              {% endif %}
+              <a href="{{ cancel_url }}" class="btn btn-default">{% trans "Hủy" %}</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

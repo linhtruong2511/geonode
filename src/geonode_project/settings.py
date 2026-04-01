@@ -180,3 +180,11 @@ MAPSTORE_TRANSLATIONS_PATH = [
     '/static/mapstore/gn-translations',
     '/static/mapstore/project-translations'
 ]
+
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'my-task-every-night': {
+        'task': 'myapp.tasks.my_task',
+        'schedule': crontab(hour=2, minute=0),  # 2:00 AM mỗi ngày
+    },
+}

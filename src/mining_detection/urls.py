@@ -13,6 +13,7 @@ from .forms import (
 )
 from .models import CoordinateSystem, District, MineralType, PlanningZone, Province, Ward
 from .template_views import (
+    AutoMonitoringSetupView,
     DashboardView,
     JobCreateView,
     JobDeleteView,
@@ -41,8 +42,9 @@ from .template_views import (
     ViolationUpdateView,
     job_retry_view,
     job_status_api,
+
 )
-from .views import UploadExecution, UploadResultDetection
+from .views import UploadExecution, UploadResultDetection, UploadSentinelData
 
 app_name = "mining_detection"
 
@@ -150,6 +152,7 @@ urlpatterns = [
     path("sites/<int:pk>/", MiningSiteDetailView.as_view(), name="site_detail"),
     path("sites/<int:pk>/edit/", MiningSiteUpdateView.as_view(), name="site_update"),
     path("sites/<int:pk>/delete/", MiningSiteDeleteView.as_view(), name="site_delete"),
+    path("sites/<int:pk>/auto-monitoring/", AutoMonitoringSetupView.as_view(), name="site_auto_monitoring"),
     path("monitoring/", MonitoringListView.as_view(), name="monitoring_list"),
     path("monitoring/new/", MonitoringCreateView.as_view(), name="monitoring_create"),
     path("monitoring/<int:pk>/", MonitoringDetailView.as_view(), name="monitoring_detail"),
@@ -169,6 +172,7 @@ urlpatterns = [
     path("jobs/<int:pk>/retry/", job_retry_view, name="job_retry"),
     path("<str:execution_id>/upload-result", UploadExecution.as_view()),
     path("upload", csrf_exempt(UploadResultDetection.as_view({"post": "create"}))),
+    path("upload/sentinel", csrf_exempt(UploadSentinelData.as_view({"post": "create"}))),
     path("new/", RedirectView.as_view(pattern_name="mining_detection:job_create", permanent=False)),
     path("<int:pk>/", RedirectView.as_view(pattern_name="mining_detection:job_detail", permanent=False)),
     path("<int:pk>/status/", RedirectView.as_view(pattern_name="mining_detection:job_status_api", permanent=False)),

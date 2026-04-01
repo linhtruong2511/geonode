@@ -9,14 +9,14 @@ from django.conf import settings
 from geonode.base.models import TopicCategory
 from geonode.resource.models import ExecutionRequest
 
-from .models import InferenceStatistics, JobStatus, MiningDetectionJob
+from .models import InferenceStatistics, JobStatus, MiningDetectionJob, MiningSite
+from .tasks_utils import send_download_mining_site_job
 
 logger = logging.getLogger(__name__)
 celery_logger = get_task_logger(__name__)
 AI_SERVICE_URL = getattr(settings, "AI_SERVICE_URL", "http://ai_api:8001")
 AI_POLL_INTERVAL = getattr(settings, "AI_POLL_INTERVAL_SECONDS", 2)
 AI_MAX_POLLS = getattr(settings, "AI_MAX_POLLS", 120)
-
 
 @shared_task(bind=True, max_retries=AI_MAX_POLLS)
 def sync_job(self, job_pk: int):
@@ -28,7 +28,7 @@ def sync_job(self, job_pk: int):
 
     if job.status == JobStatus.PENDING:
         try:
-            _submit_job(job)
+            submit_job(job)
         except Exception as exc:
             logger.exception("Submit job failed for %s", job.pk)
             job.status = JobStatus.FAILED
@@ -44,8 +44,7 @@ def sync_job(self, job_pk: int):
         logger.exception("Fetch result failed for %s", job.pk)
         self.retry(countdown=AI_POLL_INTERVAL, exc=exc)
 
-
-def _submit_job(job: MiningDetectionJob):
+def submit_job(job: MiningDetectionJob):
     geom = job.aoi_geom
     bbox = list(geom.extent) if geom else None
     payload = {
@@ -65,7 +64,6 @@ def _submit_job(job: MiningDetectionJob):
     job.message_progress = "Job submitted."
     job.progress_percentage = max(job.progress_percentage, 5)
     job.save(update_fields=["job_id", "status", "message_progress", "progress_percentage", "updated_at"])
-
 
 def save_result_job(job: MiningDetectionJob):
     url = f"{AI_SERVICE_URL}/result/{job.job_id}"
@@ -110,7 +108,7 @@ def save_result_job(job: MiningDetectionJob):
         },
     )
 
-    job.status = JobStatus.COMPLETED
+    job.status = JobStatus.COMPLETED if data.get("status") == "SUCCESS" else JobStatus.FAILED
     job.message_progress = ""
     job.progress_percentage = 100
     job.completed_at = datetime.now(tz=timezone.utc)
@@ -127,10 +125,9 @@ def save_result_job(job: MiningDetectionJob):
     )
     return infer
 
-
 @shared_task(bind=True, max_retries=AI_MAX_POLLS)
 def get_dataset_from_execution_id(self, job_id: str, execution_id: str):
-    dataset = _find_geonode_dataset(execution_id=execution_id)
+    dataset = find_geonode_dataset(execution_id=execution_id)
     job = MiningDetectionJob.objects.filter(job_id=job_id).first()
     if job is None:
         logger.warning("Job id %s does not exist", job_id)
@@ -143,8 +140,22 @@ def get_dataset_from_execution_id(self, job_id: str, execution_id: str):
     job.save(update_fields=["result_dataset"])
     return {"dataset": {"title": dataset.title, "url": dataset.detail_url}}
 
+@shared_task(bind=True, max_retries=AI_MAX_POLLS)
+def get_monitoring_dataset_from_execution_id(self, execution_id: str, site_id: int):
+    dataset = find_geonode_dataset(execution_id=execution_id)
+    site = MiningSite.objects.filter(pk=site_id).first()
+    if site is None:
+        logger.warning("Mining site id %s does not exist", site_id)
+        return None
 
-def _find_geonode_dataset(execution_id: str):
+    if dataset is None:
+        self.retry(countdown=10, exc=Exception("Dataset not ready yet"))
+
+    site.monitoring_datasets.add(dataset)
+    logger.info("Added dataset %s to monitoring datasets of site %s", dataset.id, site.id)
+    return {"site_id": site.id, "dataset": {"title": dataset.title, "url": dataset.detail_url}}
+
+def find_geonode_dataset(execution_id: str):
     if not execution_id:
         return None
     try:
@@ -159,3 +170,7 @@ def _find_geonode_dataset(execution_id: str):
     except Exception:
         logger.warning("Failed to locate dataset from execution id %s", execution_id)
         return None
+
+def download_sentinel2_data_cron_tab(user_id: int):
+    mining_sites = MiningSite.objects.filter(is_auto_monitoring=True).all()
+    send_download_mining_site_job(mining_sites, user_id)

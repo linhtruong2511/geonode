@@ -3,6 +3,10 @@
 
 {% block mining_extra_head %}
   <style>
+    #site-map-search-box {
+      margin-bottom: 14px;
+    }
+
     #site-boundary-map {
       height: 420px;
       border-radius: 6px;
@@ -102,6 +106,29 @@
           <div class="md-card-header"><i class="fa fa-map"></i> {% trans "Xem trước ranh giới" %}</div>
           <div class="md-card-body">
             <p class="text-muted">{% trans "Nhấp vào bản đồ để điền cặp vĩ độ/kinh độ trống tiếp theo hoặc kéo marker để chỉnh polygon." %}</p>
+            <div id="site-map-search-box" class="md-form-box">
+              <h5>{% trans "Tìm và zoom tới tọa độ" %}</h5>
+              <div class="row">
+                <div class="col-sm-4">
+                  <select id="site-map-search-mode" class="form-control">
+                    <option value="latlng">{% trans "Lat/Lng (WGS84)" %}</option>
+                    <option value="xy">{% trans "X/Y (VN2000 108°30', múi 3°)" %}</option>
+                  </select>
+                </div>
+                <div class="col-sm-3">
+                  <input type="number" step="any" id="site-map-search-a" class="form-control" placeholder="{% trans 'Latitude / X' %}" />
+                </div>
+                <div class="col-sm-3">
+                  <input type="number" step="any" id="site-map-search-b" class="form-control" placeholder="{% trans 'Longitude / Y' %}" />
+                </div>
+                <div class="col-sm-2">
+                  <button type="button" id="site-map-search-btn" class="btn btn-default btn-block">{% trans "Tìm" %}</button>
+                </div>
+              </div>
+              <p class="md-help-block" style="margin-bottom: 0;">
+                {% trans "Nhập Lat/Lng WGS84 hoặc X/Y VN2000 kinh tuyến trục 108°30', múi chiếu 3° để zoom nhanh đến khu vực." %}
+              </p>
+            </div>
             <div id="site-boundary-map"></div>
           </div>
         </div>
@@ -111,22 +138,35 @@
 {% endblock %}
 
 {% block mining_scripts %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.min.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       var tableBody = document.querySelector('#gn-mining-boundary-table tbody');
       var totalForms = document.getElementById('id_boundary_points-TOTAL_FORMS');
+      var searchModeInput = document.getElementById('site-map-search-mode');
+      var searchAInput = document.getElementById('site-map-search-a');
+      var searchBInput = document.getElementById('site-map-search-b');
+      var searchButton = document.getElementById('site-map-search-btn');
       var map = L.map('site-boundary-map').setView([16.2, 107.8], 6);
       var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19
       });
       var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri GIS User Community',
         maxZoom: 19
       });
       var markers = [];
       var polygon = null;
+      var searchMarker = null;
       var pointLabel = "{% trans 'Điểm' %}";
+
+      var wgs84Crs = 'EPSG:4326';
+      var vn2000Crs = 'EPSG:9218';
+
+      if (typeof proj4 !== 'undefined') {
+        proj4.defs(vn2000Crs, '+proj=tmerc +lat_0=0 +lon_0=108.5 +k=0.9999 +x_0=500000 +y_0=0 +ellps=WGS84 +towgs84=-192.873,-39.382,-111.202,0.00205,0.0005,-0.00335,0.0188 +units=m +no_defs +type=crs');
+      }
 
       satelliteLayer.addTo(map);
       L.control.layers({
@@ -161,6 +201,116 @@
         return { lat: lat, lng: lng, row: row };
       }
 
+      function projectLatLngToXY(lat, lng) {
+        if (typeof proj4 === 'undefined') {
+          return null;
+        }
+        var projected = proj4(wgs84Crs, vn2000Crs, [lng, lat]);
+        return {
+          x: projected[0],
+          y: projected[1]
+        };
+      }
+
+      function projectXYToLatLng(x, y) {
+        if (typeof proj4 === 'undefined') {
+          return null;
+        }
+        var projected = proj4(vn2000Crs, wgs84Crs, [x, y]);
+        return {
+          lat: projected[1],
+          lng: projected[0]
+        };
+      }
+
+      function updateRowCoordinates(row, lat, lng) {
+        var xy = projectLatLngToXY(lat, lng);
+        row.querySelector('input[name$="-latitude"]').value = lat.toFixed(8);
+        row.querySelector('input[name$="-longitude"]').value = lng.toFixed(8);
+        if (xy) {
+          row.querySelector('input[name$="-x"]').value = xy.x.toFixed(2);
+          row.querySelector('input[name$="-y"]').value = xy.y.toFixed(2);
+        }
+      }
+
+      function syncRowXYFromLatLng(row) {
+        var lat = parseFloat(row.querySelector('input[name$="-latitude"]').value);
+        var lng = parseFloat(row.querySelector('input[name$="-longitude"]').value);
+        if (!isFinite(lat) || !isFinite(lng)) {
+          return;
+        }
+        var xy = projectLatLngToXY(lat, lng);
+        if (xy) {
+          row.querySelector('input[name$="-x"]').value = xy.x.toFixed(2);
+          row.querySelector('input[name$="-y"]').value = xy.y.toFixed(2);
+        }
+      }
+
+      function syncRowLatLngFromXY(row) {
+        var x = parseFloat(row.querySelector('input[name$="-x"]').value);
+        var y = parseFloat(row.querySelector('input[name$="-y"]').value);
+        if (!isFinite(x) || !isFinite(y)) {
+          return;
+        }
+        var latLng = projectXYToLatLng(x, y);
+        if (latLng) {
+          row.querySelector('input[name$="-latitude"]').value = latLng.lat.toFixed(8);
+          row.querySelector('input[name$="-longitude"]').value = latLng.lng.toFixed(8);
+        }
+      }
+
+      function focusMapOnLocation(lat, lng, zoom) {
+        if (searchMarker) {
+          map.removeLayer(searchMarker);
+        }
+        searchMarker = L.circleMarker([lat, lng], {
+          radius: 7,
+          color: '#d9534f',
+          weight: 2,
+          fillColor: '#ffffff',
+          fillOpacity: 1
+        }).addTo(map);
+        searchMarker.bindTooltip('{% trans "Vùng tìm kiếm" %}').openTooltip();
+        map.setView([lat, lng], zoom || 14);
+      }
+
+      function updateSearchPlaceholders() {
+        if (!searchModeInput) {
+          return;
+        }
+        if (searchModeInput.value === 'xy') {
+          searchAInput.placeholder = '{% trans "X" %}';
+          searchBInput.placeholder = '{% trans "Y" %}';
+        } else {
+          searchAInput.placeholder = '{% trans "Latitude" %}';
+          searchBInput.placeholder = '{% trans "Longitude" %}';
+        }
+      }
+
+      function handleSearch() {
+        var first = parseFloat(searchAInput.value);
+        var second = parseFloat(searchBInput.value);
+        var latLng = null;
+
+        if (!isFinite(first) || !isFinite(second)) {
+          window.alert('{% trans "Vui lòng nhập đầy đủ 2 giá trị tọa độ hợp lệ." %}');
+          return;
+        }
+
+        if (searchModeInput.value === 'xy') {
+          latLng = projectXYToLatLng(first, second);
+        } else {
+          latLng = { lat: first, lng: second };
+        }
+
+        if (!latLng || !isFinite(latLng.lat) || !isFinite(latLng.lng)) {
+          window.alert('{% trans "Không thể chuyển đổi tọa độ để zoom bản đồ." %}');
+          return;
+        }
+
+        focusMapOnLocation(latLng.lat, latLng.lng, 14);
+      }
+
       function syncMapFromTable() {
         markers.forEach(function (marker) { map.removeLayer(marker); });
         markers = [];
@@ -175,8 +325,7 @@
           marker.bindTooltip(pointLabel + ' ' + (index + 1));
           marker.on('dragend', function (event) {
             var pos = event.target.getLatLng();
-            point.row.querySelector('input[name$="-latitude"]').value = pos.lat.toFixed(8);
-            point.row.querySelector('input[name$="-longitude"]').value = pos.lng.toFixed(8);
+            updateRowCoordinates(point.row, pos.lat, pos.lng);
             syncMapFromTable();
           });
           markers.push(marker);
@@ -188,15 +337,28 @@
             fillColor: '#5bc0de',
             fillOpacity: 0.2
           }).addTo(map);
-          map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
+          map.fitBounds(polygon.getBounds(), { padding: [40, 40], maxZoom: 15 });
         } else if (points.length > 0) {
-          map.fitBounds(L.featureGroup(markers).getBounds(), { padding: [20, 20] });
+          if (points.length === 1) {
+            map.setView([points[0].lat, points[0].lng], 14);
+          } else {
+            map.fitBounds(L.featureGroup(markers).getBounds(), { padding: [40, 40], maxZoom: 15 });
+          }
         }
       }
 
       function wireRow(row) {
         Array.prototype.slice.call(row.querySelectorAll('input[name$="-latitude"], input[name$="-longitude"]')).forEach(function (input) {
-          input.addEventListener('input', syncMapFromTable);
+          input.addEventListener('input', function () {
+            syncRowXYFromLatLng(row);
+            syncMapFromTable();
+          });
+        });
+        Array.prototype.slice.call(row.querySelectorAll('input[name$="-x"], input[name$="-y"]')).forEach(function (input) {
+          input.addEventListener('input', function () {
+            syncRowLatLngFromXY(row);
+            syncMapFromTable();
+          });
         });
         var deleteBox = row.querySelector('input[type="checkbox"]');
         if (deleteBox) {
@@ -218,8 +380,7 @@
         if (!row) {
           return;
         }
-        row.querySelector('input[name$="-latitude"]').value = event.latlng.lat.toFixed(8);
-        row.querySelector('input[name$="-longitude"]').value = event.latlng.lng.toFixed(8);
+        updateRowCoordinates(row, event.latlng.lat, event.latlng.lng);
         syncMapFromTable();
       });
 
@@ -240,7 +401,28 @@
         orderRows();
       });
 
-      Array.prototype.slice.call(document.querySelectorAll('.boundary-row')).forEach(wireRow);
+      if (searchModeInput && searchButton) {
+        searchModeInput.addEventListener('change', updateSearchPlaceholders);
+        searchButton.addEventListener('click', handleSearch);
+        [searchAInput, searchBInput].forEach(function (input) {
+          input.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              handleSearch();
+            }
+          });
+        });
+      }
+
+      Array.prototype.slice.call(document.querySelectorAll('.boundary-row')).forEach(function (row) {
+        wireRow(row);
+        if (row.querySelector('input[name$="-latitude"]').value && row.querySelector('input[name$="-longitude"]').value) {
+          syncRowXYFromLatLng(row);
+        } else {
+          syncRowLatLngFromXY(row);
+        }
+      });
+      updateSearchPlaceholders();
       orderRows();
       syncMapFromTable();
     });

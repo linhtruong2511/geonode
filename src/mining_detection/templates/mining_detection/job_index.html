@@ -33,25 +33,123 @@
   .pagination li.disabled span {
     padding:4px 12px; display:inline-block;
   }
-  .md-page-title {
-    margin-bottom: 10px;
+  .job-filter-bar {
+    margin-bottom: 12px;
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
+    align-items: center;
   }
-  .md-page-title h4 {
-    margin: 0 0 5px;
+  .dataset-advanced-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 0;
+    margin-bottom: 12px;
+    color: #337ab7;
+    font-weight: 600;
+    text-decoration: none;
   }
-  .btn-link.active-link {
-    font-weight: bold;
-    text-decoration: underline;
+  .dataset-advanced-toggle:hover,
+  .dataset-advanced-toggle:focus {
     color: #23527c;
+    text-decoration: none;
   }
-  .btn-group .btn-link {
-    border: none;
-    margin: 0 5px;
+  .dataset-advanced-panel {
+    margin-bottom: 18px;
+    padding: 14px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #fafbfc;
+  }
+  .dataset-search-box {
+    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .dataset-search-help {
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #777;
+  }
+  .dataset-selection-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid #d9edf7;
+    border-radius: 6px;
+    background: #f4fbff;
+  }
+  .dataset-selection-summary strong {
+    color: #31708f;
+  }
+  .dataset-selected-label {
+    font-weight: 600;
+    color: #333;
+  }
+  .dataset-table {
+    margin-bottom: 0;
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .dataset-table th {
+    background-color: #f4f5f7;
+    color: #555;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 12px;
+    border-bottom: 2px solid #e0e0e0 !important;
+  }
+  .dataset-table td {
+    vertical-align: middle !important;
+    border-top: 1px solid #f0f0f0;
+  }
+  .dataset-clickable-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  .dataset-clickable-row:hover {
+    background-color: #f8fbff !important;
+  }
+  .dataset-clickable-row.is-selected-dataset {
+    background-color: #e8f0fe !important;
+  }
+  .item-info-cell {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  .item-thumbnail {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .item-title {
+    font-weight: 600;
+    color: #333;
+    font-size: 1.05em;
+    margin-bottom: 2px;
+  }
+  .item-meta {
+    font-size: 0.85em;
+    color: #777;
+  }
+  .badge-coverage {
+    font-family: monospace;
+    font-size: 0.9em;
+    padding: 5px 8px;
+    background-color: #e1f0fa;
+    color: #0056b3;
+    border: 1px solid #b8daff;
+    border-radius: 4px;
   }
 </style>
 
@@ -82,7 +180,7 @@
   </div>
 </div>
 
-<form id="gn-mining-job-filter-form" method="get" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+<form id="gn-mining-job-filter-form" method="get" class="job-filter-bar">
   <input
     id="gn-mining-job-filter-query"
     type="text"
@@ -98,13 +196,153 @@
       <option value="{{ val }}" {% if current_status == val %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
+  <input type="hidden" id="job-filter-dataset-id" name="dataset_id" value="{% if selected_dataset %}{{ selected_dataset.pk }}{% endif %}">
+  <input type="hidden" id="job-filter-dataset-coverage" name="dataset_coverage" value="{{ selected_dataset_coverage }}">
+  <input type="hidden" name="dataset_q" value="{{ dataset_search_query }}">
+  <input type="hidden" name="dataset_page" value="{{ dataset_page_obj.number }}">
   <button type="submit" class="btn btn-default">
     <i class="fa fa-search"></i> {% trans "Lọc" %}
   </button>
-  {% if search_query or current_status %}
+  {% if search_query or current_status or dataset_search_query or selected_dataset %}
     <a href="{% url 'mining_detection:job_list' %}" class="btn btn-link">{% trans "Xóa bộ lọc" %}</a>
   {% endif %}
 </form>
+
+<a
+  class="btn btn-link btn-sm dataset-advanced-toggle"
+  role="button"
+  data-toggle="collapse"
+  href="#job-dataset-advanced"
+  aria-expanded="{% if show_dataset_advanced %}true{% else %}false{% endif %}"
+  aria-controls="job-dataset-advanced"
+>
+  <i class="fa fa-sliders"></i> {% trans "Tìm kiếm nâng cao theo dataset raster" %}
+</a>
+
+<div id="job-dataset-advanced" class="collapse{% if show_dataset_advanced %} in{% endif %}">
+  <div class="dataset-advanced-panel">
+    <form id="gn-mining-job-dataset-search-form" method="get" class="dataset-search-box">
+      <input type="hidden" name="q" value="{{ search_query }}">
+      <input type="hidden" name="status" value="{{ current_status }}">
+      <input type="hidden" name="page" value="{{ page_obj.number }}">
+      <input type="hidden" id="dataset-search-selected-id" name="dataset_id" value="{% if selected_dataset %}{{ selected_dataset.pk }}{% endif %}">
+      <input type="hidden" id="dataset-search-selected-coverage" name="dataset_coverage" value="{{ selected_dataset_coverage }}">
+      <input
+        type="text"
+        id="job-dataset-search-input"
+        name="dataset_q"
+        value="{{ dataset_search_query }}"
+        class="form-control"
+        style="flex:1; min-width:220px;"
+        placeholder="{% trans 'Tìm theo ID, tên dataset, coverage ID, ngày tạo...' %}"
+      >
+      <button type="submit" class="btn btn-default">
+        <i class="fa fa-search"></i> {% trans "Tìm dataset" %}
+      </button>
+    </form>
+
+    <div class="dataset-search-help">
+      {% trans "Chỉ hiển thị raster dataset để lọc các lượt phân tích theo dataset đầu vào." %}
+    </div>
+
+    <div class="dataset-selection-summary">
+      <strong>{% trans "Dataset đã chọn:" %}</strong>
+      <span
+        id="selected-dataset-label"
+        class="dataset-selected-label"
+        data-empty-label="{% trans 'Chưa chọn dataset nào' %}"
+      >
+        {% if selected_dataset %}
+          {{ selected_dataset.title }} ({{ selected_dataset.alternate }})
+        {% else %}
+          {% trans "Chưa chọn dataset nào" %}
+        {% endif %}
+      </span>
+      <button type="button" id="clear-dataset-selection" class="btn btn-default btn-xs">
+        <i class="fa fa-times"></i> {% trans "Bỏ chọn dataset" %}
+      </button>
+      <span class="text-muted">{% trans "Dataset filter sẽ chỉ được áp dụng sau khi bấm nút Lọc." %}</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table dataset-table">
+        <thead>
+          <tr>
+            <th width="8%" class="text-center">#</th>
+            <th width="52%">{% trans "Thông tin dataset" %}</th>
+            <th width="25%">{% trans "Coverage ID" %}</th>
+            <th width="15%" class="text-right">{% trans "Hành động" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in dataset_page_obj %}
+            <tr
+              class="dataset-clickable-row{% if selected_dataset and selected_dataset.pk == item.pk %} is-selected-dataset{% endif %}"
+              data-dataset-id="{{ item.pk }}"
+              data-dataset-coverage="{{ item.alternate }}"
+              data-dataset-title="{{ item.title }}"
+            >
+              <td class="text-center text-muted">{{ item.id }}</td>
+              <td>
+                <div class="item-info-cell">
+                  <img src="{{ item.thumbnail_url }}" alt="{{ item.title }}" class="item-thumbnail">
+                  <div>
+                    <div class="item-title">{{ item.title }}</div>
+                    <div class="item-meta">
+                      <i class="fa fa-calendar-o"></i> {{ item.created|date:"d/m/Y H:i" }}
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="badge-coverage">{{ item.alternate }}</span></td>
+              <td class="text-right">
+                <a href="{{ item.detail_url }}" target="_blank" class="btn btn-default btn-sm" onclick="event.stopPropagation();">
+                  <i class="fa fa-external-link text-primary"></i> {% trans "Chi tiết" %}
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-muted" style="padding: 30px 0;">
+                {% trans "Không tìm thấy raster dataset phù hợp." %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if dataset_page_obj.paginator.num_pages > 1 %}
+      <div class="text-center" style="margin-top:12px;">
+        <ul class="pagination pagination-sm" style="margin:0;">
+          {% if dataset_page_obj.has_previous %}
+            <li>
+              <a href="?{% if dataset_pagination_query %}{{ dataset_pagination_query }}&{% endif %}dataset_page={{ dataset_page_obj.previous_page_number }}">
+                &laquo; {% trans "Trước" %}
+              </a>
+            </li>
+          {% else %}
+            <li class="disabled"><span>&laquo; {% trans "Trước" %}</span></li>
+          {% endif %}
+
+          <li class="active">
+            <span>{% blocktrans with page=dataset_page_obj.number total=dataset_page_obj.paginator.num_pages %}Dataset page {{ page }} / {{ total }}{% endblocktrans %}</span>
+          </li>
+
+          {% if dataset_page_obj.has_next %}
+            <li>
+              <a href="?{% if dataset_pagination_query %}{{ dataset_pagination_query }}&{% endif %}dataset_page={{ dataset_page_obj.next_page_number }}">
+                {% trans "Sau" %} &raquo;
+              </a>
+            </li>
+          {% else %}
+            <li class="disabled"><span>{% trans "Sau" %} &raquo;</span></li>
+          {% endif %}
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+</div>
 
 {% if jobs %}
   <div id="gn-mining-job-table-wrap" class="table-responsive">
@@ -145,7 +383,7 @@
             <td>{{ job.statistics.count|default:"—" }}</td>
             <td>
               {% if job.result_dataset %}
-                <a href="{{ job.result_dataset.detail_url }}/" target="_blank" class="text-info" style="font-family:monospace; font-size:12px;">
+                <a href="{{ job.result_dataset.detail_url }}" target="_blank" class="text-info" style="font-family:monospace; font-size:12px;">
                   {% trans "Chi tiết" %} <i class="fa fa-external-link fa-sm"></i>
                 </a>
               {% else %}
@@ -179,13 +417,13 @@
     <div id="gn-mining-job-pagination" class="text-center">
       <ul class="pagination">
         {% if page_obj.has_previous %}
-          <li><a href="?page={{ page_obj.previous_page_number }}&q={{ search_query }}&status={{ current_status }}">&laquo;</a></li>
+          <li><a href="?{% if job_pagination_query %}{{ job_pagination_query }}&{% endif %}page={{ page_obj.previous_page_number }}">&laquo;</a></li>
         {% endif %}
 
         {% for num in paginator.page_range %}
           {% if num == 1 or num == paginator.num_pages or num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
             <li class="{% if num == page_obj.number %}active{% endif %}">
-              <a href="?page={{ num }}&q={{ search_query }}&status={{ current_status }}">{{ num }}</a>
+              <a href="?{% if job_pagination_query %}{{ job_pagination_query }}&{% endif %}page={{ num }}">{{ num }}</a>
             </li>
           {% elif num == page_obj.number|add:-3 or num == page_obj.number|add:3 %}
             <li class="disabled"><span>...</span></li>
@@ -193,7 +431,7 @@
         {% endfor %}
 
         {% if page_obj.has_next %}
-          <li><a href="?page={{ page_obj.next_page_number }}&q={{ search_query }}&status={{ current_status }}">&raquo;</a></li>
+          <li><a href="?{% if job_pagination_query %}{{ job_pagination_query }}&{% endif %}page={{ page_obj.next_page_number }}">&raquo;</a></li>
         {% endif %}
       </ul>
     </div>
@@ -207,4 +445,65 @@
   </div>
 {% endif %}
 
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var rows = document.querySelectorAll('.dataset-clickable-row');
+    var filterDatasetId = document.getElementById('job-filter-dataset-id');
+    var filterDatasetCoverage = document.getElementById('job-filter-dataset-coverage');
+    var searchDatasetId = document.getElementById('dataset-search-selected-id');
+    var searchDatasetCoverage = document.getElementById('dataset-search-selected-coverage');
+    var selectedDatasetLabel = document.getElementById('selected-dataset-label');
+    var clearSelectionButton = document.getElementById('clear-dataset-selection');
+
+    function updateHiddenValues(datasetId, coverage) {
+      if (filterDatasetId) {
+        filterDatasetId.value = datasetId || '';
+      }
+      if (filterDatasetCoverage) {
+        filterDatasetCoverage.value = coverage || '';
+      }
+      if (searchDatasetId) {
+        searchDatasetId.value = datasetId || '';
+      }
+      if (searchDatasetCoverage) {
+        searchDatasetCoverage.value = coverage || '';
+      }
+    }
+
+    function setSelectedDataset(row) {
+      Array.prototype.slice.call(rows).forEach(function (item) {
+        item.classList.toggle('is-selected-dataset', item === row);
+      });
+
+      if (!row) {
+        updateHiddenValues('', '');
+        if (selectedDatasetLabel) {
+          selectedDatasetLabel.textContent = selectedDatasetLabel.getAttribute('data-empty-label') || '';
+        }
+        return;
+      }
+
+      var datasetId = row.getAttribute('data-dataset-id') || '';
+      var coverage = row.getAttribute('data-dataset-coverage') || '';
+      var title = row.getAttribute('data-dataset-title') || '';
+      updateHiddenValues(datasetId, coverage);
+
+      if (selectedDatasetLabel) {
+        selectedDatasetLabel.textContent = title ? title + ' (' + coverage + ')' : coverage;
+      }
+    }
+
+    Array.prototype.slice.call(rows).forEach(function (row) {
+      row.addEventListener('click', function () {
+        setSelectedDataset(row);
+      });
+    });
+
+    if (clearSelectionButton) {
+      clearSelectionButton.addEventListener('click', function () {
+        setSelectedDataset(null);
+      });
+    }
+  });
+</script>
 {% endblock mining_content %}

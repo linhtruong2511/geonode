@@ -191,6 +191,39 @@ BoundaryPointFormSet = inlineformset_factory(
 )
 
 
+class AutoMonitoringSetupForm(BootstrapFormMixin, forms.Form):
+    date_from = forms.DateField(
+        label=_("Từ ngày"),
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text=_("Ngày bắt đầu lấy ảnh cho lần tải đầu tiên."),
+    )
+    date_to = forms.DateField(
+        label=_("Đến ngày"),
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text=_("Ngày kết thúc lấy ảnh cho lần tải đầu tiên."),
+    )
+    max_cloud = forms.IntegerField(
+        label=_("Ngưỡng mây tối đa (%)"),
+        min_value=0,
+        max_value=100,
+        help_text=_("Giá trị này sẽ được lưu để dùng cho các lần tải ảnh tự động tiếp theo."),
+    )
+
+    def __init__(self, *args, site=None, **kwargs):
+        self.site = site
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        date_from = cleaned_data.get("date_from")
+        date_to = cleaned_data.get("date_to")
+
+        if date_from and date_to and date_from > date_to:
+            raise ValidationError(_("Ngày bắt đầu không được lớn hơn ngày kết thúc."))
+
+        return cleaned_data
+
+
 class MonitoringRecordForm(SimpleModelForm):
     class Meta:
         model = MonitoringRecord
@@ -244,6 +277,11 @@ class ViolationForm(SimpleModelForm):
 
 
 class MiningJobBaseForm(BootstrapFormMixin, forms.ModelForm):
+    model_id = forms.CharField(
+        label=_("Model ID"),
+        max_length=255,
+        help_text=_("ID của model AI sẽ dùng cho phiên phân tích."),
+    )
     coverage_id = forms.CharField(
         label=_("ID Lớp dữ liệu (Coverage)"),
         max_length=255,
@@ -259,7 +297,7 @@ class MiningJobBaseForm(BootstrapFormMixin, forms.ModelForm):
     closing_radius = forms.IntegerField(label=_("Bán kính bao phủ (Closing)"), initial=5)
     simplify_tolerance = forms.IntegerField(label=_("Độ sai số đơn giản hóa (Simplify)"), initial=10)
     compute_spectral = forms.BooleanField(label=_("Tính toán chỉ số quang phổ"), initial=True)
-    compute_change = forms.BooleanField(label=_("Phân tích biến động"), initial=False)
+    compute_change = forms.BooleanField(label=_("Phân tích biến động"), initial=False, required=False)
     baseline_job_id = forms.UUIDField(label=_("ID công việc làm mốc (Baseline)"), required=False)
     output_layer_name = forms.CharField(label=_("Tên lớp dữ liệu đầu ra"), max_length=128)
 
@@ -277,14 +315,26 @@ class MiningJobBaseForm(BootstrapFormMixin, forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        model_choices = kwargs.pop("model_choices", None)
+        default_model_id = kwargs.pop("default_model_id", None)
         super().__init__(*args, **kwargs)
         self.fields["title"].widget.attrs.setdefault("placeholder", "Mining monitoring run")
         self.fields["output_layer_name"].widget.attrs.setdefault(
             "placeholder", "ai_mining_result_layer"
         )
+        self.available_model_ids = {value for value, _ in model_choices or []}
+
+        if model_choices:
+            self.fields["model_id"].widget = forms.Select(choices=model_choices)
+            self.fields["model_id"].choices = model_choices
+            self.fields["model_id"].widget.attrs["class"] = "form-control"
+
+        if default_model_id:
+            self.initial.setdefault("model_id", default_model_id)
 
         if self.instance and self.instance.pk:
             extra = self.instance.extra_params or {}
+            self.initial.setdefault("model_id", self.instance.model_version)
             self.initial.setdefault("coverage_id", extra.get("coverage_id", ""))
             self.initial.setdefault("threshold", extra.get("threshold", 0.57))
             self.initial.setdefault("min_area_m2", extra.get("min_area_m2", 500))
@@ -299,10 +349,13 @@ class MiningJobBaseForm(BootstrapFormMixin, forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        model_id = cleaned.get("model_id")
         date_from = cleaned.get("date_from")
         date_to = cleaned.get("date_to")
         if date_from and date_to and date_from > date_to:
             raise forms.ValidationError(_("End date must be after start date."))
+        if self.available_model_ids and model_id and model_id not in self.available_model_ids:
+            self.add_error("model_id", _("Model ID không hợp lệ."))
         if cleaned.get("compute_change") and not cleaned.get("baseline_job_id"):
             self.add_error("baseline_job_id", _("Baseline job ID is required when change detection is enabled."))
         return cleaned
@@ -327,11 +380,13 @@ class MiningJobBaseForm(BootstrapFormMixin, forms.ModelForm):
 
     def get_payload(self, session_id):
         payload = self.build_extra_params()
+        payload["model_id"] = self.cleaned_data["model_id"]
         payload["session_id"] = session_id
         return payload
 
     def save(self, commit=True):
         job = super().save(commit=False)
+        job.model_version = self.cleaned_data["model_id"]
         job.extra_params = self.build_extra_params()
         coverage_id = self.cleaned_data["coverage_id"]
         job.base_dataset = Dataset.objects.filter(alternate=coverage_id).first()

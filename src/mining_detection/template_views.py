@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 from uuid import UUID
 
@@ -12,15 +13,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views import View
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
+from django.views.generic import CreateView, DeleteView, DetailView, FormView, ListView, TemplateView, UpdateView
 from django.core.paginator import Paginator
 from geonode.layers.models import Dataset
-
+from django.contrib.gis.geos import Polygon
 from .forms import (
     BoundaryPointFormSet,
     CoordinateSystemForm,
     DistrictForm,
     MineralTypeForm,
+    AutoMonitoringSetupForm,
     MiningJobCreateForm,
     MiningJobUpdateForm,
     MiningSiteForm,
@@ -43,8 +45,9 @@ from .models import (
     Violation,
     Ward,
 )
-from .services import clone_job_for_retry, save_job_to_db, send_analyze_job
+from .services import build_model_choices, clone_job_for_retry, get_ai_model_catalog, save_job_to_db, send_analyze_job
 from .tasks import sync_job
+from .tasks_utils import send_download_mining_site_job
 
 logger = logging.getLogger(__name__)
 
@@ -368,6 +371,10 @@ class MiningSiteDetailView(MiningTemplateMixin, DetailView):
         context = super().get_context_data(**kwargs)
         site = self.object
         boundary_points = list(site.boundary_points.all())
+        monitoring_datasets = site.monitoring_datasets.all().order_by("-created")
+        dataset_paginator = Paginator(monitoring_datasets, 5)
+        dataset_page_number = self.request.GET.get("dataset_page") or 1
+        dataset_page_obj = dataset_paginator.get_page(dataset_page_number)
         context["boundary_points"] = boundary_points
         context["map_points"] = [
             point for point in boundary_points if point.latitude is not None and point.longitude is not None
@@ -377,9 +384,85 @@ class MiningSiteDetailView(MiningTemplateMixin, DetailView):
         context["violations"] = Violation.objects.filter(monitoring_record__mining_site=site).select_related(
             "monitoring_record"
         )[:10]
+        context["monitoring_datasets_page"] = dataset_page_obj
         context["edit_url"] = reverse("mining_detection:site_update", kwargs={"pk": site.pk})
         context["delete_url"] = reverse("mining_detection:site_delete", kwargs={"pk": site.pk})
         return context
+
+
+class AutoMonitoringSetupView(GenericFormTemplateView, FormView):
+    form_class = AutoMonitoringSetupForm
+    active_section = "sites"
+    template_name = "mining_detection/site_auto_monitoring_form.html"
+    page_id = "gn-mining-site-auto-monitoring"
+    page_title = _("Thiết lập giám sát tự động")
+
+    def dispatch(self, request, *args, **kwargs):
+        self.site = get_object_or_404(MiningSite, pk=self.kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial["date_from"] = self.site.created_at.date()
+        initial["date_to"] = datetime.now(timezone.utc).date()
+        initial["max_cloud"] = self.site.monitoring_dataset_cloud_cover
+        return initial
+
+    def get_submit_label(self):
+        if self.site.is_auto_monitoring:
+            return _("Cập nhật giám sát tự động")
+        return _("Lưu và bật giám sát tự động")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["site"] = self.site
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        latlon_bounds = self.site.get_latlon_bounds()
+        context["site"] = self.site
+        context["latlon_bounds"] = latlon_bounds
+        context["has_valid_bounds"] = bool(latlon_bounds and all(value is not None for value in latlon_bounds.values()))
+        context["cancel_url"] = reverse("mining_detection:site_detail", kwargs={"pk": self.site.pk})
+        context["submit_label"] = self.get_submit_label()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.site = get_object_or_404(MiningSite, pk=self.kwargs["pk"])
+        if request.POST.get("action") == "disable":
+            self.site.is_auto_monitoring = False
+            self.site.save(update_fields=["is_auto_monitoring", "updated_at"])
+            messages.success(request, _("Đã tắt giám sát tự động cho mỏ này."))
+            return redirect(self.get_success_url())
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        latlon_bounds = self.site.get_latlon_bounds()
+        if not latlon_bounds or any(value is None for value in latlon_bounds.values()):
+            form.add_error(None, _("Mỏ này chưa có đủ tọa độ WGS84 để thiết lập tải ảnh tự động."))
+            return self.form_invalid(form)
+
+        was_auto_monitoring = self.site.is_auto_monitoring
+        self.site.is_auto_monitoring = True
+        self.site.monitoring_dataset_cloud_cover = form.cleaned_data["max_cloud"]
+        self.site.save(update_fields=["is_auto_monitoring", "monitoring_dataset_cloud_cover", "updated_at"])
+
+        send_download_mining_site_job(
+            [self.site],
+            self.request.user.pk,
+            date_from=form.cleaned_data["date_from"],
+            date_to=form.cleaned_data["date_to"],
+            max_cloud=form.cleaned_data["max_cloud"],
+        )
+        if was_auto_monitoring:
+            messages.success(self.request, _("Đã cập nhật cấu hình giám sát tự động và gửi yêu cầu tải ảnh mới."))
+        else:
+            messages.success(self.request, _("Đã bật giám sát tự động và gửi yêu cầu tải ảnh đầu tiên."))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("mining_detection:site_detail", kwargs={"pk": self.site.pk})
 
 
 class MiningSiteDeleteView(GenericDeleteTemplateView):
@@ -592,6 +675,7 @@ class JobListView(JobOwnedMixin, SearchableListView):
     page_subtitle = _("Tạo, theo dõi và quản lý các phiên phân tích AI.")
     template_name = "mining_detection/job_index.html"
     paginate_by = 10
+    dataset_paginate_by = 6
     search_fields = ["title", "job_id"]
     table_columns = [
         (_("Tên phiên"), "title"),
@@ -607,12 +691,78 @@ class JobListView(JobOwnedMixin, SearchableListView):
     delete_url_name = "mining_detection:job_delete"
     empty_message = _("Chưa có phiên phân tích nào.")
 
+    def get_dataset_search_query(self):
+        return self.request.GET.get("dataset_q", "").strip()
+
+    def parse_dataset_search_date(self, term):
+        for date_format in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(term, date_format).date()
+            except ValueError:
+                continue
+        return None
+
+    def get_dataset_queryset(self):
+        queryset = Dataset.objects.filter(subtype="raster")
+        q = self.get_dataset_search_query()
+        if not q:
+            return queryset.order_by("-created")
+
+        for term in q.split():
+            predicate = Q(title__icontains=term) | Q(alternate__icontains=term)
+            if term.isdigit():
+                predicate |= Q(pk=int(term))
+
+            parsed_date = self.parse_dataset_search_date(term)
+            if parsed_date:
+                predicate |= Q(created__date=parsed_date)
+
+            queryset = queryset.filter(predicate)
+
+        return queryset.order_by("-created")
+
+    def get_dataset_page_obj(self):
+        paginator = Paginator(self.get_dataset_queryset(), self.dataset_paginate_by)
+        return paginator.get_page(self.request.GET.get("dataset_page", 1))
+
+    def get_selected_dataset(self):
+        if hasattr(self, "_selected_dataset_cache"):
+            return self._selected_dataset_cache
+
+        dataset = None
+        dataset_id = self.request.GET.get("dataset_id", "").strip()
+        if dataset_id:
+            try:
+                dataset = Dataset.objects.filter(subtype="raster", pk=int(dataset_id)).first()
+            except (TypeError, ValueError):
+                dataset = None
+
+        self._selected_dataset_cache = dataset
+        return dataset
+
+    def build_query_string(self, **overrides):
+        params = {}
+        for key in ("q", "status", "dataset_q", "dataset_id", "dataset_coverage", "page", "dataset_page"):
+            value = self.request.GET.get(key, "")
+            if value is None:
+                continue
+            value = str(value).strip()
+            if value:
+                params[key] = value
+
+        for key, value in overrides.items():
+            if value in (None, ""):
+                params.pop(key, None)
+            else:
+                params[key] = str(value)
+
+        return urlencode(params)
+
     def get_queryset(self):
         queryset = self.get_job_queryset()
         status_filter = self.request.GET.get("status")
         if status_filter in JobStatus.values:
             queryset = queryset.filter(status=status_filter)
-        queryset = queryset.order_by("-created_at")
         q = self.get_search_query()
         if q:
             predicate = Q(title__icontains=q)
@@ -621,14 +771,29 @@ class JobListView(JobOwnedMixin, SearchableListView):
             except ValueError:
                 pass
             queryset = queryset.filter(predicate)
-        return queryset
+        selected_dataset = self.get_selected_dataset()
+        if selected_dataset:
+            queryset = queryset.filter(
+                Q(base_dataset=selected_dataset) | Q(extra_params__coverage_id=selected_dataset.alternate)
+            )
+        return queryset.order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         qs = self.get_queryset()
+        dataset_page_obj = self.get_dataset_page_obj()
+        selected_dataset = self.get_selected_dataset()
+        raw_dataset_id = self.request.GET.get("dataset_id", "").strip()
         context["status_choices"] = JobStatus.choices
         context["current_status"] = self.request.GET.get("status", "")
         context["jobs"] = context["object_list"]
+        context["dataset_page_obj"] = dataset_page_obj
+        context["dataset_search_query"] = self.get_dataset_search_query()
+        context["selected_dataset"] = selected_dataset
+        context["selected_dataset_coverage"] = selected_dataset.alternate if selected_dataset else ""
+        context["show_dataset_advanced"] = bool(context["dataset_search_query"] or raw_dataset_id)
+        context["job_pagination_query"] = self.build_query_string(page=None)
+        context["dataset_pagination_query"] = self.build_query_string(dataset_page=None)
         context["stats"] = {
             "total": qs.count(),
             "completed": qs.filter(status=JobStatus.COMPLETED).count(),
@@ -643,31 +808,81 @@ class JobCreateView(JobOwnedMixin, View):
     page_id = "gn-mining-job-create"
     page_title = _("Tạo phiên phân tích khai thác")
     page_subtitle = _("Gửi yêu cầu phân tích mới và liên kết tới một raster dataset sẵn có.")
-    
+
+    def get_search_query(self):
+        return self.request.GET.get("q", "").strip(), self.request.GET.get("bbox", "").strip()
+
+    def parse_dataset_search_date(self, term):
+        for date_format in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(term, date_format).date()
+            except ValueError:
+                continue
+        return None
+
+    def get_dataset_queryset(self):
+        queryset = Dataset.objects.filter(subtype="raster")
+        q, bbox = self.get_search_query()
+        min_lon, min_lat, max_lon, max_lat = bbox.split(",") if bbox else (None, None, None, None)
+        if all([min_lon, min_lat, max_lon, max_lat]):
+            bbox_filter = Polygon.from_bbox((float(min_lon), float(min_lat), float(max_lon), float(max_lat)))
+            try:
+                min_lon, min_lat, max_lon, max_lat = map(float, [min_lon, min_lat, max_lon, max_lat])
+                queryset = queryset.filter(bbox_polygon__intersects=bbox_filter)
+            except ValueError:
+                pass
+        if not q:
+            return queryset.order_by("-created")
+
+        for term in q.split():
+            predicate = Q(title__icontains=term) | Q(alternate__icontains=term)
+            if term.isdigit():
+                predicate |= Q(pk=int(term))
+
+            parsed_date = self.parse_dataset_search_date(term)
+            if parsed_date:
+                predicate |= Q(created__date=parsed_date)
+
+            queryset = queryset.filter(predicate)
+
+        return queryset.order_by("-created")
+
+    def get_model_catalog(self):
+        return get_ai_model_catalog()
+
+    def get_form_kwargs(self, request, data=None):
+        model_catalog = self.get_model_catalog()
+        return {
+            "data": data,
+            "model_choices": build_model_choices(model_catalog),
+            "default_model_id": model_catalog.get("default_model_id"),
+        }
+
     def get_context_data(self, **kwargs):
         context = {
             "page_id": self.page_id,
             "page_title": self.page_title,
             "page_subtitle": self.page_subtitle,
-            "app_sections": app_sections(),   # hàm trả về list sections cho sidebar
-            "active_section": "session",          # key tương ứng với mục "Phiên phân tích"
+            "app_sections": app_sections(),
+            "active_section": "session",
+            "search_query": self.get_search_query()[0],
         }
         context.update(kwargs)
         return context
 
+    def get_page_obj(self, request):
+        paginator = Paginator(self.get_dataset_queryset(), 9)
+        return paginator.get_page(request.GET.get("page", 1))
+
     def get(self, request):
-        form = MiningJobCreateForm()
-        datasets = Dataset.objects.filter(subtype='raster').order_by('-created')
-        paginator = Paginator(datasets, 9)
-        page_obj = paginator.get_page(request.GET.get('page', 1))
+        form = MiningJobCreateForm(**self.get_form_kwargs(request))
+        page_obj = self.get_page_obj(request)
         context = self.get_context_data(form=form, page_obj=page_obj)
         return render(request, self.template_name, context)
 
     def post(self, request):
-        form = MiningJobCreateForm(request.POST)
-        datasets = Dataset.objects.filter(subtype="raster").order_by("-created")
-        paginator = Paginator(datasets, 9)
-        page_obj = paginator.get_page(request.GET.get('page', 1))
+        form = MiningJobCreateForm(**self.get_form_kwargs(request, data=request.POST))
+        page_obj = self.get_page_obj(request)
 
         if not form.is_valid():
             context = self.get_context_data(form=form, page_obj=page_obj)
@@ -680,7 +895,8 @@ class JobCreateView(JobOwnedMixin, View):
         except Exception as exc:
             logger.warning("Lỗi khi gửi yêu cầu phân tích đến AI service: %s", exc)
             messages.error(request, _("Không thể gửi yêu cầu phân tích: %(error)s") % {"error": exc})
-            return render(self.get_context_data(form=form, page_obj=datasets))
+            context = self.get_context_data(form=form, page_obj=page_obj)
+            return render(request, self.template_name, context)
 
         remote_job_id = analyze_response.get("job_id")
         if not remote_job_id:
@@ -688,7 +904,8 @@ class JobCreateView(JobOwnedMixin, View):
                 request,
                 _("AI service không trả về job_id hợp lệ: %(response)s") % {"response": analyze_response},
             )
-            return render(request, self.template_name, {"form": form})
+            context = self.get_context_data(form=form, page_obj=page_obj)
+            return render(request, self.template_name, context)
 
         job_pk = save_job_to_db(form, payload, remote_job_id, request.user)
         sync_job.delay(job_pk)
@@ -827,6 +1044,7 @@ def job_retry_view(request, pk):
         return redirect("mining_detection:job_detail", pk=pk)
 
     payload = {
+        "model_id": job.model_version,
         "coverage_id": job.extra_params.get("coverage_id", ""),
         "threshold": job.extra_params.get("threshold", 0.57),
         "min_area_m2": job.extra_params.get("min_area_m2", 500),

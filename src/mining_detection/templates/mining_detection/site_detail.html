@@ -16,11 +16,13 @@
           <div class="md-kv-row"><span class="md-kv-label">{% trans "Khu quy hoạch" %}</span><span class="md-kv-value">{{ object.planning_zone|default:"-" }}</span></div>
           <div class="md-kv-row"><span class="md-kv-label">{% trans "Hệ tọa độ" %}</span><span class="md-kv-value">{{ object.coordinate_system|default:"-" }}</span></div>
           <div class="md-kv-row"><span class="md-kv-label">{% trans "Ghi chú" %}</span><span class="md-kv-value">{{ object.notes|default:"-" }}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Giám sát tự động" %}</span><span class="md-kv-value">{% if object.is_auto_monitoring %}<span class="label label-success">{% trans "Đang bật" %}</span> <span style="margin-left: 6px;">Cloud {{ object.monitoring_dataset_cloud_cover }}%</span>{% else %}<span class="label label-default">{% trans "Chưa bật" %}</span>{% endif %}</span></div>
 
           <div id="gn-mining-site-actions" style="margin-top: 15px;">
             <a href="{{ edit_url }}" class="btn btn-primary">{% trans "Sửa" %}</a>
             <a href="{{ delete_url }}" class="btn btn-danger">{% trans "Xóa" %}</a>
-            <a href="{% url 'mining_detection:monitoring_create' %}?site={{ object.pk }}" class="btn btn-default">{% trans "Thêm đợt giám sát" %}</a>
+            <a href="{% url 'mining_detection:site_auto_monitoring' pk=object.pk %}" class="btn btn-warning">{% if object.is_auto_monitoring %}{% trans "Cập nhật giám sát tự động" %}{% else %}{% trans "Thiết lập giám sát tự động" %}{% endif %}</a>
+            <a href="{% url 'mining_detection:monitoring_create' %}?site={{ object.pk }}" class="btn btn-default">{% trans "Thêm đợt giám sát thủ công" %}</a>
           </div>
         </div>
       </div>
@@ -100,6 +102,79 @@
       </div>
     </div>
   </div>
+
+  <div class="row">
+    <div class="col-md-12">
+      <div id="gn-mining-site-datasets" class="md-card">
+        <div class="md-card-header"><i class="fa fa-database"></i> {% trans "Dataset liên quan" %}</div>
+        <div class="md-card-body">
+          <div class="table-responsive">
+            <table class="table md-table">
+              <thead>
+                <tr>
+                  <th>{% trans "Tên dataset" %}</th>
+                  <th>{% trans "Mã alternate" %}</th>
+                  <th>{% trans "Ngày tạo" %}</th>
+                  <th class="text-right">{% trans "Thao tác" %}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for dataset in monitoring_datasets_page %}
+                  <tr>
+                    <td><strong>{{ dataset.title|default:dataset.alternate }}</strong></td>
+                    <td><code>{{ dataset.alternate|default:"-" }}</code></td>
+                    <td>{{ dataset.created|date:"d/m/Y H:i"|default:"-" }}</td>
+                    <td class="text-right">
+                      <a href="{{ dataset.detail_url }}" target="_blank" class="btn btn-default btn-sm">
+                        <i class="fa fa-external-link"></i> {% trans "Mở dataset" %}
+                      </a>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-center text-muted">{% trans "Chưa có dataset nào được liên kết với mỏ này." %}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% if monitoring_datasets_page.paginator.num_pages > 1 %}
+            <nav aria-label="Dataset pagination" class="text-center">
+              <ul class="pagination" style="margin: 10px 0 0;">
+                {% if monitoring_datasets_page.has_previous %}
+                  <li>
+                    <a href="?dataset_page={{ monitoring_datasets_page.previous_page_number }}" aria-label="{% trans "Trang trước" %}">
+                      <span aria-hidden="true">&laquo;</span>
+                    </a>
+                  </li>
+                {% else %}
+                  <li class="disabled"><span><span aria-hidden="true">&laquo;</span></span></li>
+                {% endif %}
+
+                {% for page_num in monitoring_datasets_page.paginator.page_range %}
+                  {% if page_num == monitoring_datasets_page.number %}
+                    <li class="active"><span>{{ page_num }}</span></li>
+                  {% else %}
+                    <li><a href="?dataset_page={{ page_num }}">{{ page_num }}</a></li>
+                  {% endif %}
+                {% endfor %}
+
+                {% if monitoring_datasets_page.has_next %}
+                  <li>
+                    <a href="?dataset_page={{ monitoring_datasets_page.next_page_number }}" aria-label="{% trans "Trang sau" %}">
+                      <span aria-hidden="true">&raquo;</span>
+                    </a>
+                  </li>
+                {% else %}
+                  <li class="disabled"><span><span aria-hidden="true">&raquo;</span></span></li>
+                {% endif %}
+              </ul>
+            </nav>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
 {% endblock %}
 
 {% block mining_scripts %}

@@ -451,11 +451,16 @@
     <script>
       document.addEventListener('DOMContentLoaded', function () {
         var mapEl = document.getElementById('result-map');
+        var resultToggle = document.getElementById('toggle-result-layer');
+        var aoiToggle = document.getElementById('toggle-aoi');
         if (!mapEl || typeof L === 'undefined') {
           return;
         }
 
         var map = L.map('result-map');
+        var defaultView = [16.0, 106.0];
+        var defaultZoom = 7;
+        var datasetBounds = null;
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap contributors',
           maxZoom: 19
@@ -480,40 +485,184 @@
           attribution: 'Mining Detection'
         })
 
-        fetch('/api/v2/datasets/?alternate={{ job.result_dataset.alternate }}')
+        function parseCoordValue(value) {
+          if (typeof value === 'number') {
+            return value;
+          }
+          if (typeof value !== 'string') {
+            return NaN;
+          }
+          return parseFloat(value.replace(/\s+/g, '').replace(',', '.'));
+        }
+
+        function buildBounds(minLng, minLat, maxLng, maxLat) {
+          minLng = parseCoordValue(minLng);
+          minLat = parseCoordValue(minLat);
+          maxLng = parseCoordValue(maxLng);
+          maxLat = parseCoordValue(maxLat);
+          if (![minLng, minLat, maxLng, maxLat].every(function (value) { return isFinite(value); })) {
+            return null;
+          }
+          var bounds = L.latLngBounds([[minLat, minLng], [maxLat, maxLng]]);
+          return bounds.isValid() ? bounds : null;
+        }
+
+        function buildBoundsFromFlatArray(coords) {
+          if (!coords || coords.length < 4) {
+            return null;
+          }
+          return buildBounds(
+            coords[0],
+            coords[1],
+            coords[2],
+            coords[3]
+          );
+        }
+
+        function collectCoordinatePairs(value, pairs) {
+          if (!value) {
+            return;
+          }
+          if (Array.isArray(value) && value.length >= 2 && !Array.isArray(value[0]) && !Array.isArray(value[1])) {
+            var lng = parseCoordValue(value[0]);
+            var lat = parseCoordValue(value[1]);
+            if (isFinite(lat) && isFinite(lng)) {
+              pairs.push([lat, lng]);
+            }
+            return;
+          }
+          if (Array.isArray(value)) {
+            value.forEach(function (item) {
+              collectCoordinatePairs(item, pairs);
+            });
+          }
+        }
+
+        function buildBoundsFromCoords(value) {
+          if (!value) {
+            return null;
+          }
+          if (Array.isArray(value) && value.length === 4 && value.every(function (item) { return !Array.isArray(item); })) {
+            return buildBoundsFromFlatArray(value);
+          }
+          var pairs = [];
+          collectCoordinatePairs(value, pairs);
+          if (!pairs.length) {
+            return null;
+          }
+          return L.latLngBounds(pairs);
+        }
+
+        function buildBoundsFromDataset(ds) {
+          if (!ds) {
+            return null;
+          }
+
+          var directBounds = buildBounds(
+            parseFloat(ds.bbox_x0),
+            parseFloat(ds.bbox_y0),
+            parseFloat(ds.bbox_x1),
+            parseFloat(ds.bbox_y1)
+          );
+          if (directBounds) {
+            return directBounds;
+          }
+
+          if (ds.extent && ds.extent.coords) {
+            directBounds = buildBoundsFromCoords(ds.extent.coords);
+            if (directBounds) {
+              return directBounds;
+            }
+          }
+
+          if (ds.ll_bbox_polygon && ds.ll_bbox_polygon.coordinates) {
+            directBounds = buildBoundsFromCoords(ds.ll_bbox_polygon.coordinates);
+            if (directBounds) {
+              return directBounds;
+            }
+          }
+
+          if (ds.bbox_polygon && ds.bbox_polygon.coordinates) {
+            directBounds = buildBoundsFromCoords(ds.bbox_polygon.coordinates);
+            if (directBounds) {
+              return directBounds;
+            }
+          }
+
+          return null;
+        }
+
+        function extractDatasetPayload(data) {
+          if (!data) {
+            return null;
+          }
+          if (data.dataset) {
+            return data.dataset;
+          }
+          if (data.resource) {
+            return data.resource;
+          }
+          if (data.datasets && data.datasets.length) {
+            return data.datasets[0];
+          }
+          return data;
+        }
+
+        function zoomToDataset() {
+          if (datasetBounds && datasetBounds.isValid()) {
+            map.fitBounds(datasetBounds, { padding: [40, 40], maxZoom: 15 });
+          } else {
+            map.setView(defaultView, defaultZoom);
+          }
+        }
+
+        datasetBounds = buildBounds(
+          '{{ job.result_dataset.bbox_x0|default_if_none:"" }}',
+          '{{ job.result_dataset.bbox_y0|default_if_none:"" }}',
+          '{{ job.result_dataset.bbox_x1|default_if_none:"" }}',
+          '{{ job.result_dataset.bbox_y1|default_if_none:"" }}'
+        );
+
+        fetch('/api/v2/datasets/{{ job.result_dataset.pk }}/')
           .then(function (r) { return r.json(); })
           .then(function (data) {
-            var ds = data.datasets && data.datasets[0];
-            if (ds && ds.extent && ds.extent.coords) {
-              var c = ds.extent.coords;
-              console.log('hi', c)
-              map.fitBounds([[c[1], c[0]], [c[3], c[2]]], { padding: [40, 40] });
-            } else {
-              map.setView([16.0, 106.0], 7);
+            var boundsFromApi = buildBoundsFromDataset(extractDatasetPayload(data));
+            if (boundsFromApi) {
+              datasetBounds = boundsFromApi;
             }
 
             if (aoiLayer) map.addLayer(aoiLayer);
             map.addLayer(resultLayer);
 
-            setTimeout(function () { 
-              map.invalidateSize(); 
-              map.fitBounds([[c[1], c[0]], [c[3], c[2]]], { padding: [40, 40] });
-            }, 5000);
+            map.whenReady(function () {
+              zoomToDataset();
+            });
+            setTimeout(function () {
+              map.invalidateSize();
+              zoomToDataset();
+            }, 150);
+            window.addEventListener('load', function () {
+              map.invalidateSize();
+              zoomToDataset();
+            }, { once: true });
           })
           .catch(function () {
-              console.log('err');
-            map.setView([16.0, 106.0], 7);
+            if (aoiLayer) map.addLayer(aoiLayer);
+            map.addLayer(resultLayer);
+            map.invalidateSize();
+            zoomToDataset();
           });
 
-        document.getElementById('toggle-result-layer').addEventListener('change', function () {
+        resultToggle.addEventListener('change', function () {
           if (this.checked) {
             map.addLayer(resultLayer);
+            zoomToDataset();
           } else {
             map.removeLayer(resultLayer);
           }
         });
 
-        document.getElementById('toggle-aoi').addEventListener('change', function () {
+        aoiToggle.addEventListener('change', function () {
           if (!aoiLayer) {
             return;
           }
