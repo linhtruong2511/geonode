@@ -989,23 +989,47 @@ msgstr ""
 msgid "Tài liệu"
 msgstr ""
 
-#~ msgid "My Geonode"
-#~ msgstr "Geonode của tôi"
+msgid "My Geonode"
+msgstr "Geonode của tôi"
 
-#~ msgid "sharing my geospatial data, my maps and my apps"
-#~ msgstr "Chia sẻ dữ liệu không gian địa lý, bản đồ và ứng dụng của tôi"
+msgid "sharing my geospatial data, my maps and my apps"
+msgstr "Chia sẻ dữ liệu không gian địa lý, bản đồ và ứng dụng của tôi"
 
-#~ msgid "Mining Detection Job"
-#~ msgstr "Phiên phát hiện khai thác"
+msgid "Mining Detection Job"
+msgstr "Phiên phát hiện khai thác"
 
-#~ msgid "Job Detail: "
-#~ msgstr "Chi tiết phiên: "
+msgid "Job Detail: "
+msgstr "Chi tiết phiên: "
 
-#~ msgid "Compute spectral"
-#~ msgstr "Tính chỉ số phổ"
+msgid "Compute spectral"
+msgstr "Tính chỉ số phổ"
 
-#~ msgid "NDVI tb"
-#~ msgstr "NDVI tb"
+msgid "NDVI tb"
+msgstr "NDVI tb"
 
-#~ msgid "Chú thích"
-#~ msgstr "Chú thích"
+msgid "Chú thích"
+msgstr "Chú thích"
+
+msgid "All Resources"
+msgstr "Tất cả"
+
+msgid "Datasets"
+msgstr "Dữ liệu"
+
+msgid "Documents"
+msgstr "Tài liệu"
+
+msgid "Maps"
+msgstr "Bản đồ"
+
+msgid "Dashboards"
+msgstr "Bảng tùy chỉnh"
+
+msgid "GeoStories"
+msgstr "Câu chuyện địa lý"
+
+msgid "Mining detection"
+msgstr "Giám sát khai thác"
+
+msgid "Search"
+msgstr "Tìm kiếm"

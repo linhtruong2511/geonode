@@ -136,7 +136,10 @@ def get_dataset_from_execution_id(self, job_id: str, execution_id: str):
     if dataset is None:
         self.retry(countdown=10, exc=Exception("Dataset not ready yet"))
 
-    job.result_dataset = dataset
+    if dataset.subtype == "raster":
+        job.tif_result_dataset = dataset
+    else:
+        job.result_dataset = dataset
     job.save(update_fields=["result_dataset"])
     return {"dataset": {"title": dataset.title, "url": dataset.detail_url}}
 

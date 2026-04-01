@@ -16,6 +16,12 @@
         .carousel-inner {
             height: 600px;
         }
+
+        .carousel-caption p {
+            font-weight: 900 !important;
+            font-family: sans-serif; 
+        }
+
     </style>
 {% endif %}
 {% block extra_style %}
@@ -58,12 +64,12 @@
             <!-- Wrapper for slides -->
             <div class="carousel-inner" role="listbox">
                 {% for slide in slides %}
-                <div class="item {% if forloop.counter == 1 %}active{%endif%}" style="height: 600px;">
+                <div class="item {% if forloop.counter == 1 %}active{%endif%}" style="height: 500px">
                     {% if slide.jumbotron_slide_image %}
                     <img src="{{ slide.jumbotron_slide_image_thumbnail.url }}" alt="{{ slide.slide_name }}">
                     {% endif %}
                     {% if not slide.hide_jumbotron_slide_content %}
-                    <div class="carousel-caption" style="font-weight: 900; font: bold;">
+                    <div class="carousel-caption" style="font-weight: 900; font-style: bold;">
                         {% with jumbotron_slide_content=slide.jumbotron_slide_content|markdownify %}
                         {% trans jumbotron_slide_content %}
                         {% endwith %}

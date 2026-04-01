@@ -131,6 +131,7 @@
       "filterApplied2": "Bộ lọc đã áp dụng"
     },
     "gnviewer": {
+      "legend": "Lớp",
       "edit": "Chỉnh sửa",
       "export": "Xuất",
       "exportData": "Xuất dữ liệu",

@@ -85,6 +85,15 @@ class MiningDetectionJob(models.Model):
         related_name="mining_detection_job",
         help_text=_("GeoNode Dataset duoc upload tu AI service."),
     )
+    tif_result_dataset = models.OneToOneField(
+        "layers.Dataset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tiff_mining_detection_job",
+        help_text=_("GeoNode Tiff Dataset duoc upload tu AI service."),
+    )
+    
     base_dataset = models.ForeignKey(
         "layers.Dataset",
         on_delete=models.SET_NULL,
