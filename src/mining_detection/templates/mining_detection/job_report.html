@@ -1,0 +1,391 @@
+{% extends "mining_detection/app_base.html" %}
+{% load i18n %}
+
+{% block mining_content %}
+<style>
+  .report-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .report-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .report-stat-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .report-stat-card .big {
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .report-stat-card .lbl {
+    margin-top: 6px;
+    color: #6c757d;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .report-stat-card.is-success {
+    border-color: #c3e6cb;
+  }
+  .report-stat-card.is-success .big {
+    color: #155724;
+  }
+  .report-stat-card.is-warning {
+    border-color: #ffeeba;
+  }
+  .report-stat-card.is-warning .big {
+    color: #856404;
+  }
+  .report-stat-card.is-danger {
+    border-color: #f5c6cb;
+  }
+  .report-stat-card.is-danger .big {
+    color: #721c24;
+  }
+  .report-chart-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .report-chart-grid.bottom {
+    grid-template-columns: 1fr 1fr;
+  }
+  .report-card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .report-card-header-row .md-card-header {
+    border-bottom: none;
+    background: transparent;
+    padding: 0;
+  }
+  .report-card-shell {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .report-card-shell .md-card-header {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .report-card-shell canvas {
+    width: 100% !important;
+    height: 320px !important;
+  }
+  .report-card-shell.compact canvas {
+    height: 280px !important;
+  }
+  .report-empty-note {
+    margin-bottom: 16px;
+  }
+  @media (max-width: 1199px) {
+    .report-summary-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 767px) {
+    .report-summary-grid,
+    .report-chart-grid,
+    .report-chart-grid.bottom {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="report-toolbar">
+  <div>
+    <a href="{% url 'mining_detection:job_list' %}" class="btn btn-default">
+      <i class="fa fa-arrow-left"></i> {% trans "Danh sách phiên phân tích" %}
+    </a>
+  </div>
+  <div class="form-inline">
+    <label for="report-period-select" style="margin-right:8px;">{% trans "Mốc thời gian" %}</label>
+    <select id="report-period-select" class="form-control">
+      {% for option in report_period_choices %}
+        <option value="{{ option.value }}">{{ option.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+{% if not has_report_data %}
+  <div class="alert alert-info report-empty-note">
+    <i class="fa fa-info-circle"></i> {% trans "Chưa có dữ liệu phiên phân tích để thống kê." %}
+  </div>
+{% endif %}
+
+<div class="report-summary-grid">
+  <div class="report-stat-card">
+    <div class="big">{{ summary_cards.total }}</div>
+    <div class="lbl">{% trans "Lượt phân tích" %}</div>
+  </div>
+  <div class="report-stat-card is-success">
+    <div class="big">{{ summary_cards.completed }}</div>
+    <div class="lbl">{% trans "Hoàn thành" %}</div>
+  </div>
+  <div class="report-stat-card is-warning">
+    <div class="big">{{ summary_cards.running }}</div>
+    <div class="lbl">{% trans "Đang chạy" %}</div>
+  </div>
+  <div class="report-stat-card is-danger">
+    <div class="big">{{ summary_cards.failed }}</div>
+    <div class="lbl">{% trans "Thất bại" %}</div>
+  </div>
+  <div class="report-stat-card">
+    <div class="big">{{ summary_cards.datasets }}</div>
+    <div class="lbl">{% trans "Dataset đầu vào" %}</div>
+  </div>
+  <div class="report-stat-card">
+    <div class="big">{{ summary_cards.models }}</div>
+    <div class="lbl">{% trans "Model AI" %}</div>
+  </div>
+</div>
+
+<div class="report-chart-grid">
+  <div class="report-card-shell">
+    <div class="md-card-header">{% trans "Lượt phân tích theo thời gian" %}</div>
+    <canvas id="job-report-total-chart"></canvas>
+  </div>
+  <div class="report-card-shell compact">
+    <div class="md-card-header">{% trans "Tỷ lệ trạng thái phiên phân tích" %}</div>
+    <canvas id="job-report-status-summary-chart"></canvas>
+  </div>
+</div>
+
+<div class="report-chart-grid">
+  <div class="report-card-shell">
+    <div class="md-card-header">{% trans "Trạng thái theo thời gian" %}</div>
+    <canvas id="job-report-status-timeline-chart"></canvas>
+  </div>
+  <div class="report-card-shell compact">
+    <div class="md-card-header">{% trans "Model AI được sử dụng" %}</div>
+    <canvas id="job-report-model-chart"></canvas>
+  </div>
+</div>
+
+<div class="report-chart-grid bottom">
+  <div class="report-card-shell">
+    <div class="md-card-header">{% trans "Dataset được phân tích nhiều nhất" %}</div>
+    <canvas id="job-report-dataset-chart"></canvas>
+  </div>
+  <div class="report-card-shell">
+    <div class="md-card-header">{% trans "Góc nhìn báo cáo" %}</div>
+    <div class="md-kv-row">
+      <span class="md-kv-label">{% trans "Phạm vi người dùng" %}</span>
+      <span class="md-kv-value">{% if request.user.is_superuser %}{% trans "Toàn hệ thống" %}{% else %}{% trans "Chỉ các job của bạn" %}{% endif %}</span>
+    </div>
+    <div class="md-kv-row">
+      <span class="md-kv-label">{% trans "Nguồn thời gian" %}</span>
+      <span class="md-kv-value">{% trans "Dựa trên ngày tạo phiên phân tích" %}</span>
+    </div>
+    <div class="md-kv-row">
+      <span class="md-kv-label">{% trans "Dataset thống kê" %}</span>
+      <span class="md-kv-value">{% trans "Theo dataset đầu vào của phiên phân tích" %}</span>
+    </div>
+    <div class="md-kv-row">
+      <span class="md-kv-label">{% trans "Model thống kê" %}</span>
+      <span class="md-kv-value">{% trans "Theo trường model_version" %}</span>
+    </div>
+    <div class="md-kv-row">
+      <span class="md-kv-label">{% trans "Chuyển mốc thời gian" %}</span>
+      <span class="md-kv-value">{% trans "Ngày / Tuần / Tháng" %}</span>
+    </div>
+  </div>
+</div>
+
+{{ report_data|json_script:"job-report-data" }}
+{% endblock mining_content %}
+
+{% block mining_scripts %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var reportDataEl = document.getElementById('job-report-data');
+      if (!reportDataEl || typeof Chart === 'undefined') {
+        return;
+      }
+
+      var reportData = JSON.parse(reportDataEl.textContent || '{}');
+      var periodSelect = document.getElementById('report-period-select');
+      var totalCtx = document.getElementById('job-report-total-chart');
+      var statusSummaryCtx = document.getElementById('job-report-status-summary-chart');
+      var statusTimelineCtx = document.getElementById('job-report-status-timeline-chart');
+      var modelCtx = document.getElementById('job-report-model-chart');
+      var datasetCtx = document.getElementById('job-report-dataset-chart');
+
+      var charts = {
+        total: null,
+        statusSummary: null,
+        statusTimeline: null,
+        model: null,
+        dataset: null
+      };
+
+      function destroyChart(key) {
+        if (charts[key]) {
+          charts[key].destroy();
+          charts[key] = null;
+        }
+      }
+
+      function renderTotalChart(periodKey) {
+        var periodData = reportData[periodKey] || { labels: [], totals: [] };
+        destroyChart('total');
+        charts.total = new Chart(totalCtx, {
+          type: 'line',
+          data: {
+            labels: periodData.labels || [],
+            datasets: [{
+              label: '{% trans "Lượt phân tích" %}',
+              data: periodData.totals || [],
+              borderColor: '#337ab7',
+              backgroundColor: 'rgba(51, 122, 183, 0.16)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.25,
+              pointRadius: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true } },
+            scales: {
+              y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+          }
+        });
+      }
+
+      function renderStatusTimelineChart(periodKey) {
+        var periodData = reportData[periodKey] || { labels: [], status_datasets: [] };
+        destroyChart('statusTimeline');
+        charts.statusTimeline = new Chart(statusTimelineCtx, {
+          type: 'bar',
+          data: {
+            labels: periodData.labels || [],
+            datasets: periodData.status_datasets || []
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+              x: { stacked: true },
+              y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+            }
+          }
+        });
+      }
+
+      function renderStatusSummaryChart() {
+        var summary = reportData.status_summary || { labels: [], values: [], colors: [] };
+        destroyChart('statusSummary');
+        charts.statusSummary = new Chart(statusSummaryCtx, {
+          type: 'doughnut',
+          data: {
+            labels: summary.labels || [],
+            datasets: [{
+              data: summary.values || [],
+              backgroundColor: summary.colors || []
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+          }
+        });
+      }
+
+      function renderModelChart() {
+        var summary = reportData.model_summary || { labels: [], values: [] };
+        destroyChart('model');
+        charts.model = new Chart(modelCtx, {
+          type: 'bar',
+          data: {
+            labels: summary.labels || [],
+            datasets: [{
+              label: '{% trans "Số phiên" %}',
+              data: summary.values || [],
+              backgroundColor: '#5bc0de',
+              borderColor: '#46b8da',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+          }
+        });
+      }
+
+      function renderDatasetChart() {
+        var summary = reportData.dataset_summary || { labels: [], values: [] };
+        destroyChart('dataset');
+        charts.dataset = new Chart(datasetCtx, {
+          type: 'bar',
+          data: {
+            labels: summary.labels || [],
+            datasets: [{
+              label: '{% trans "Số phiên" %}',
+              data: summary.values || [],
+              backgroundColor: '#3c8d7b',
+              borderColor: '#2f6f61',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+          }
+        });
+      }
+
+      function renderPeriodCharts(periodKey) {
+        renderTotalChart(periodKey);
+        renderStatusTimelineChart(periodKey);
+      }
+
+      renderStatusSummaryChart();
+      renderModelChart();
+      renderDatasetChart();
+      renderPeriodCharts(periodSelect ? periodSelect.value : 'day');
+
+      if (periodSelect) {
+        periodSelect.addEventListener('change', function () {
+          renderPeriodCharts(this.value);
+        });
+      }
+    });
+  </script>
+{% endblock %}

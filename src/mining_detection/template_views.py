@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timezone
+from collections import Counter
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 from uuid import UUID
 
@@ -7,7 +8,8 @@ import requests
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -965,6 +967,147 @@ class JobDetailView(JobOwnedMixin, DetailView):
         job = self.object
         context["edit_url"] = reverse("mining_detection:job_update", kwargs={"pk": job.pk}) if job.is_editable else None
         context["delete_url"] = reverse("mining_detection:job_delete", kwargs={"pk": job.pk}) if job.can_delete else None
+        return context
+
+
+class JobReportView(JobOwnedMixin, TemplateView):
+    template_name = "mining_detection/job_report.html"
+    page_id = "gn-mining-job-report"
+    page_title = _("Thống kê phiên phân tích")
+    page_subtitle = _("Báo cáo lượt phân tích theo thời gian, trạng thái, dataset đầu vào và model AI.")
+
+    status_color_map = {
+        JobStatus.COMPLETED: "#28a745",
+        JobStatus.RUNNING: "#f0ad4e",
+        JobStatus.FAILED: "#d9534f",
+        JobStatus.PENDING: "#6c757d",
+    }
+
+    def get_queryset(self):
+        return self.get_job_queryset().select_related("base_dataset", "result_dataset").order_by("-created_at")
+
+    def get_dataset_label(self, job):
+        if job.base_dataset:
+            title = job.base_dataset.title or job.base_dataset.alternate or f"Dataset #{job.base_dataset_id}"
+            coverage = job.base_dataset.alternate or ""
+            if coverage and coverage not in title:
+                return f"{title} ({coverage})"
+            return title
+
+        coverage = (job.extra_params or {}).get("coverage_id", "")
+        return coverage or str(_("Chưa gán dataset"))
+
+    def format_period_label(self, granularity, bucket):
+        if bucket is None:
+            return ""
+
+        bucket_date = bucket.date() if hasattr(bucket, "date") else bucket
+        if granularity == "day":
+            return bucket_date.strftime("%d/%m/%Y")
+        if granularity == "week":
+            week_end = bucket_date + timedelta(days=6)
+            return f"{bucket_date.strftime('%d/%m')} - {week_end.strftime('%d/%m')}"
+        if granularity == "month":
+            return bucket_date.strftime("%m/%Y")
+        return str(bucket_date)
+
+    def build_period_report(self, queryset, trunc_fn, granularity):
+        total_rows = list(
+            queryset.annotate(period=trunc_fn("created_at"))
+            .values("period")
+            .annotate(total=Count("pk"))
+            .order_by("period")
+        )
+        status_rows = list(
+            queryset.annotate(period=trunc_fn("created_at"))
+            .values("period", "status")
+            .annotate(total=Count("pk"))
+            .order_by("period", "status")
+        )
+
+        labels = []
+        totals = []
+        period_order = []
+        for row in total_rows:
+            period = row["period"]
+            period_key = period.isoformat() if hasattr(period, "isoformat") else str(period)
+            period_order.append(period_key)
+            labels.append(self.format_period_label(granularity, period))
+            totals.append(row["total"])
+
+        status_lookup = {status: [0] * len(period_order) for status, _ in JobStatus.choices}
+        period_index = {key: index for index, key in enumerate(period_order)}
+        for row in status_rows:
+            period = row["period"]
+            period_key = period.isoformat() if hasattr(period, "isoformat") else str(period)
+            if period_key not in period_index:
+                continue
+            status_lookup[row["status"]][period_index[period_key]] = row["total"]
+
+        status_datasets = []
+        for status, label in JobStatus.choices:
+            status_datasets.append(
+                {
+                    "label": str(label),
+                    "data": status_lookup.get(status, []),
+                    "backgroundColor": self.status_color_map.get(status, "#999999"),
+                    "borderColor": self.status_color_map.get(status, "#999999"),
+                }
+            )
+
+        return {
+            "labels": labels,
+            "totals": totals,
+            "status_datasets": status_datasets,
+        }
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        queryset = self.get_queryset()
+        jobs = list(queryset)
+
+        status_counter = Counter(job.status for job in jobs)
+        dataset_counter = Counter(self.get_dataset_label(job) for job in jobs)
+        model_counter = Counter(job.model_version or str(_("Không xác định")) for job in jobs)
+
+        top_dataset_items = dataset_counter.most_common(10)
+        top_model_items = model_counter.most_common(10)
+
+        report_data = {
+            "day": self.build_period_report(queryset, TruncDay, "day"),
+            "week": self.build_period_report(queryset, TruncWeek, "week"),
+            "month": self.build_period_report(queryset, TruncMonth, "month"),
+            "status_summary": {
+                "labels": [str(label) for status, label in JobStatus.choices],
+                "values": [status_counter.get(status, 0) for status, _ in JobStatus.choices],
+                "colors": [self.status_color_map.get(status, "#999999") for status, _ in JobStatus.choices],
+            },
+            "dataset_summary": {
+                "labels": [item[0] for item in top_dataset_items],
+                "values": [item[1] for item in top_dataset_items],
+            },
+            "model_summary": {
+                "labels": [item[0] for item in top_model_items],
+                "values": [item[1] for item in top_model_items],
+            },
+        }
+
+        context["report_data"] = report_data
+        context["summary_cards"] = {
+            "total": len(jobs),
+            "completed": status_counter.get(JobStatus.COMPLETED, 0),
+            "running": status_counter.get(JobStatus.RUNNING, 0),
+            "failed": status_counter.get(JobStatus.FAILED, 0),
+            "datasets": len(dataset_counter),
+            "models": len(model_counter),
+        }
+        context["has_report_data"] = bool(jobs)
+        context["report_period_choices"] = [
+            {"value": "day", "label": _("Theo ngày")},
+            {"value": "week", "label": _("Theo tuần")},
+            {"value": "month", "label": _("Theo tháng")},
+        ]
+        context["primary_action"] = {"label": _("Tạo phân tích"), "url": reverse("mining_detection:job_create")}
         return context
 
 

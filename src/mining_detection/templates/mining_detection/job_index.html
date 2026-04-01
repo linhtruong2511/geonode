@@ -203,6 +203,9 @@
   <button type="submit" class="btn btn-default">
     <i class="fa fa-search"></i> {% trans "Lọc" %}
   </button>
+  <a href="{% url 'mining_detection:job_report' %}" class="btn btn-success">
+    <i class="fa fa-bar-chart"></i> {% trans "Thống kê" %}
+  </a>
   {% if search_query or current_status or dataset_search_query or selected_dataset %}
     <a href="{% url 'mining_detection:job_list' %}" class="btn btn-link">{% trans "Xóa bộ lọc" %}</a>
   {% endif %}
@@ -441,6 +444,7 @@
     <i class="fa fa-search fa-3x" style="margin-bottom:1rem; display:block; color:#bee5eb;"></i>
     <h4>{% trans "Chưa có phiên phân tích nào" %}</h4>
     <p>{% trans "Bắt đầu bằng cách tạo phiên phân tích đầu tiên." %}</p>
+    <p><a href="{% url 'mining_detection:job_report' %}" class="btn btn-info" style="margin-right:8px;">{% trans "Thống kê" %}</a></p>
     <a href="{% url 'mining_detection:job_create' %}" class="btn btn-primary">{% trans "Tạo phân tích mới" %}</a>
   </div>
 {% endif %}
