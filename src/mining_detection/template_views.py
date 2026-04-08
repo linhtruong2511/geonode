@@ -410,6 +410,9 @@ class AutoMonitoringSetupView(GenericFormTemplateView, FormView):
         initial["max_cloud"] = self.site.monitoring_dataset_cloud_cover
         return initial
 
+    def get_model_catalog(self):
+        return get_ai_model_catalog()
+
     def get_submit_label(self):
         if self.site.is_auto_monitoring:
             return _("Cập nhật giám sát tự động")
@@ -417,15 +420,28 @@ class AutoMonitoringSetupView(GenericFormTemplateView, FormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
+        model_catalog = self.get_model_catalog()
         kwargs["site"] = self.site
+        kwargs["model_choices"] = build_model_choices(model_catalog)
+        kwargs["default_model_id"] = model_catalog.get("default_model_id")
         return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         latlon_bounds = self.site.get_latlon_bounds()
+        inference_params = self.site.auto_monitoring_inference_params or {}
         context["site"] = self.site
         context["latlon_bounds"] = latlon_bounds
         context["has_valid_bounds"] = bool(latlon_bounds and all(value is not None for value in latlon_bounds.values()))
+        context["current_auto_monitoring_config"] = {
+            "repeat_days": self.site.auto_monitoring_interval_days,
+            "model_id": self.site.auto_monitoring_model_id,
+            "threshold": inference_params.get("threshold"),
+            "min_area_m2": inference_params.get("min_area_m2"),
+            "tile_size": inference_params.get("tile_size"),
+            "compute_change": inference_params.get("compute_change"),
+            "last_requested_at": self.site.auto_monitoring_last_requested_at,
+        }
         context["cancel_url"] = reverse("mining_detection:site_detail", kwargs={"pk": self.site.pk})
         context["submit_label"] = self.get_submit_label()
         return context
@@ -448,7 +464,19 @@ class AutoMonitoringSetupView(GenericFormTemplateView, FormView):
         was_auto_monitoring = self.site.is_auto_monitoring
         self.site.is_auto_monitoring = True
         self.site.monitoring_dataset_cloud_cover = form.cleaned_data["max_cloud"]
-        self.site.save(update_fields=["is_auto_monitoring", "monitoring_dataset_cloud_cover", "updated_at"])
+        self.site.auto_monitoring_interval_days = form.cleaned_data["repeat_days"]
+        self.site.auto_monitoring_model_id = form.cleaned_data["model_id"]
+        self.site.auto_monitoring_inference_params = form.build_analysis_params()
+        self.site.save(
+            update_fields=[
+                "is_auto_monitoring",
+                "monitoring_dataset_cloud_cover",
+                "auto_monitoring_interval_days",
+                "auto_monitoring_model_id",
+                "auto_monitoring_inference_params",
+                "updated_at",
+            ]
+        )
 
         send_download_mining_site_job(
             [self.site],
@@ -456,6 +484,7 @@ class AutoMonitoringSetupView(GenericFormTemplateView, FormView):
             date_from=form.cleaned_data["date_from"],
             date_to=form.cleaned_data["date_to"],
             max_cloud=form.cleaned_data["max_cloud"],
+            force=True,
         )
         if was_auto_monitoring:
             messages.success(self.request, _("Đã cập nhật cấu hình giám sát tự động và gửi yêu cầu tải ảnh mới."))

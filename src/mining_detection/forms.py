@@ -209,19 +209,106 @@ class AutoMonitoringSetupForm(BootstrapFormMixin, forms.Form):
         help_text=_("Giá trị này sẽ được lưu để dùng cho các lần tải ảnh tự động tiếp theo."),
     )
 
+    repeat_days = forms.IntegerField(
+        label=_("Repeat every (days)"),
+        min_value=1,
+        max_value=365,
+        initial=7,
+        help_text=_("How many days between two automatic monitoring runs."),
+    )
+    model_id = forms.CharField(
+        label=_("Model ID"),
+        max_length=255,
+        help_text=_("AI model used for the automatic inference jobs."),
+    )
+    threshold = forms.FloatField(label=_("Detection threshold"), initial=0.57)
+    min_area_m2 = forms.IntegerField(label=_("Minimum area (m2)"), initial=500)
+    tile_size = forms.ChoiceField(
+        label=_("Tile size"),
+        choices=[(256, "256 x 256"), (512, "512 x 512"), (1024, "1024 x 1024")],
+        initial=512,
+    )
+    smooth = forms.BooleanField(label=_("Smooth result polygons"), initial=True, required=False)
+    closing_radius = forms.IntegerField(label=_("Closing radius"), initial=5)
+    simplify_tolerance = forms.IntegerField(label=_("Simplify tolerance"), initial=10)
+    compute_spectral = forms.BooleanField(label=_("Compute spectral indices"), initial=True, required=False)
+    compute_change = forms.BooleanField(label=_("Enable change detection"), initial=False, required=False)
+    baseline_job_id = forms.UUIDField(label=_("Baseline job ID"), required=False)
+    output_layer_name = forms.CharField(
+        label=_("Output layer name prefix"),
+        max_length=128,
+        required=False,
+        help_text=_("If provided, the system appends a unique suffix for each automatic run to avoid duplicate layer names."),
+    )
+
     def __init__(self, *args, site=None, **kwargs):
+        model_choices = kwargs.pop("model_choices", None)
+        default_model_id = kwargs.pop("default_model_id", None)
         self.site = site
         super().__init__(*args, **kwargs)
+        self.available_model_ids = {value for value, _ in model_choices or []}
+
+        if model_choices:
+            self.fields["model_id"].widget = forms.Select(choices=model_choices)
+            self.fields["model_id"].choices = model_choices
+            self.fields["model_id"].widget.attrs["class"] = "form-control"
+
+        if default_model_id:
+            self.initial.setdefault("model_id", default_model_id)
+
+        self.fields["output_layer_name"].widget.attrs.setdefault("placeholder", "ai_mining_result_layer")
+
+        if site is not None:
+            params = site.auto_monitoring_inference_params or {}
+            self.initial.setdefault("max_cloud", site.monitoring_dataset_cloud_cover)
+            self.initial.setdefault("repeat_days", site.auto_monitoring_interval_days)
+            if site.auto_monitoring_model_id:
+                self.initial["model_id"] = site.auto_monitoring_model_id
+            else:
+                self.initial.setdefault("model_id", default_model_id or "")
+            self.initial.setdefault("threshold", params.get("threshold", 0.57))
+            self.initial.setdefault("min_area_m2", params.get("min_area_m2", 500))
+            self.initial.setdefault("tile_size", params.get("tile_size", 512))
+            self.initial.setdefault("smooth", params.get("smooth", True))
+            self.initial.setdefault("closing_radius", params.get("closing_radius", 5))
+            self.initial.setdefault("simplify_tolerance", params.get("simplify_tolerance", 10))
+            self.initial.setdefault("compute_spectral", params.get("compute_spectral", True))
+            self.initial.setdefault("compute_change", params.get("compute_change", False))
+            self.initial.setdefault("baseline_job_id", params.get("baseline_job_id"))
+            self.initial.setdefault("output_layer_name", params.get("output_layer_name", ""))
 
     def clean(self):
         cleaned_data = super().clean()
         date_from = cleaned_data.get("date_from")
         date_to = cleaned_data.get("date_to")
+        model_id = cleaned_data.get("model_id")
 
         if date_from and date_to and date_from > date_to:
             raise ValidationError(_("Ngày bắt đầu không được lớn hơn ngày kết thúc."))
 
+        if self.available_model_ids and model_id and model_id not in self.available_model_ids:
+            self.add_error("model_id", _("Invalid Model ID."))
+        if cleaned_data.get("compute_change") and not cleaned_data.get("baseline_job_id"):
+            self.add_error("baseline_job_id", _("Baseline job ID is required when change detection is enabled."))
+
         return cleaned_data
+
+    def build_analysis_params(self):
+        params = {
+            "threshold": self.cleaned_data["threshold"],
+            "min_area_m2": self.cleaned_data["min_area_m2"],
+            "tile_size": int(self.cleaned_data["tile_size"]),
+            "smooth": self.cleaned_data["smooth"],
+            "closing_radius": self.cleaned_data["closing_radius"],
+            "simplify_tolerance": self.cleaned_data["simplify_tolerance"],
+            "compute_spectral": self.cleaned_data["compute_spectral"],
+            "compute_change": self.cleaned_data["compute_change"],
+        }
+        if self.cleaned_data.get("baseline_job_id"):
+            params["baseline_job_id"] = str(self.cleaned_data["baseline_job_id"])
+        if self.cleaned_data.get("output_layer_name"):
+            params["output_layer_name"] = self.cleaned_data["output_layer_name"]
+        return params
 
 
 class MonitoringRecordForm(SimpleModelForm):

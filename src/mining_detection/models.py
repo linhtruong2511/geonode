@@ -369,6 +369,27 @@ class MiningSite(models.Model):
         verbose_name="Monitoring Datasets",
     )
     monitoring_dataset_cloud_cover = models.IntegerField(default=20, validators=[MinValueValidator(0), MaxValueValidator(100)], verbose_name="Monitoring Dataset Cloud Cover (%)")
+    auto_monitoring_interval_days = models.PositiveIntegerField(
+        default=7,
+        validators=[MinValueValidator(1), MaxValueValidator(365)],
+        verbose_name="Auto Monitoring Interval (days)",
+    )
+    auto_monitoring_model_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Auto Monitoring Model ID",
+    )
+    auto_monitoring_inference_params = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Auto Monitoring Inference Params",
+    )
+    auto_monitoring_last_requested_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Auto Monitoring Last Requested At",
+    )
     
     
     class Meta:

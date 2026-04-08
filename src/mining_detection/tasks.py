@@ -1,9 +1,10 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.contrib.auth import get_user_model
 from django.conf import settings
 
 from geonode.base.models import TopicCategory
@@ -17,6 +18,7 @@ celery_logger = get_task_logger(__name__)
 AI_SERVICE_URL = getattr(settings, "AI_SERVICE_URL", "http://ai_api:8001")
 AI_POLL_INTERVAL = getattr(settings, "AI_POLL_INTERVAL_SECONDS", 2)
 AI_MAX_POLLS = getattr(settings, "AI_MAX_POLLS", 120)
+User = get_user_model()
 
 @shared_task(bind=True, max_retries=AI_MAX_POLLS)
 def sync_job(self, job_pk: int):
@@ -143,8 +145,58 @@ def get_dataset_from_execution_id(self, job_id: str, execution_id: str):
     job.save(update_fields=["result_dataset"])
     return {"dataset": {"title": dataset.title, "url": dataset.detail_url}}
 
+
+def build_auto_monitoring_output_layer_name(site: MiningSite, dataset, params: dict):
+    base_name = params.get("output_layer_name")
+    if not base_name:
+        return None
+
+    suffix = f"{site.pk}_{datetime.now(timezone.utc).strftime('%Y%m%d')}_{dataset.pk}"
+    max_base_len = max(1, 128 - len(suffix) - 1)
+    return f"{base_name[:max_base_len]}_{suffix}"
+
+
+def create_auto_monitoring_job(site: MiningSite, dataset, user_id):
+    if not dataset or getattr(dataset, "subtype", None) != "raster":
+        return None
+
+    model_id = (site.auto_monitoring_model_id or "").strip()
+    if not model_id:
+        logger.warning("Skip auto monitoring analyze for site %s because no model is configured.", site.pk)
+        return None
+
+    user = User.objects.filter(pk=user_id).first() if user_id else None
+    if user is None:
+        logger.warning("Skip auto monitoring analyze for site %s because user_id=%s is invalid.", site.pk, user_id)
+        return None
+
+    interval_days = max(site.auto_monitoring_interval_days or 1, 1)
+    date_to = datetime.now(timezone.utc).date()
+    date_from = date_to - timedelta(days=interval_days)
+    extra_params = dict(site.auto_monitoring_inference_params or {})
+    extra_params["coverage_id"] = dataset.alternate
+
+    output_layer_name = build_auto_monitoring_output_layer_name(site, dataset, extra_params)
+    if output_layer_name:
+        extra_params["output_layer_name"] = output_layer_name
+
+    job = MiningDetectionJob.objects.create(
+        title=f"Auto monitoring - {site.name} - {date_to.isoformat()}",
+        created_by=user,
+        status=JobStatus.PENDING,
+        model_version=model_id,
+        cloud_cover_pct=site.monitoring_dataset_cloud_cover,
+        date_from=date_from,
+        date_to=date_to,
+        base_dataset=dataset,
+        extra_params=extra_params,
+    )
+    sync_job.delay(job.pk)
+    logger.info("Created auto monitoring job %s for site %s and dataset %s.", job.pk, site.pk, dataset.pk)
+    return job
+
 @shared_task(bind=True, max_retries=AI_MAX_POLLS)
-def get_monitoring_dataset_from_execution_id(self, execution_id: str, site_id: int):
+def get_monitoring_dataset_from_execution_id(self, execution_id: str, site_id: int, user_id=None):
     dataset = find_geonode_dataset(execution_id=execution_id)
     site = MiningSite.objects.filter(pk=site_id).first()
     if site is None:
@@ -155,8 +207,15 @@ def get_monitoring_dataset_from_execution_id(self, execution_id: str, site_id: i
         self.retry(countdown=10, exc=Exception("Dataset not ready yet"))
 
     site.monitoring_datasets.add(dataset)
+    auto_job = None
+    if site.is_auto_monitoring:
+        auto_job = create_auto_monitoring_job(site, dataset, user_id)
     logger.info("Added dataset %s to monitoring datasets of site %s", dataset.id, site.id)
-    return {"site_id": site.id, "dataset": {"title": dataset.title, "url": dataset.detail_url}}
+    return {
+        "site_id": site.id,
+        "dataset": {"title": dataset.title, "url": dataset.detail_url},
+        "job_id": auto_job.pk if auto_job else None,
+    }
 
 def find_geonode_dataset(execution_id: str):
     if not execution_id:

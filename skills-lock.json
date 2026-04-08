@@ -1,6 +1,16 @@
 {
   "version": 1,
   "skills": {
+    "agent-browser": {
+      "source": "jezweb/claude-skills",
+      "sourceType": "github",
+      "computedHash": "47f387c25ebd4fac1505c3be6e4f87befa031174386bfe7c903fa136cc75f64b"
+    },
+    "app-docs": {
+      "source": "jezweb/claude-skills",
+      "sourceType": "github",
+      "computedHash": "7555c392b0e237b9085addddc421cd57f8c8e74d8284a53376f70c420a5fe83e"
+    },
     "fix-types": {
       "source": "saaspegasus/django-skills",
       "sourceType": "github",

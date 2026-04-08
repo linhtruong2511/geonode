@@ -2,16 +2,104 @@
 {% load i18n %}
 
 {% block mining_content %}
+  <style>
+    .custom-range {
+      width: 100%;
+      height: 10px;
+      border-radius: 5px;
+      background: #d3d3d3;
+      outline: none;
+      opacity: 0.8;
+      transition: opacity .2s;
+      margin-top: 10px;
+    }
+    .custom-range:hover { opacity: 1; }
+    .form-section {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .form-section-header {
+      background: #f8f9fa;
+      padding: 12px 15px;
+      border-bottom: 1px solid #e0e0e0;
+      border-radius: 6px 6px 0 0;
+      font-weight: bold;
+    }
+    .form-section-body { padding: 15px; }
+    .slider-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+    }
+    .slider-wrapper { flex: 1; }
+    .slider-input { width: 90px; }
+    .md-kv-row + .md-kv-row { margin-top: 8px; }
+    .config-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #eef5ff;
+      color: #245580;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+    .config-panel {
+      background: #f8f9fa;
+      border: 1px solid #e7eaee;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 15px;
+    }
+    .config-panel p:last-child {
+      margin-bottom: 0;
+    }
+  </style>
+
   <div class="row">
     <div class="col-md-5">
       <div class="md-card">
         <div class="md-card-header"><i class="fa fa-info-circle"></i> {% trans "Thông số hiện tại" %}</div>
         <div class="md-card-body">
           <div class="md-kv-row"><span class="md-kv-label">{% trans "Mỏ khai thác" %}</span><span class="md-kv-value">{{ site.name }}</span></div>
-          <div class="md-kv-row"><span class="md-kv-label">{% trans "Tự động giám sát" %}</span><span class="md-kv-value">{% if site.is_auto_monitoring %}<span class="label label-success">{% trans "Đang bật" %}</span>{% else %}<span class="label label-default">{% trans "Chưa bật" %}</span>{% endif %}</span></div>
+          <div class="md-kv-row">
+            <span class="md-kv-label">{% trans "Tự động giám sát" %}</span>
+            <span class="md-kv-value">
+              {% if site.is_auto_monitoring %}
+                <span class="label label-success">{% trans "Đang bật" %}</span>
+              {% else %}
+                <span class="label label-default">{% trans "Chưa bật" %}</span>
+              {% endif %}
+            </span>
+          </div>
           <div class="md-kv-row"><span class="md-kv-label">{% trans "Cloud hiện tại" %}</span><span class="md-kv-value">{{ site.monitoring_dataset_cloud_cover }}%</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Chu kỳ hiện tại" %}</span><span class="md-kv-value">{{ current_auto_monitoring_config.repeat_days }} {% trans "ngày" %}</span></div>
+          <div class="md-kv-row"><span class="md-kv-label">{% trans "Model hiện tại" %}</span><span class="md-kv-value">{{ current_auto_monitoring_config.model_id|default:"-" }}</span></div>
+          <div class="md-kv-row">
+            <span class="md-kv-label">{% trans "Lần gửi gần nhất" %}</span>
+            <span class="md-kv-value">
+              {% if current_auto_monitoring_config.last_requested_at %}
+                {{ current_auto_monitoring_config.last_requested_at|date:"d/m/Y H:i" }}
+              {% else %}
+                -
+              {% endif %}
+            </span>
+          </div>
 
           <hr />
+
+          <div class="config-panel">
+            <p style="font-weight: 600; margin-bottom: 8px;">{% trans "Cấu hình chuẩn đang lưu" %}</p>
+            <span class="config-badge">{% trans "Threshold" %}: {{ current_auto_monitoring_config.threshold|default:"-" }}</span>
+            <span class="config-badge">{% trans "Min area" %}: {{ current_auto_monitoring_config.min_area_m2|default:"-" }}</span>
+            <span class="config-badge">{% trans "Tile" %}: {{ current_auto_monitoring_config.tile_size|default:"-" }}</span>
+            <span class="config-badge">{% trans "Change detection" %}: {% if current_auto_monitoring_config.compute_change %}{% trans "Bật" %}{% else %}{% trans "Tắt" %}{% endif %}</span>
+          </div>
 
           <h4 style="margin-top: 0;">{% trans "Boundary WGS84" %}</h4>
           {% if has_valid_bounds %}
@@ -28,7 +116,7 @@
 
     <div class="col-md-7">
       <div class="md-card">
-        <div class="md-card-header"><i class="fa fa-cog"></i> {% trans "Thiết lập tải ảnh" %}</div>
+        <div class="md-card-header"><i class="fa fa-cog"></i> {% trans "Thiết lập tải ảnh và phân tích" %}</div>
         <div class="md-card-body">
           <form method="post">
             {% csrf_token %}
@@ -38,21 +126,137 @@
               </div>
             {% endif %}
 
-            <div class="alert alert-info">{% if site.is_auto_monitoring %}{% trans "Bạn có thể cập nhật lại khoảng ngày, ngưỡng cloud cover hoặc tắt giám sát tự động cho mỏ này." %}{% else %}{% trans "Khi lưu, hệ thống sẽ bật giám sát tự động cho mỏ này, lưu ngưỡng cloud cover và gửi ngay một yêu cầu tải ảnh đầu tiên." %}{% endif %}</div>
+            <div class="alert alert-info">
+              {% trans "Trang này dùng để lưu bộ cấu hình chuẩn cho giám sát tự động. Hệ thống sẽ dùng chu kỳ lặp, ngưỡng cloud và toàn bộ tham số AI bên dưới để tải ảnh mới rồi tự tạo các phiên phân tích tiếp theo." %}
+            </div>
 
-            <div class="row">
-              {% for field in form %}
-                <div class="col-sm-6">
-                  <div class="md-form-box">
-                    <div class="form-group" style="margin-bottom: 0;">
-                      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                      {{ field }}
-                      {% if field.help_text %}<p class="md-help-block">{{ field.help_text }}</p>{% endif %}
-                      {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+            <div class="form-section">
+              <div class="form-section-header">
+                <i class="fa fa-download text-primary"></i> {% trans "Chu kỳ tải ảnh tự động" %}
+              </div>
+              <div class="form-section-body">
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="form-group">
+                      <label for="{{ form.date_from.id_for_label }}">{{ form.date_from.label }}</label>
+                      {{ form.date_from }}
+                      {% if form.date_from.help_text %}<p class="help-block small">{{ form.date_from.help_text }}</p>{% endif %}
+                      {% for error in form.date_from.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="form-group">
+                      <label for="{{ form.date_to.id_for_label }}">{{ form.date_to.label }}</label>
+                      {{ form.date_to }}
+                      {% if form.date_to.help_text %}<p class="help-block small">{{ form.date_to.help_text }}</p>{% endif %}
+                      {% for error in form.date_to.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
                     </div>
                   </div>
                 </div>
-              {% endfor %}
+
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="form-group">
+                      <label for="{{ form.max_cloud.id_for_label }}">{{ form.max_cloud.label }}</label>
+                      {{ form.max_cloud }}
+                      {% if form.max_cloud.help_text %}<p class="help-block small">{{ form.max_cloud.help_text }}</p>{% endif %}
+                      {% for error in form.max_cloud.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="form-group">
+                      <label for="{{ form.repeat_days.id_for_label }}">{{ form.repeat_days.label }}</label>
+                      {{ form.repeat_days }}
+                      {% if form.repeat_days.help_text %}<p class="help-block small">{{ form.repeat_days.help_text }}</p>{% endif %}
+                      {% for error in form.repeat_days.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-section-header">
+                <i class="fa fa-cogs text-success"></i> {% trans "Cấu hình model inference" %}
+              </div>
+              <div class="form-section-body">
+                <div class="form-group">
+                  <label for="{{ form.model_id.id_for_label }}">{{ form.model_id.label }}</label>
+                  {{ form.model_id }}
+                  {% if form.model_id.help_text %}<p class="help-block small">{{ form.model_id.help_text }}</p>{% endif %}
+                  {% for error in form.model_id.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="form-group">
+                  <label for="{{ form.output_layer_name.id_for_label }}">{{ form.output_layer_name.label }}</label>
+                  {{ form.output_layer_name }}
+                  {% if form.output_layer_name.help_text %}<p class="help-block small">{{ form.output_layer_name.help_text }}</p>{% endif %}
+                  {% for error in form.output_layer_name.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="form-group">
+                  <label for="{{ form.threshold.id_for_label }}">{{ form.threshold.label }}</label>
+                  <div class="slider-container">
+                    <div class="slider-wrapper">
+                      <input type="range" id="slider-threshold" class="custom-range" min="0" max="1" step="0.01" value="0.57">
+                    </div>
+                    <div class="slider-input">{{ form.threshold }}</div>
+                  </div>
+                  {% for error in form.threshold.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="form-group">
+                  <label for="{{ form.min_area_m2.id_for_label }}">{{ form.min_area_m2.label }}</label>
+                  <div class="slider-container">
+                    <div class="slider-wrapper">
+                      <input type="range" id="slider-min-area" class="custom-range" min="0" max="5000" step="10" value="500">
+                    </div>
+                    <div class="slider-input">{{ form.min_area_m2 }}</div>
+                  </div>
+                  {% for error in form.min_area_m2.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="form-group">
+                  <label for="{{ form.tile_size.id_for_label }}">{{ form.tile_size.label }}</label>
+                  {{ form.tile_size }}
+                  {% for error in form.tile_size.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="form-group">
+                      <label for="{{ form.closing_radius.id_for_label }}">{{ form.closing_radius.label }}</label>
+                      {{ form.closing_radius }}
+                      {% for error in form.closing_radius.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="form-group">
+                      <label for="{{ form.simplify_tolerance.id_for_label }}">{{ form.simplify_tolerance.label }}</label>
+                      {{ form.simplify_tolerance }}
+                      {% for error in form.simplify_tolerance.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                    </div>
+                  </div>
+                </div>
+
+                <div style="background:#f8f9fa; border-radius:4px; padding:10px 12px; margin-bottom:15px; border: 1px solid #eee;">
+                  <div class="checkbox" style="margin:0 0 8px;">
+                    <label style="font-weight:400;">{{ form.smooth }} {{ form.smooth.label }}</label>
+                  </div>
+                  <div class="checkbox" style="margin:0 0 8px;">
+                    <label style="font-weight:400;">{{ form.compute_spectral }} {{ form.compute_spectral.label }}</label>
+                  </div>
+                  <div class="checkbox" style="margin:0;">
+                    <label style="font-weight:400;">{{ form.compute_change }} {{ form.compute_change.label }}</label>
+                  </div>
+                </div>
+
+                <div id="baseline-group" class="form-group" style="display:none;">
+                  <label for="{{ form.baseline_job_id.id_for_label }}">{{ form.baseline_job_id.label }}</label>
+                  {{ form.baseline_job_id }}
+                  {% for error in form.baseline_job_id.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                </div>
+              </div>
             </div>
 
             <div style="margin-top: 8px;">
@@ -67,4 +271,50 @@
       </div>
     </div>
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      function syncSliderAndInput(sliderId, inputName) {
+        var slider = document.getElementById(sliderId);
+        var input = document.querySelector('input[name="' + inputName + '"]');
+        if (!slider || !input) {
+          return;
+        }
+        if (input.value) {
+          slider.value = input.value;
+        } else {
+          input.value = slider.value;
+        }
+        input.classList.add('form-control');
+        input.style.height = '30px';
+        slider.addEventListener('input', function () {
+          input.value = this.value;
+        });
+        input.addEventListener('input', function () {
+          var val = parseFloat(this.value);
+          if (!isNaN(val)) {
+            slider.value = val;
+          }
+        });
+      }
+
+      function toggleBaselineField() {
+        var checkbox = document.querySelector('input[name="compute_change"]');
+        var group = document.getElementById('baseline-group');
+        if (!checkbox || !group) {
+          return;
+        }
+        group.style.display = checkbox.checked ? 'block' : 'none';
+      }
+
+      syncSliderAndInput('slider-threshold', 'threshold');
+      syncSliderAndInput('slider-min-area', 'min_area_m2');
+      toggleBaselineField();
+
+      var computeChangeCheckbox = document.querySelector('input[name="compute_change"]');
+      if (computeChangeCheckbox) {
+        computeChangeCheckbox.addEventListener('change', toggleBaselineField);
+      }
+    });
+  </script>
 {% endblock %}

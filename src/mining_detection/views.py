@@ -202,7 +202,7 @@ class UploadSentinelData(ImporterViewSet):
             execution_id = response.data.get('execution_id')
             if execution_id and site_id:
                 get_monitoring_dataset_from_execution_id.apply_async(
-                    args=[execution_id, site_id], queue='default'
+                    args=[execution_id, site_id, user_id], queue='default'
                 ) 
             else:
                 logger.warning(f"Missing execution_id or site_id for monitoring dataset linking: execution_id={execution_id}, site_id={site_id}")

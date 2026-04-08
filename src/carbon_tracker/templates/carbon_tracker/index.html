@@ -1,0 +1,45 @@
+{% extends 'page.html' %}
+{% load i18n %}
+
+{% block container %}
+<div class="gn-resource-page-catalog">
+    <div class="gn-resource-page-catalog-section">
+        <div class="gn-resource-page-catalog-content">
+            <h4 id="tracker-title">{% trans "Carbon Tracker" %}</h4>
+            <button id="update-btn" class="btn btn-primary">{% trans "Check Status" %}</button>
+            <div id="info-box" style="display:none; margin-top: 20px;" class="alert alert-info">
+                {% trans "Processing carbon data..." %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock container %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    $(() => {
+        $('#tracker-title')
+            .css('color', '#2c7fb8')
+            .hide()
+            .fadeIn(1500)
+
+        // 2. Xử lý sự kiện Click và Toggle
+        $('#update-btn').click( function() {
+            const $btn = $(this);
+            
+            // Đổi trạng thái nút
+            $btn.text('{% trans "Loading..." %}').prop('disabled', true);
+
+            // Hiệu ứng Slide và Callback
+            $('#info-box').slideToggle(500, function() {
+                // Giả lập thời gian xử lý
+                setTimeout(() => {
+                    $(this).html('<strong>{% trans "Success!" %}</strong> {% trans "New data synchronized." %}');
+                    $btn.text('{% trans "Check Status" %}').prop('disabled', false);
+                }, 1000);
+            });
+        });
+    });
+</script>
+{% endblock %}

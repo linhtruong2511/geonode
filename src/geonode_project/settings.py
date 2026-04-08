@@ -53,6 +53,7 @@ if PROJECT_NAME not in INSTALLED_APPS:
     INSTALLED_APPS += (
         PROJECT_NAME,
         'mining_detection',
+        'carbon_tracker',
     )
 
 # Location of url mappings
