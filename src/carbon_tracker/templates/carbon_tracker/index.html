@@ -1,45 +1,455 @@
 {% extends 'page.html' %}
 {% load i18n %}
 
+{% block extra_style %}
+{{ block.super }}
+<style>
+{% include "carbon_tracker/vendor/leaflet.css" %}
+{% include "carbon_tracker/vendor/leaflet.draw.css" %}
+  .ct-workbench {
+    background: #f6f8fa;
+    padding: 16px;
+  }
+  .ct-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  .ct-header h4 {
+    margin: 0 0 4px;
+    font-weight: 700;
+  }
+  .ct-header p {
+    margin: 0;
+    color: #667085;
+  }
+  .ct-toolbar,
+  .ct-panel,
+  .ct-stat {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+  }
+  .ct-toolbar {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .ct-field label {
+    display: block;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+  }
+  .ct-field input,
+  .ct-field select {
+    width: 100%;
+  }
+  .ct-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ct-quick-ranges {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .ct-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .ct-stat {
+    padding: 12px;
+    min-height: 92px;
+  }
+  .ct-stat .value {
+    color: #1d2939;
+    font-size: 23px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .ct-stat .label {
+    color: #667085;
+    display: block;
+    font-size: 12px;
+    letter-spacing: .03em;
+    margin-top: 6px;
+    text-transform: uppercase;
+    white-space: normal;
+  }
+  .ct-main-grid,
+  .ct-chart-grid {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .ct-main-grid {
+    grid-template-columns: minmax(0, 1.45fr) minmax(360px, .9fr);
+  }
+  .ct-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ct-panel {
+    padding: 14px;
+  }
+  .ct-panel-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .ct-panel-title {
+    color: #344054;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  #carbon-map {
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    height: 560px;
+    width: 100%;
+  }
+  .ct-map-note {
+    color: #667085;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+  .ct-legend {
+    background: #fff;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, .12);
+    line-height: 1.35;
+    padding: 8px;
+  }
+  .ct-legend-row {
+    align-items: center;
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .ct-swatch {
+    border-radius: 2px;
+    display: inline-block;
+    height: 10px;
+    width: 18px;
+  }
+  .ct-table-wrap {
+    max-height: 340px;
+    overflow: auto;
+  }
+  .ct-table-wrap table {
+    margin-bottom: 0;
+  }
+  .ct-pagination {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .ct-chart-panel canvas {
+    height: 285px !important;
+    width: 100% !important;
+  }
+  .ct-time-grid {
+    display: grid;
+    gap: 8px;
+  }
+  .ct-kv {
+    border-bottom: 1px solid #eef2f7;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 0;
+  }
+  .ct-kv span:first-child {
+    color: #667085;
+  }
+  .ct-kv span:last-child {
+    color: #1d2939;
+    font-weight: 600;
+    text-align: right;
+  }
+  .ct-top-days {
+    margin: 8px 0 0;
+    padding-left: 18px;
+  }
+  .ct-top-days li {
+    margin-bottom: 4px;
+  }
+  .ct-error {
+    display: none;
+    margin-bottom: 14px;
+  }
+  .leaflet-draw-toolbar a {
+    background-image: none !important;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 30px;
+    text-align: center;
+    text-indent: 0 !important;
+  }
+  .leaflet-draw-toolbar a::after {
+    color: #344054;
+    display: block;
+    line-height: 30px;
+  }
+  .leaflet-draw-draw-polygon::after {
+    content: "P";
+  }
+  .leaflet-draw-draw-rectangle::after {
+    content: "R";
+  }
+  .leaflet-draw-edit-edit::after {
+    content: "E";
+  }
+  .leaflet-draw-edit-remove::after {
+    content: "X";
+  }
+  @media (max-width: 1199px) {
+    .ct-toolbar,
+    .ct-summary-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .ct-main-grid,
+    .ct-chart-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 767px) {
+    .ct-workbench {
+      padding: 10px;
+    }
+    .ct-header,
+    .ct-panel-header {
+      display: block;
+    }
+    .ct-toolbar,
+    .ct-summary-grid {
+      grid-template-columns: 1fr;
+    }
+    #carbon-map {
+      height: 420px;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block container %}
-<div class="gn-resource-page-catalog">
-    <div class="gn-resource-page-catalog-section">
-        <div class="gn-resource-page-catalog-content">
-            <h4 id="tracker-title">{% trans "Carbon Tracker" %}</h4>
-            <button id="update-btn" class="btn btn-primary">{% trans "Check Status" %}</button>
-            <div id="info-box" style="display:none; margin-top: 20px;" class="alert alert-info">
-                {% trans "Processing carbon data..." %}
-            </div>
-        </div>
+<div
+  id="carbon-tracker-app"
+  class="ct-workbench"
+  data-points-url="{% url 'carbon_tracker:api_data' %}"
+  data-summary-url="{% url 'carbon_tracker:summary' %}"
+  data-timeseries-url="{% url 'carbon_tracker:timeseries' %}"
+  data-aoi-summary-url="{% url 'carbon_tracker:aoi_summary' %}"
+  data-latest-date="{{ latest_date_value }}"
+>
+  <div class="ct-header">
+    <div>
+      <h4>{% trans "Carbon Tracker" %}</h4>
+      <p>{% trans "Theo dõi điểm đo XCO2, thống kê nhanh theo khung nhìn bản đồ hoặc vùng AOI." %}</p>
     </div>
+    <div class="text-muted">
+      {% trans "Tổng dữ liệu" %}: <strong>{{ total_records }}</strong>
+    </div>
+  </div>
+
+  <div id="ct-error" class="alert alert-danger ct-error"></div>
+
+  <div class="ct-toolbar">
+    <div class="ct-field">
+      <label for="ct-date-from">{% trans "Từ ngày" %}</label>
+      <input id="ct-date-from" class="form-control" type="date">
+    </div>
+    <div class="ct-field">
+      <label for="ct-date-to">{% trans "Đến ngày" %}</label>
+      <input id="ct-date-to" class="form-control" type="date" value="{{ latest_date_value }}">
+    </div>
+    <div class="ct-field">
+      <label for="ct-granularity">{% trans "Mốc biểu đồ" %}</label>
+      <select id="ct-granularity" class="form-control">
+        <option value="day">{% trans "Theo ngày" %}</option>
+        <option value="month">{% trans "Theo tháng" %}</option>
+      </select>
+    </div>
+    <div class="ct-field">
+      <label for="ct-page-size">{% trans "Điểm/trang" %}</label>
+      <select id="ct-page-size" class="form-control">
+        <option value="500" selected>500</option>
+        <option value="1000">1000</option>
+        <option value="2000">2000</option>
+      </select>
+    </div>
+    <div class="ct-quick-ranges">
+      <button type="button" class="btn btn-default btn-sm ct-quick-range" data-days="7">7 ngày</button>
+      <button type="button" class="btn btn-default btn-sm ct-quick-range" data-days="30">30 ngày</button>
+      <button type="button" class="btn btn-default btn-sm ct-quick-range" data-days="90">90 ngày</button>
+    </div>
+    <div class="ct-actions">
+      <button type="button" class="btn btn-primary" id="ct-refresh">
+        <i class="fa fa-refresh"></i> {% trans "Cập nhật" %}
+      </button>
+      <button type="button" class="btn btn-default" id="ct-clear-aoi" disabled>
+        <i class="fa fa-eraser"></i> {% trans "Xóa AOI" %}
+      </button>
+    </div>
+  </div>
+
+  <div class="ct-summary-grid">
+    <div class="ct-stat">
+      <div class="value" id="ct-summary-count">0</div>
+      <span class="label">{% trans "Điểm đo" %}</span>
+    </div>
+    <div class="ct-stat">
+      <div class="value" id="ct-summary-avg">-</div>
+      <span class="label">{% trans "XCO2 trung bình" %}</span>
+    </div>
+    <div class="ct-stat">
+      <div class="value" id="ct-summary-min">-</div>
+      <span class="label">{% trans "XCO2 thấp nhất" %}</span>
+    </div>
+    <div class="ct-stat">
+      <div class="value" id="ct-summary-max">-</div>
+      <span class="label">{% trans "XCO2 cao nhất" %}</span>
+    </div>
+    <div class="ct-stat">
+      <div class="value" id="ct-summary-stddev">-</div>
+      <span class="label">{% trans "Độ lệch chuẩn" %}</span>
+    </div>
+    <div class="ct-stat">
+      <div class="value" id="ct-summary-days">0</div>
+      <span class="label">{% trans "Ngày có dữ liệu" %}</span>
+    </div>
+  </div>
+
+  <div class="ct-main-grid">
+    <div class="ct-panel">
+      <div class="ct-panel-header">
+        <h5 class="ct-panel-title">{% trans "Bản đồ điểm đo" %}</h5>
+        <span id="ct-map-scope" class="label label-info">{% trans "Khung nhìn hiện tại" %}</span>
+      </div>
+      <div id="carbon-map"></div>
+      <div class="ct-map-note" id="ct-map-note">
+        {% trans "Bản đồ và bảng hiển thị dữ liệu theo trang; thống kê tổng hợp dùng toàn bộ phạm vi lọc." %}
+      </div>
+    </div>
+
+    <div class="ct-panel">
+      <div class="ct-panel-header">
+        <h5 class="ct-panel-title">{% trans "Bảng dữ liệu" %}</h5>
+        <span>
+          {% trans "Hiển thị" %}
+          <strong id="ct-showing-from">0</strong>-<strong id="ct-showing-to">0</strong>
+          /
+          <strong id="ct-table-total">0</strong>
+        </span>
+      </div>
+      <div class="ct-table-wrap">
+        <table class="table table-hover table-bordered">
+          <thead>
+            <tr>
+              <th>sounding_id</th>
+              <th>acquisition_time</th>
+              <th>xco2 ppm</th>
+              <th>file_path</th>
+            </tr>
+          </thead>
+          <tbody id="ct-table-body">
+            <tr>
+              <td colspan="4" class="text-muted text-center">{% trans "Chưa có dữ liệu" %}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="ct-pagination">
+        <button type="button" class="btn btn-default btn-sm" id="ct-prev-page">{% trans "Trang trước" %}</button>
+        <span>{% trans "Trang" %} <strong id="ct-current-page">1</strong> / <strong id="ct-total-pages">1</strong></span>
+        <button type="button" class="btn btn-default btn-sm" id="ct-next-page">{% trans "Trang sau" %}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ct-chart-grid">
+    <div class="ct-panel ct-chart-panel">
+      <div class="ct-panel-header">
+        <h5 class="ct-panel-title">{% trans "XCO2 và số điểm theo thời gian" %}</h5>
+      </div>
+      <canvas id="ct-timeseries-chart"></canvas>
+    </div>
+    <div class="ct-panel ct-chart-panel">
+      <div class="ct-panel-header">
+        <h5 class="ct-panel-title">{% trans "Phân bố XCO2" %}</h5>
+      </div>
+      <canvas id="ct-histogram-chart"></canvas>
+    </div>
+  </div>
+
+  <div class="ct-chart-grid">
+    <div class="ct-panel ct-chart-panel">
+      <div class="ct-panel-header">
+        <h5 class="ct-panel-title">{% trans "Nguồn dữ liệu phổ biến" %}</h5>
+      </div>
+      <canvas id="ct-source-chart"></canvas>
+    </div>
+    <div class="ct-panel">
+      <div class="ct-panel-header">
+        <h5 class="ct-panel-title">{% trans "Tra cứu thời gian dữ liệu" %}</h5>
+      </div>
+      <div class="ct-time-grid">
+        <div class="ct-kv">
+          <span>{% trans "Thời điểm sớm nhất" %}</span>
+          <span id="ct-time-first">-</span>
+        </div>
+        <div class="ct-kv">
+          <span>{% trans "Thời điểm mới nhất" %}</span>
+          <span id="ct-time-latest">-</span>
+        </div>
+        <div class="ct-kv">
+          <span>{% trans "Số ngày có dữ liệu" %}</span>
+          <span id="ct-time-days">0</span>
+        </div>
+      </div>
+      <h5 class="ct-panel-title" style="margin-top:14px;">{% trans "Ngày có nhiều điểm đo nhất" %}</h5>
+      <ol class="ct-top-days" id="ct-top-days">
+        <li class="text-muted">{% trans "Chưa có dữ liệu" %}</li>
+      </ol>
+    </div>
+  </div>
 </div>
 {% endblock container %}
 
 {% block scripts %}
 {{ block.super }}
 <script>
-    $(() => {
-        $('#tracker-title')
-            .css('color', '#2c7fb8')
-            .hide()
-            .fadeIn(1500)
-
-        // 2. Xử lý sự kiện Click và Toggle
-        $('#update-btn').click( function() {
-            const $btn = $(this);
-            
-            // Đổi trạng thái nút
-            $btn.text('{% trans "Loading..." %}').prop('disabled', true);
-
-            // Hiệu ứng Slide và Callback
-            $('#info-box').slideToggle(500, function() {
-                // Giả lập thời gian xử lý
-                setTimeout(() => {
-                    $(this).html('<strong>{% trans "Success!" %}</strong> {% trans "New data synchronized." %}');
-                    $btn.text('{% trans "Check Status" %}').prop('disabled', false);
-                }, 1000);
-            });
-        });
-    });
+{% include "carbon_tracker/vendor/leaflet.js" %}
+</script>
+<script>
+{% include "carbon_tracker/vendor/leaflet.draw.js" %}
+</script>
+<script>
+{% include "carbon_tracker/vendor/chart.umd.js" %}
+</script>
+<script>
+{% include "carbon_tracker/index.js" %}
 </script>
 {% endblock %}
