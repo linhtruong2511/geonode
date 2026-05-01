@@ -1,11 +1,23 @@
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
-from .models import OCO2Data
+from .models import VietNamOCO2Data
 
 
-class OCO2DataSerializer(GeoFeatureModelSerializer):
+class VietNamOCO2DataSerializer(GeoFeatureModelSerializer):
     class Meta:
-        model = OCO2Data
+        model = VietNamOCO2Data
         geo_field = "location"
         id_field = "sounding_id"
-        fields = ("sounding_id", "acquisition_time", "xco2", "file_path")
+        fields = (
+            "sounding_id",
+            "acquisition_time",
+            "xco2",
+            "xco2_uncertainty",
+            "xco2_quality_flag",
+            "latitude",
+            "longitude",
+            "orbit",
+            "operation_mode",
+            "source_file",
+            "source_folder",
+        )

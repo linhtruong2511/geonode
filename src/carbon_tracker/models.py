@@ -46,12 +46,11 @@ class VietNamOCO2Data(models.Model):
     class Meta:
         db_table = "carbon_tracker_vietnam_oco2data"
         ordering = ("-acquisition_time", "-sounding_id")
-        # indexes = [
-        #     GistIndex(fields=["location"], name="vn_oco2_location_gix"),
-        #     models.Index(fields=["acquisition_time"], name="vn_oco2_time_idx"),
-        #     models.Index(fields=["xco2_quality_flag"], name="vn_oco2_quality_idx"),
-        #     models.Index(fields=["source_file"], name="vn_oco2_file_idx"),
-        # ]
+        indexes = [
+            GistIndex(fields=["location"], name="vn_oco2_location_gix"),
+            models.Index(fields=["xco2_quality_flag"], name="vn_oco2_quality_idx"),
+            models.Index(fields=["operation_mode"], name="vn_oco2_mode_idx"),
+        ]
 
     def __str__(self):
         return f"{self.sounding_id} - {self.xco2:.2f} ppm"

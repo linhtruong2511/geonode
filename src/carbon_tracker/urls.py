@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     CarbonTrackerAOISummaryAPIView,
     CarbonTrackerDataListAPIView,
+    CarbonTrackerFileDetailAPIView,
     CarbonTrackerSummaryAPIView,
     CarbonTrackerTimeseriesAPIView,
     CarbonTrackerViewIndex,
@@ -15,4 +16,9 @@ urlpatterns = [
     path("api/summary/", CarbonTrackerSummaryAPIView.as_view(), name="summary"),
     path("api/timeseries/", CarbonTrackerTimeseriesAPIView.as_view(), name="timeseries"),
     path("api/aoi/summary/", CarbonTrackerAOISummaryAPIView.as_view(), name="aoi_summary"),
+    path(
+        "api/records/<int:sounding_id>/file-detail/",
+        CarbonTrackerFileDetailAPIView.as_view(),
+        name="file_detail",
+    ),
 ]
