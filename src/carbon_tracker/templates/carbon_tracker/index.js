@@ -7,6 +7,8 @@
   var state = {
     page: 1,
     activeAoiLayer: null,
+    activeFeatureId: null,
+    markerLayersById: {},
     charts: {
       timeseries: null,
       histogram: null,
@@ -73,9 +75,14 @@
     },
     onEachFeature: function (feature, layer) {
       var props = feature.properties || {};
+      layer.featureId = String(feature.id);
+      state.markerLayersById[layer.featureId] = layer;
+      layer.on('click', function () {
+        focusFeature(layer.featureId);
+      });
       layer.bindPopup(
         '<div>' +
-          '<strong>sounding_id:</strong> ' + escapeHtml(props.sounding_id) + '<br>' +
+          '<strong>sounding_id:</strong> ' + escapeHtml(feature.id) + '<br>' +
           '<strong>xco2:</strong> ' + formatNumber(props.xco2, 2) + ' ppm<br>' +
           '<strong>time:</strong> ' + escapeHtml(formatDateTime(props.acquisition_time)) + '<br>' +
           '<strong>file:</strong> ' + escapeHtml(props.file_path || '-') +
@@ -105,6 +112,7 @@
         remove: true
       }
     }));
+    labelDrawToolbarButtons();
   }
 
   if (L.Draw && L.Draw.Event) {
@@ -160,6 +168,122 @@
       return '#fdae61';
     }
     return '#d7191c';
+  }
+
+  function getDefaultMarkerStyle(layer) {
+    var props = (layer.feature && layer.feature.properties) || {};
+    var color = getXco2Color(Number(props.xco2));
+    return {
+      radius: 5,
+      color: color,
+      weight: 1,
+      fillColor: color,
+      fillOpacity: 0.72
+    };
+  }
+
+  function getActiveMarkerStyle() {
+    return {
+      radius: 8,
+      color: '#111827',
+      weight: 2,
+      fillColor: '#f97316',
+      fillOpacity: 0.95
+    };
+  }
+
+  function clearActiveFeature() {
+    if (!state.activeFeatureId) {
+      return;
+    }
+
+    var previousLayer = state.markerLayersById[state.activeFeatureId];
+    if (previousLayer && previousLayer.setStyle) {
+      previousLayer.setStyle(getDefaultMarkerStyle(previousLayer));
+    }
+
+    var previousRow = el.tableBody.querySelector('tr[data-id="' + state.activeFeatureId + '"]');
+    if (previousRow) {
+      previousRow.classList.remove('is-active');
+    }
+
+    state.activeFeatureId = null;
+  }
+
+  function scrollRowIntoView(row) {
+    if (!row) {
+      return;
+    }
+
+    var tableWrap = row.closest('.ct-table-wrap');
+    if (!tableWrap) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+
+    var rowTop = row.offsetTop;
+    var rowBottom = rowTop + row.offsetHeight;
+    var visibleTop = tableWrap.scrollTop;
+    var visibleBottom = visibleTop + tableWrap.clientHeight;
+
+    if (rowTop < visibleTop || rowBottom > visibleBottom) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  function focusFeature(featureId) {
+    if (!featureId) {
+      return;
+    }
+
+    var normalizedId = String(featureId);
+    var layer = state.markerLayersById[normalizedId];
+    if (!layer) {
+      return;
+    }
+
+    clearActiveFeature();
+    state.activeFeatureId = normalizedId;
+    if (layer.setStyle) {
+      layer.setStyle(getActiveMarkerStyle());
+    }
+
+    var targetRow = el.tableBody.querySelector('tr[data-id="' + normalizedId + '"]');
+    if (targetRow) {
+      targetRow.classList.add('is-active');
+      scrollRowIntoView(targetRow);
+    }
+
+    if (layer.getLatLng) {
+      map.flyTo(layer.getLatLng(), Math.max(map.getZoom(), 13), {
+        animate: true,
+        duration: 0.5
+      });
+    }
+
+    if (layer.openPopup) {
+      layer.openPopup();
+    }
+  }
+
+  function labelDrawToolbarButtons() {
+    var buttons = [
+      { selector: '.leaflet-draw-draw-polygon', label: 'P', title: 'Vẽ vùng đa giác' },
+      { selector: '.leaflet-draw-draw-rectangle', label: 'R', title: 'Vẽ vùng hình chữ nhật' },
+      { selector: '.leaflet-draw-edit-edit', label: 'E', title: 'Chỉnh sửa vùng đã vẽ' },
+      { selector: '.leaflet-draw-edit-remove', label: 'X', title: 'Xóa vùng đã vẽ' }
+    ];
+
+    buttons.forEach(function (item) {
+      var button = document.querySelector(item.selector);
+      if (!button) {
+        return;
+      }
+      button.classList.add('ct-draw-button');
+      button.innerHTML = '<span class="ct-draw-label">' + item.label + '</span>';
+      button.setAttribute('title', item.title);
+      button.setAttribute('aria-label', item.title);
+    });
   }
 
   function escapeHtml(value) {
@@ -340,6 +464,8 @@
   }
 
   function renderPoints(geojson) {
+    state.markerLayersById = {};
+    clearActiveFeature();
     pointLayer.clearLayers();
     pointLayer.addData(geojson);
   }
@@ -368,13 +494,21 @@
 
     el.tableBody.innerHTML = features.map(function (feature) {
       var props = feature.properties || {};
-      return '<tr>' +
-        '<td>' + escapeHtml(props.sounding_id) + '</td>' +
+      var rawId = feature.id || props.sounding_id || feature.sounding_id;
+      var sId = (rawId !== undefined && rawId !== null) ? String(rawId) : '';
+      return '<tr class="ct-table-row" data-id="' + sId + '">' +
+        '<td>' + escapeHtml(sId) + '</td>' +
         '<td>' + escapeHtml(formatDateTime(props.acquisition_time)) + '</td>' +
         '<td>' + escapeHtml(formatNumber(props.xco2, 2)) + '</td>' +
         '<td>' + escapeHtml(props.file_path || '-') + '</td>' +
       '</tr>';
     }).join('');
+
+    Array.prototype.forEach.call(el.tableBody.querySelectorAll('.ct-table-row'), function (row) {
+      row.addEventListener('click', function () {
+        focusFeature(row.getAttribute('data-id'));
+      });
+    });
   }
 
   function renderSummary(payload) {
@@ -582,6 +716,7 @@
   el.clearAoi.addEventListener('click', function () {
     drawnItems.clearLayers();
     state.activeAoiLayer = null;
+    clearActiveFeature();
     state.page = 1;
     el.clearAoi.disabled = true;
     refreshAll();
