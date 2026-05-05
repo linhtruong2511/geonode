@@ -17,7 +17,7 @@ urlpatterns = [
     path("api/timeseries/", CarbonTrackerTimeseriesAPIView.as_view(), name="timeseries"),
     path("api/aoi/summary/", CarbonTrackerAOISummaryAPIView.as_view(), name="aoi_summary"),
     path(
-        "api/records/<int:sounding_id>/file-detail/",
+        "api/records/<str:record_key>/file-detail/",
         CarbonTrackerFileDetailAPIView.as_view(),
         name="file_detail",
     ),

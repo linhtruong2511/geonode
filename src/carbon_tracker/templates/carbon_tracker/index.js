@@ -4,7 +4,73 @@
     return;
   }
 
+  var missionPayloadNode = document.getElementById('ct-mission-payload');
+  var missionPayload = missionPayloadNode ? JSON.parse(missionPayloadNode.textContent) : {
+    default_mission: 'oco2_vn',
+    missions: [],
+    overviews: {},
+    vietnam_bounds: [8.18, 102.14, 23.39, 109.47]
+  };
+
+  var MISSION_DEFS = {
+    oco2_vn: {
+      key: 'oco2_vn',
+      label: 'OCO-2 Vietnam',
+      detailType: 'nc4',
+      tableSubtitle: 'Nhấn vào một dòng để zoom bản đồ. Mở file để xem cấu trúc .nc4 và metadata nguồn.',
+      tableColumns: [
+        { label: 'ID', render: function (feature) { return escapeHtml(feature.properties.display_id); } },
+        { label: 'Thời gian', render: function (feature) { return escapeHtml(formatDateTime(feature.properties.acquisition_time)); } },
+        { label: 'XCO2', render: function (feature) { return escapeHtml(formatNumber(feature.properties.xco2, 2)); } },
+        { label: 'Uncertainty', render: function (feature) { return escapeHtml(formatNumber(feature.properties.xco2_uncertainty, 2)); } },
+        { label: 'Quality', render: function (feature) { return buildQualityBadge(feature.properties.xco2_quality_flag); } },
+        { label: 'Mode', render: function (feature) { return escapeHtml(formatPlainValue(feature.properties.operation_mode)); } },
+        { label: 'File nguồn', render: function (feature) { return escapeHtml(shortLabel(shortFileName(feature.properties.source_file), 24)); } }
+      ],
+      popupHtml: function (feature) {
+        var props = feature.properties || {};
+        return '<div>' +
+          '<strong>ID:</strong> ' + escapeHtml(props.display_id) + '<br>' +
+          '<strong>XCO2:</strong> ' + escapeHtml(formatNumber(props.xco2, 2)) + ' ppm<br>' +
+          '<strong>Uncertainty:</strong> ' + escapeHtml(formatNumber(props.xco2_uncertainty, 2)) + '<br>' +
+          '<strong>Quality:</strong> ' + escapeHtml(formatQualityFlag(props.xco2_quality_flag)) + '<br>' +
+          '<strong>Thời gian:</strong> ' + escapeHtml(formatDateTime(props.acquisition_time)) + '<br>' +
+          '<strong>File:</strong> ' + escapeHtml(shortFileName(props.source_file || '-')) +
+          '</div>';
+      }
+    },
+    gosat2_vn: {
+      key: 'gosat2_vn',
+      label: 'GOSAT-2 Vietnam',
+      detailType: 'h5',
+      tableSubtitle: 'Nhấn vào một sounding để zoom bản đồ. Mở file để xem product context, retrieval và catalog H5.',
+      tableColumns: [
+        { label: 'Sounding', render: function (feature) { return escapeHtml(feature.properties.display_id); } },
+        { label: 'Thời gian', render: function (feature) { return escapeHtml(formatDateTime(feature.properties.acquisition_time)); } },
+        { label: 'XCO2', render: function (feature) { return escapeHtml(formatNumber(feature.properties.xco2, 2)); } },
+        { label: 'Uncertainty', render: function (feature) { return escapeHtml(formatNumber(feature.properties.xco2_uncertainty, 2)); } },
+        { label: 'Quality', render: function (feature) { return buildQualityBadge(feature.properties.xco2_quality_flag); } },
+        { label: 'Sensor', render: function (feature) { return escapeHtml(formatPlainValue(feature.properties.sensor_name)); } },
+        { label: 'Version', render: function (feature) { return escapeHtml(formatPlainValue(feature.properties.product_version)); } },
+        { label: 'File', render: function (feature) { return escapeHtml(shortLabel(feature.properties.file_name || feature.properties.file_id || '-', 24)); } }
+      ],
+      popupHtml: function (feature) {
+        var props = feature.properties || {};
+        return '<div>' +
+          '<strong>Sounding:</strong> ' + escapeHtml(props.display_id) + '<br>' +
+          '<strong>XCO2:</strong> ' + escapeHtml(formatNumber(props.xco2, 2)) + ' ppm<br>' +
+          '<strong>Uncertainty:</strong> ' + escapeHtml(formatNumber(props.xco2_uncertainty, 2)) + '<br>' +
+          '<strong>Quality:</strong> ' + escapeHtml(formatQualityFlag(props.xco2_quality_flag)) + '<br>' +
+          '<strong>Sensor:</strong> ' + escapeHtml(formatPlainValue(props.sensor_name)) + '<br>' +
+          '<strong>Version:</strong> ' + escapeHtml(formatPlainValue(props.product_version)) + '<br>' +
+          '<strong>File:</strong> ' + escapeHtml(shortFileName(props.file_name || props.file_id || '-')) +
+          '</div>';
+      }
+    }
+  };
+
   var state = {
+    mission: missionPayload.default_mission || 'oco2_vn',
     page: 1,
     activeAoiLayer: null,
     activeFeatureId: null,
@@ -27,15 +93,25 @@
   };
 
   var el = {
+    missionSwitcher: document.getElementById('ct-mission-switcher'),
+    missionTitle: document.getElementById('ct-mission-title'),
+    missionDescription: document.getElementById('ct-mission-description'),
+    overviewTotal: document.getElementById('ct-overview-total'),
     error: document.getElementById('ct-error'),
     dateFrom: document.getElementById('ct-date-from'),
     dateTo: document.getElementById('ct-date-to'),
     granularity: document.getElementById('ct-granularity'),
     pageSize: document.getElementById('ct-page-size'),
+    productVersion: document.getElementById('ct-product-version'),
+    processingLevel: document.getElementById('ct-processing-level'),
+    sensorName: document.getElementById('ct-sensor-name'),
+    fileSearch: document.getElementById('ct-file-search'),
     refresh: document.getElementById('ct-refresh'),
     clearAoi: document.getElementById('ct-clear-aoi'),
     mapScope: document.getElementById('ct-map-scope'),
+    tableHead: document.getElementById('ct-table-head'),
     tableBody: document.getElementById('ct-table-body'),
+    tableSubtitle: document.getElementById('ct-table-subtitle'),
     tableTotal: document.getElementById('ct-table-total'),
     showingFrom: document.getElementById('ct-showing-from'),
     showingTo: document.getElementById('ct-showing-to'),
@@ -52,32 +128,25 @@
     summaryUncertaintySub: document.getElementById('ct-summary-uncertainty-sub'),
     summaryQualityRatio: document.getElementById('ct-summary-quality-ratio'),
     summaryFiles: document.getElementById('ct-summary-files'),
-    summaryFolders: document.getElementById('ct-summary-folders'),
-    // summaryMetadata: document.getElementById('ct-summary-metadata'),
-    // summaryMetadataSub: document.getElementById('ct-summary-metadata-sub'),
+    summaryFilesSub: document.getElementById('ct-summary-files-sub'),
     summaryDays: document.getElementById('ct-summary-days'),
     summaryRange: document.getElementById('ct-summary-range'),
-    timeFirst: document.getElementById('ct-time-first'),
-    timeLatest: document.getElementById('ct-time-latest'),
-    timeDays: document.getElementById('ct-time-days'),
-    latRange: document.getElementById('ct-lat-range'),
-    lngRange: document.getElementById('ct-lng-range'),
+    sourceChartTitle: document.getElementById('ct-source-chart-title'),
+    timeGrid: document.getElementById('ct-time-grid'),
     topDays: document.getElementById('ct-top-days'),
-    insightUncertainty: document.getElementById('ct-insight-uncertainty'),
-    insightQualityReady: document.getElementById('ct-insight-quality-ready'),
-    insightSource: document.getElementById('ct-insight-source'),
-    insightFolder: document.getElementById('ct-insight-folder'),
-    insightMetadata: document.getElementById('ct-insight-metadata'),
-    topFolders: document.getElementById('ct-top-folders'),
+    insightGrid: document.getElementById('ct-insight-grid'),
+    secondaryListTitle: document.getElementById('ct-secondary-list-title'),
+    secondaryList: document.getElementById('ct-secondary-list'),
     fileModal: document.getElementById('ct-file-modal'),
     fileModalClose: document.getElementById('ct-file-modal-close'),
     fileModalDismiss: document.getElementById('ct-file-modal-dismiss'),
     fileModalTitle: document.getElementById('ct-file-modal-title'),
     fileModalSubtitle: document.getElementById('ct-file-modal-subtitle'),
-    fileModalBody: document.getElementById('ct-file-modal-body')
+    fileModalBody: document.getElementById('ct-file-modal-body'),
+    scopedFields: document.querySelectorAll('.ct-field[data-scope]')
   };
 
-  var vietnamBounds = parseBounds(app.dataset.vietnamBounds);
+  var vietnamBounds = parseBounds((missionPayload.vietnam_bounds || []).join(','));
   var map = L.map('carbon-map', {
     center: [16.2, 106.2],
     zoom: 6,
@@ -98,18 +167,16 @@
 
   var pointLayer = L.geoJSON(null, {
     pointToLayer: function (feature, latlng) {
-      var props = feature.properties || {};
-      return L.circleMarker(latlng, getMarkerStyle(props));
+      return L.circleMarker(latlng, getMarkerStyle(feature.properties || {}));
     },
     onEachFeature: function (feature, layer) {
-      var props = feature.properties || {};
       var featureId = normalizeFeatureId(feature);
-      layer.featureId = featureId;
       state.markerLayersById[featureId] = layer;
+      layer.featureId = featureId;
       layer.on('click', function () {
         focusFeature(featureId);
       });
-      layer.bindPopup(buildPopupHtml(feature));
+      layer.bindPopup(getMissionDefinition().popupHtml(feature));
     }
   }).addTo(map);
 
@@ -172,13 +239,15 @@
   };
   legend.addTo(map);
 
+  function getMissionDefinition() {
+    return MISSION_DEFS[state.mission] || MISSION_DEFS.oco2_vn;
+  }
+
   function parseBounds(text) {
     if (!text) {
       return null;
     }
-    var numbers = String(text).split(',').map(function (value) {
-      return Number(value);
-    });
+    var numbers = String(text).split(',').map(function (value) { return Number(value); });
     if (numbers.length !== 4 || numbers.some(function (value) { return !Number.isFinite(value); })) {
       return null;
     }
@@ -191,7 +260,7 @@
 
   function normalizeFeatureId(feature) {
     var props = feature.properties || {};
-    var rawId = feature.id || props.sounding_id || feature.sounding_id;
+    var rawId = feature.id || props.record_id || props.sounding_id;
     return rawId === undefined || rawId === null ? '' : String(rawId);
   }
 
@@ -234,19 +303,6 @@
     };
   }
 
-  function buildPopupHtml(feature) {
-    var props = feature.properties || {};
-    return '<div>' +
-      '<strong>ID:</strong> ' + escapeHtml(normalizeFeatureId(feature)) + '<br>' +
-      '<strong>XCO2:</strong> ' + escapeHtml(formatNumber(props.xco2, 2)) + ' ppm<br>' +
-      '<strong>Uncertainty:</strong> ' + escapeHtml(formatNumber(props.xco2_uncertainty, 2)) + '<br>' +
-      '<strong>Quality:</strong> ' + escapeHtml(formatQualityFlag(props.xco2_quality_flag)) + '<br>' +
-      '<strong>Thoi gian:</strong> ' + escapeHtml(formatDateTime(props.acquisition_time)) + '<br>' +
-      '<strong>File:</strong> ' + escapeHtml(shortFileName(props.source_file || '-')) + '<br>' +
-      '<strong>Thu muc:</strong> ' + escapeHtml(shortLabel(props.source_folder || '-', 28)) +
-    '</div>';
-  }
-
   function getCsrfToken() {
     var match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
     return match ? decodeURIComponent(match[1]) : '';
@@ -255,8 +311,8 @@
   function setLoading(isLoading) {
     el.refresh.disabled = isLoading;
     el.refresh.innerHTML = isLoading
-      ? '<i class="fa fa-spinner fa-spin"></i> Dang tai'
-      : '<i class="fa fa-refresh"></i> Cap nhat';
+      ? '<i class="fa fa-spinner fa-spin"></i> Đang tải'
+      : '<i class="fa fa-refresh"></i> Cập nhật';
   }
 
   function showError(message) {
@@ -339,14 +395,14 @@
 
   function formatQualityFlag(value) {
     if (value === null || value === undefined || value === '') {
-      return 'Khong gan co';
+      return 'Không gắn cờ';
     }
     var number = Number(value);
     if (!Number.isFinite(number)) {
       return String(value);
     }
     if (number === 0) {
-      return '0 (tot)';
+      return '0 (tốt)';
     }
     return String(number);
   }
@@ -450,10 +506,10 @@
 
   function labelDrawToolbarButtons() {
     var buttons = [
-      { selector: '.leaflet-draw-draw-polygon', label: 'P', title: 'Ve vung da giac' },
-      { selector: '.leaflet-draw-draw-rectangle', label: 'R', title: 'Ve vung hinh chu nhat' },
-      { selector: '.leaflet-draw-edit-edit', label: 'E', title: 'Chinh sua AOI' },
-      { selector: '.leaflet-draw-edit-remove', label: 'X', title: 'Xoa AOI' }
+      { selector: '.leaflet-draw-draw-polygon', label: 'P', title: 'Vẽ vùng đa giác' },
+      { selector: '.leaflet-draw-draw-rectangle', label: 'R', title: 'Vẽ vùng hình chữ nhật' },
+      { selector: '.leaflet-draw-edit-edit', label: 'E', title: 'Chỉnh sửa AOI' },
+      { selector: '.leaflet-draw-edit-remove', label: 'X', title: 'Xóa AOI' }
     ];
     buttons.forEach(function (item) {
       var button = document.querySelector(item.selector);
@@ -469,6 +525,7 @@
 
   function getDateParams() {
     var params = new URLSearchParams();
+    params.set('mission', state.mission);
     if (el.dateFrom.value) {
       params.set('date_from', el.dateFrom.value);
     }
@@ -476,6 +533,21 @@
       params.set('date_to', el.dateTo.value);
     }
     params.set('granularity', el.granularity.value || 'day');
+    if (state.mission === 'gosat2_vn') {
+      if (el.productVersion.value) {
+        params.set('product_version', el.productVersion.value);
+      }
+      if (el.processingLevel.value) {
+        params.set('processing_level', el.processingLevel.value);
+      }
+      if (el.sensorName.value) {
+        params.set('sensor_name', el.sensorName.value);
+      }
+      if (el.fileSearch.value) {
+        params.set('file_name', el.fileSearch.value);
+        params.set('file_id', el.fileSearch.value);
+      }
+    }
     return params;
   }
 
@@ -504,11 +576,9 @@
 
   async function fetchJson(url, options) {
     var response = await fetch(url, options || {});
-    var payload = await response.json().catch(function () {
-      return {};
-    });
+    var payload = await response.json().catch(function () { return {}; });
     if (!response.ok) {
-      var detail = payload.detail || payload.bbox || payload.date_to || payload.date_from || 'Khong the tai du lieu.';
+      var detail = payload.detail || payload.bbox || payload.date_to || payload.date_from || payload.mission || 'Không thể tải dữ liệu.';
       if (typeof detail === 'object') {
         detail = Object.values(detail).join(' ');
       }
@@ -542,14 +612,14 @@
         },
         body: JSON.stringify(getCurrentAoiGeoJSON())
       });
-      el.mapScope.textContent = 'AOI dang chon';
+      el.mapScope.textContent = 'AOI đang chọn';
       el.mapScope.className = 'label label-success';
     } else {
       addBoundsParams(params);
       payload = await fetchJson(urls.summary + '?' + params.toString(), {
         headers: { Accept: 'application/json' }
       });
-      el.mapScope.textContent = 'Khung nhin hien tai';
+      el.mapScope.textContent = 'Khung nhìn hiện tại';
       el.mapScope.className = 'label label-info';
     }
     renderSummary(payload);
@@ -564,7 +634,7 @@
     try {
       await Promise.all([loadPoints(), loadReport()]);
     } catch (error) {
-      showError(error.message || 'Co loi khi tai du lieu.');
+      showError(error.message || 'Có lỗi khi tải dữ liệu.');
     } finally {
       setLoading(false);
     }
@@ -582,6 +652,20 @@
   }
 
   function renderTable(payload) {
+    var definition = getMissionDefinition();
+    var columns = definition.tableColumns.slice();
+    columns.push({
+      label: '',
+      render: function (feature) {
+        return '<button type="button" class="ct-link-button" data-action="detail" data-id="' +
+          escapeHtml(feature.properties.record_id) + '">Mở chi tiết</button>';
+      }
+    });
+    el.tableHead.innerHTML = '<tr>' + columns.map(function (column) {
+      return '<th>' + escapeHtml(column.label) + '</th>';
+    }).join('') + '</tr>';
+    el.tableSubtitle.textContent = definition.tableSubtitle;
+
     var features = payload.features || [];
     var total = Number(payload.count || 0);
     var page = Number(payload.page || 1);
@@ -599,88 +683,98 @@
     el.nextPage.disabled = page >= totalPages || total === 0;
 
     if (!features.length) {
-      el.tableBody.innerHTML = '<tr><td colspan="8" class="text-muted text-center">Khong co du lieu trong pham vi loc</td></tr>';
+      el.tableBody.innerHTML = '<tr><td colspan="' + columns.length + '" class="text-muted text-center">Không có dữ liệu trong phạm vi lọc</td></tr>';
       return;
     }
 
     el.tableBody.innerHTML = features.map(function (feature) {
-      var props = feature.properties || {};
       var featureId = normalizeFeatureId(feature);
       return '<tr class="ct-table-row" data-id="' + escapeHtml(featureId) + '">' +
-        '<td>' + escapeHtml(featureId) + '</td>' +
-        '<td>' + escapeHtml(formatDateTime(props.acquisition_time)) + '</td>' +
-        '<td>' + escapeHtml(formatNumber(props.xco2, 2)) + '</td>' +
-        '<td>' + escapeHtml(formatNumber(props.xco2_uncertainty, 2)) + '</td>' +
-        '<td>' + buildQualityBadge(props.xco2_quality_flag) + '</td>' +
-        '<td title="' + escapeHtml(props.source_file || '-') + '">' + escapeHtml(shortLabel(shortFileName(props.source_file), 30)) + '</td>' +
-        '<td title="' + escapeHtml(props.source_folder || '-') + '">' + escapeHtml(shortLabel(props.source_folder || '-', 26)) + '</td>' +
-        '<td><button type="button" class="ct-link-button" data-file-detail="' + escapeHtml(featureId) + '">Mo file</button></td>' +
+        columns.map(function (column) {
+          return '<td>' + column.render(feature) + '</td>';
+        }).join('') +
       '</tr>';
     }).join('');
 
     Array.prototype.forEach.call(el.tableBody.querySelectorAll('.ct-table-row'), function (row) {
       row.addEventListener('click', function (event) {
-        if (event.target && event.target.matches('[data-file-detail]')) {
+        var actionButton = event.target.closest('[data-action="detail"]');
+        if (actionButton) {
+          event.stopPropagation();
+          openFileDetail(actionButton.getAttribute('data-id'));
           return;
         }
         focusFeature(row.getAttribute('data-id'));
       });
     });
-
-    Array.prototype.forEach.call(el.tableBody.querySelectorAll('[data-file-detail]'), function (button) {
-      button.addEventListener('click', function (event) {
-        event.stopPropagation();
-        openFileDetail(button.getAttribute('data-file-detail'));
-      });
-    });
-
-    if (state.activeFeatureId) {
-      var activeRow = el.tableBody.querySelector('tr[data-id="' + state.activeFeatureId + '"]');
-      if (activeRow) {
-        activeRow.classList.add('is-active');
-      }
-    }
   }
 
   function renderSummary(payload) {
     var summary = payload.summary || {};
     el.summaryCount.textContent = formatInteger(summary.total_records);
-    el.summaryCountSub.textContent = state.activeAoiLayer ? 'Tong trong AOI' : 'Tong trong khung nhin';
+    el.summaryCountSub.textContent = payload.mission === 'gosat2_vn'
+      ? 'Sounding trong vùng phân tích'
+      : 'Điểm đo trong vùng phân tích';
     el.summaryAvg.textContent = formatNumber(summary.xco2_avg, 2);
-    el.summaryRangeValue.textContent = formatNumber(summary.xco2_min, 2) + ' - ' + formatNumber(summary.xco2_max, 2);
-    el.summaryRangeSub.textContent = 'Do lech chuan ' + formatNumber(summary.xco2_stddev, 2);
+    el.summaryRangeValue.textContent =
+      summary.xco2_min !== null && summary.xco2_max !== null
+        ? formatNumber(summary.xco2_min, 2) + ' - ' + formatNumber(summary.xco2_max, 2)
+        : '-';
+    el.summaryRangeSub.textContent = 'StdDev ' + formatNumber(summary.xco2_stddev, 2);
     el.summaryUncertainty.textContent = formatNumber(summary.uncertainty_avg, 2);
-    el.summaryUncertaintySub.textContent = summary.uncertainty_max !== null && summary.uncertainty_max !== undefined
-      ? 'San sang ' + formatPercent(summary.uncertainty_known_ratio) + ', lon nhat ' + formatNumber(summary.uncertainty_max, 2)
-      : 'Khong co uncertainty';
+    el.summaryUncertaintySub.textContent =
+      summary.uncertainty_max !== null && summary.uncertainty_max !== undefined
+        ? 'Lớn nhất ' + formatNumber(summary.uncertainty_max, 2)
+        : 'Không có uncertainty';
     el.summaryQualityRatio.textContent = formatPercent(summary.quality_good_ratio);
-    el.summaryFiles.textContent = formatInteger(summary.unique_source_files);
-    el.summaryFolders.textContent = formatInteger(summary.unique_source_folders) + ' thu muc nguon';
-    // el.summaryMetadata.textContent = formatPercent(((summary.operation_mode_known_ratio || 0) + (summary.orbit_known_ratio || 0)) / 2);
-    // el.summaryMetadataSub.textContent = 'Mode ' + formatPercent(summary.operation_mode_known_ratio) + ' | Orbit ' + formatPercent(summary.orbit_known_ratio);
+    if (payload.mission === 'gosat2_vn') {
+      el.summaryFiles.textContent = formatInteger(summary.unique_products || summary.unique_source_files);
+      el.summaryFilesSub.textContent = formatInteger(summary.unique_source_files) + ' file, ' +
+        formatInteger(summary.unique_product_versions) + ' version';
+    } else {
+      el.summaryFiles.textContent = formatInteger(summary.unique_source_files);
+      el.summaryFilesSub.textContent = formatInteger(summary.unique_source_folders) + ' thư mục nguồn';
+    }
     el.summaryDays.textContent = formatInteger(summary.active_days);
     el.summaryRange.textContent = formatDate(summary.first_acquisition_time) + ' - ' + formatDate(summary.latest_acquisition_time);
+    el.sourceChartTitle.textContent = (payload.ui_context && payload.ui_context.source_chart_title) || 'Nguồn dữ liệu chi phối';
   }
 
   function renderTimeUtility(payload) {
     var summary = payload.summary || {};
-    el.timeFirst.textContent = formatDateTime(summary.first_acquisition_time);
-    el.timeLatest.textContent = formatDateTime(summary.latest_acquisition_time);
-    el.timeDays.textContent = formatInteger(summary.active_days);
-    el.latRange.textContent = summary.latitude_min !== null && summary.latitude_max !== null
-      ? formatNumber(summary.latitude_min, 4) + ' -> ' + formatNumber(summary.latitude_max, 4)
-      : '-';
-    el.lngRange.textContent = summary.longitude_min !== null && summary.longitude_max !== null
-      ? formatNumber(summary.longitude_min, 4) + ' -> ' + formatNumber(summary.longitude_max, 4)
-      : '-';
-
-    var rows = payload.top_days || [];
-    if (!rows.length) {
-      el.topDays.innerHTML = '<li class="ct-empty">Chua co du lieu</li>';
+    var rows = [
+      kvRow('Thời điểm sớm nhất', formatDateTime(summary.first_acquisition_time)),
+      kvRow('Thời điểm mới nhất', formatDateTime(summary.latest_acquisition_time)),
+      kvRow('Số ngày có dữ liệu', formatInteger(summary.active_days)),
+      kvRow(
+        'Vĩ độ phủ',
+        summary.latitude_min !== null && summary.latitude_max !== null
+          ? formatNumber(summary.latitude_min, 4) + ' -> ' + formatNumber(summary.latitude_max, 4)
+          : '-'
+      ),
+      kvRow(
+        'Kinh độ phủ',
+        summary.longitude_min !== null && summary.longitude_max !== null
+          ? formatNumber(summary.longitude_min, 4) + ' -> ' + formatNumber(summary.longitude_max, 4)
+          : '-'
+      )
+    ];
+    if (payload.mission === 'gosat2_vn') {
+      rows.push(kvRow('Sensor hiện diện', formatInteger(summary.unique_sensors)));
+      rows.push(kvRow('Processing level', formatInteger(summary.unique_processing_levels)));
     } else {
-      el.topDays.innerHTML = rows.map(function (row) {
+      rows.push(kvRow('Orbit khác nhau', formatInteger(summary.unique_orbits)));
+      rows.push(kvRow('Operation mode', formatInteger(summary.unique_operation_modes)));
+    }
+    el.timeGrid.innerHTML = rows.join('');
+
+    var topDays = payload.top_days || [];
+    if (!topDays.length) {
+      el.topDays.innerHTML = '<li class="ct-empty">Chưa có dữ liệu</li>';
+    } else {
+      el.topDays.innerHTML = topDays.map(function (row) {
         return '<li><strong>' + escapeHtml(formatDate(row.date)) + '</strong>: ' +
-          escapeHtml(formatInteger(row.count)) + ' diem, XCO2 TB ' +
+          escapeHtml(formatInteger(row.count)) + ' quan sát, XCO2 TB ' +
           escapeHtml(formatNumber(row.xco2_avg, 2)) +
           ', uncertainty TB ' + escapeHtml(formatNumber(row.uncertainty_avg, 2)) +
           '</li>';
@@ -688,33 +782,87 @@
     }
   }
 
+  function kvRow(label, value) {
+    return '<div class="ct-kv"><span>' + escapeHtml(label) + '</span><span>' + escapeHtml(value) + '</span></div>';
+  }
+
   function renderInsights(payload) {
     var summary = payload.summary || {};
     var insights = payload.insights || {};
-    var sourceFolders = payload.source_folders || [];
-    el.insightUncertainty.textContent = formatInteger(summary.uncertainty_known_count) +
-      ' / ' + formatInteger(summary.total_records) + ' (' + formatPercent(summary.uncertainty_known_ratio) + ')';
-    el.insightQualityReady.textContent = formatInteger(summary.quality_known_count) +
-      ' / ' + formatInteger(summary.total_records) + ' (' + formatPercent(summary.total_records ? ((summary.quality_known_count || 0) / summary.total_records) * 100 : null) + ')';
-    el.insightSource.textContent = insights.dominant_source_file
-      ? shortLabel(shortFileName(insights.dominant_source_file.source_file), 28) + ' (' + formatInteger(insights.dominant_source_file.count) + ')'
-      : '-';
-    el.insightFolder.textContent = insights.dominant_source_folder
-      ? shortLabel(insights.dominant_source_folder.source_folder, 28) + ' (' + formatInteger(insights.dominant_source_folder.count) + ')'
-      : '-';
-    el.insightMetadata.textContent =
-      'Mode ' + formatInteger(summary.operation_mode_known_count) +
-      ', Orbit ' + formatInteger(summary.orbit_known_count);
+    var rows = [
+      kvRow(
+        'Tỷ lệ quality tốt',
+        formatInteger(summary.quality_good_count) + ' / ' +
+          formatInteger(summary.quality_known_count) + ' (' + formatPercent(summary.quality_good_ratio) + ')'
+      ),
+      kvRow(
+        'Nguồn chi phối',
+        insights.dominant_source
+          ? shortLabel(insights.dominant_source.label, 32) + ' (' + formatInteger(insights.dominant_source.count) + ')'
+          : '-'
+      ),
+      kvRow(
+        payload.mission === 'gosat2_vn' ? 'Processing level nổi bật' : 'Thư mục nguồn nổi bật',
+        insights.secondary_focus
+          ? shortLabel(insights.secondary_focus.label, 32) + ' (' + formatInteger(insights.secondary_focus.count) + ')'
+          : '-'
+      )
+    ];
+    if (payload.mission === 'gosat2_vn') {
+      rows.push(kvRow(
+        'Retrieval sẵn sàng',
+        formatInteger(summary.retrieval_known_count) + ' / ' + formatInteger(summary.total_records) +
+          ' (' + formatPercent(summary.retrieval_known_ratio) + ')'
+      ));
+      rows.push(kvRow(
+        'Cloud + L1 quality',
+        'Cloud ' + formatPercent(summary.cloud_known_ratio) + ' | L1 ' + formatPercent(summary.l1_known_ratio)
+      ));
+      rows.push(kvRow(
+        'Operation mode',
+        (insights.operation_modes && insights.operation_modes[0])
+          ? shortLabel(insights.operation_modes[0].label, 24) + ' (' + formatInteger(insights.operation_modes[0].count) + ')'
+          : '-'
+      ));
+    } else {
+      rows.push(kvRow(
+        'Uncertainty sẵn sàng',
+        formatInteger(summary.uncertainty_known_count) + ' / ' + formatInteger(summary.total_records) +
+          ' (' + formatPercent(summary.uncertainty_known_ratio) + ')'
+      ));
+      rows.push(kvRow(
+        'Mode / orbit',
+        'Mode ' + formatInteger((insights.metadata_readiness || {}).mode_known_count || 0) +
+          ' | Orbit ' + formatInteger((insights.metadata_readiness || {}).orbit_known_count || 0)
+      ));
+      rows.push(kvRow(
+        'Operation mode nổi bật',
+        (insights.operation_modes && insights.operation_modes[0])
+          ? shortLabel(insights.operation_modes[0].label, 24) + ' (' + formatInteger(insights.operation_modes[0].count) + ')'
+          : '-'
+      ));
+    }
+    el.insightGrid.innerHTML = rows.join('');
+    el.secondaryListTitle.textContent = (payload.ui_context && payload.ui_context.secondary_title) || 'Danh sách nguồn nổi bật';
+    renderSecondaryList(payload.secondary_items || [], payload.ui_context || {});
+  }
 
-    if (!sourceFolders.length) {
-      el.topFolders.innerHTML = '<li class="ct-empty">Chua co du lieu</li>';
+  function renderSecondaryList(rows, uiContext) {
+    if (!rows.length) {
+      el.secondaryList.innerHTML = '<li class="ct-empty">' + escapeHtml(uiContext.secondary_empty || 'Chưa có dữ liệu') + '</li>';
       return;
     }
-    el.topFolders.innerHTML = sourceFolders.map(function (row) {
-      return '<li><strong>' + escapeHtml(shortLabel(row.source_folder, 42)) + '</strong>: ' +
-        escapeHtml(formatInteger(row.count)) + ' diem, XCO2 TB ' +
-        escapeHtml(formatNumber(row.xco2_avg, 2)) +
-        '</li>';
+    el.secondaryList.innerHTML = rows.map(function (row) {
+      var parts = [
+        '<strong>' + escapeHtml(shortLabel(row.label, 42)) + '</strong>: ' + escapeHtml(formatInteger(row.count)) + ' quan sát'
+      ];
+      if (row.xco2_avg !== null && row.xco2_avg !== undefined) {
+        parts.push('XCO2 TB ' + escapeHtml(formatNumber(row.xco2_avg, 2)));
+      }
+      if (row.uncertainty_avg !== null && row.uncertainty_avg !== undefined) {
+        parts.push('uncertainty TB ' + escapeHtml(formatNumber(row.uncertainty_avg, 2)));
+      }
+      return '<li>' + parts.join(', ') + '</li>';
     }).join('');
   }
 
@@ -746,7 +894,7 @@
         datasets: [
           {
             type: 'bar',
-            label: 'So diem do',
+            label: 'Số quan sát',
             data: rows.map(function (row) { return row.count; }),
             backgroundColor: 'rgba(2, 132, 199, .25)',
             borderColor: '#0284c7',
@@ -754,7 +902,7 @@
           },
           {
             type: 'line',
-            label: 'XCO2 trung binh (ppm)',
+            label: 'XCO2 trung bình (ppm)',
             data: rows.map(function (row) { return row.xco2_avg; }),
             borderColor: '#1d4ed8',
             backgroundColor: 'rgba(29, 78, 216, .12)',
@@ -773,7 +921,7 @@
         scales: {
           yXco2: {
             position: 'left',
-            title: { display: true, text: 'Gia tri XCO2 / uncertainty' }
+            title: { display: true, text: 'XCO2 (ppm)' }
           },
           yCount: {
             position: 'right',
@@ -798,7 +946,7 @@
         datasets: [
           {
             type: 'line',
-            label: 'Uncertainty trung binh',
+            label: 'Uncertainty trung bình',
             data: rows.map(function (row) { return row.uncertainty_avg; }),
             borderColor: '#d97706',
             backgroundColor: 'rgba(217, 119, 6, .15)',
@@ -809,7 +957,7 @@
           },
           {
             type: 'bar',
-            label: 'Ti le quality tot (%)',
+            label: 'Tỷ lệ quality tốt (%)',
             data: rows.map(function (row) { return row.quality_good_ratio; }),
             backgroundColor: 'rgba(22, 163, 74, .18)',
             borderColor: '#16a34a',
@@ -833,7 +981,7 @@
             beginAtZero: true,
             suggestedMax: 100,
             grid: { drawOnChartArea: false },
-            title: { display: true, text: 'Ti le quality tot (%)' }
+            title: { display: true, text: 'Quality tốt (%)' }
           }
         }
       }
@@ -851,7 +999,7 @@
       data: {
         labels: histogram.labels || [],
         datasets: [{
-          label: histogram.sampled ? 'So diem do (mau)' : 'So diem do',
+          label: histogram.sampled ? 'Số quan sát (mẫu)' : 'Số quan sát',
           data: histogram.values || [],
           backgroundColor: '#f59e0b',
           borderColor: '#d97706',
@@ -899,9 +1047,9 @@
     state.charts.sources = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: rows.map(function (row) { return shortLabel(shortFileName(row.source_file), 24); }),
+        labels: rows.map(function (row) { return shortLabel(shortFileName(row.label), 24); }),
         datasets: [{
-          label: 'So diem do',
+          label: 'Số quan sát',
           data: rows.map(function (row) { return row.count; }),
           backgroundColor: '#334155',
           borderColor: '#1e293b',
@@ -929,10 +1077,10 @@
       data: {
         labels: rows.map(function (row) { return row.label; }),
         datasets: [{
-          label: 'Ti le san sang (%)',
+          label: 'Tỷ lệ sẵn sàng (%)',
           data: rows.map(function (row) { return row.ratio; }),
-          backgroundColor: ['#d97706', '#16a34a', '#94a3b8', '#94a3b8'],
-          borderColor: ['#b45309', '#15803d', '#64748b', '#64748b'],
+          backgroundColor: ['#d97706', '#16a34a', '#0f766e', '#1d4ed8', '#94a3b8', '#7c3aed'],
+          borderColor: ['#b45309', '#15803d', '#115e59', '#1e40af', '#64748b', '#6d28d9'],
           borderWidth: 1
         }]
       },
@@ -960,8 +1108,13 @@
     return year + '-' + month + '-' + day;
   }
 
+  function getMissionOverview() {
+    return (missionPayload.overviews && missionPayload.overviews[state.mission]) || {};
+  }
+
   function setQuickRange(days) {
-    var anchor = app.dataset.latestDate ? new Date(app.dataset.latestDate + 'T00:00:00') : new Date();
+    var overview = getMissionOverview();
+    var anchor = overview.latest_date_value ? new Date(overview.latest_date_value + 'T00:00:00') : new Date();
     var from = new Date(anchor.getTime());
     from.setDate(anchor.getDate() - Number(days) + 1);
     el.dateFrom.value = toInputDate(from);
@@ -970,17 +1123,22 @@
     refreshAll();
   }
 
-  function initializeDefaultDateRange() {
-    if (el.dateFrom.value || !el.dateTo.value) {
+  function initializeDefaultDateRange(force) {
+    var overview = getMissionOverview();
+    if (!force && (el.dateFrom.value || el.dateTo.value)) {
       return;
     }
-    var anchor = new Date(el.dateTo.value + 'T00:00:00');
+    if (!overview.latest_date_value) {
+      return;
+    }
+    var anchor = new Date(overview.latest_date_value + 'T00:00:00');
     if (Number.isNaN(anchor.getTime())) {
       return;
     }
     var from = new Date(anchor.getTime());
     from.setDate(anchor.getDate() - 29);
     el.dateFrom.value = toInputDate(from);
+    el.dateTo.value = toInputDate(anchor);
   }
 
   function openModal() {
@@ -995,7 +1153,7 @@
 
   function buildTableFromRows(rows, headings) {
     if (!rows.length) {
-      return '<div class="ct-empty">Khong co du lieu.</div>';
+      return '<div class="ct-empty">Không có dữ liệu.</div>';
     }
     return '<table class="ct-meta-table"><thead><tr>' +
       headings.map(function (heading) { return '<th>' + escapeHtml(heading) + '</th>'; }).join('') +
@@ -1004,12 +1162,21 @@
       '</tbody></table>';
   }
 
+  function buildKeyValueTable(items) {
+    return buildTableFromRows(
+      items.map(function (item) {
+        return '<tr><td>' + escapeHtml(item.label) + '</td><td>' + escapeHtml(formatPlainValue(item.value)) + '</td></tr>';
+      }),
+      ['Trường', 'Giá trị']
+    );
+  }
+
   function buildAttrTable(rows) {
     return buildTableFromRows(
       (rows || []).map(function (row) {
         return '<tr><td>' + escapeHtml(row.key) + '</td><td>' + escapeHtml(formatPlainValue(row.value)) + '</td></tr>';
       }),
-      ['Thuoc tinh', 'Gia tri']
+      ['Thuộc tính', 'Giá trị']
     );
   }
 
@@ -1027,66 +1194,89 @@
           }).join(' | ') || '-') + '</td>' +
         '</tr>';
       }),
-      ['Ten', 'Kieu', 'Dims', 'Shape', 'So phan tu', 'Attrs chinh']
+      ['Tên', 'Kiểu', 'Dims', 'Shape', 'Số phần tử', 'Attrs chính']
     );
   }
 
-  async function openFileDetail(soundingId) {
-    if (!soundingId) {
+  function buildCatalogTable(rows) {
+    return buildTableFromRows(
+      (rows || []).map(function (row) {
+        return '<tr>' +
+          '<td>' + escapeHtml(row.dataset_name || '-') + '</td>' +
+          '<td>' + escapeHtml(row.h5_group || '-') + '</td>' +
+          '<td>' + escapeHtml(row.shape || '-') + '</td>' +
+          '<td>' + escapeHtml(row.dtype || '-') + '</td>' +
+          '<td>' + escapeHtml(row.unit || '-') + '</td>' +
+        '</tr>';
+      }),
+      ['Dataset', 'Group', 'Shape', 'Dtype', 'Unit']
+    );
+  }
+
+  async function openFileDetail(recordId) {
+    if (!recordId) {
       return;
     }
     openModal();
-    el.fileModalSubtitle.textContent = 'Dang doc file nguon cho ban ghi ' + soundingId;
-    el.fileModalBody.innerHTML = '<div class="ct-empty">Dang mo file .nc4 bang xarray...</div>';
+    el.fileModalTitle.textContent = 'Chi tiết file nguồn';
+    el.fileModalSubtitle.textContent = 'Đang tải chi tiết cho bản ghi ' + recordId;
+    el.fileModalBody.innerHTML = '<div class="ct-empty">Đang mở file nguồn...</div>';
 
     try {
-      var url = urls.fileDetailTemplate.replace('/0/', '/' + encodeURIComponent(soundingId) + '/');
-      var payload = await fetchJson(url, {
+      var url = urls.fileDetailTemplate.replace('/0/', '/' + encodeURIComponent(recordId) + '/');
+      var payload = await fetchJson(url + '?mission=' + encodeURIComponent(state.mission), {
         headers: { Accept: 'application/json' }
       });
       renderFileModal(payload);
     } catch (error) {
-      el.fileModalBody.innerHTML = '<div class="alert alert-danger">Khong the doc file: ' + escapeHtml(error.message || 'Unknown error') + '</div>';
+      el.fileModalBody.innerHTML = '<div class="alert alert-danger">Không thể đọc file: ' +
+        escapeHtml(error.message || 'Unknown error') + '</div>';
     }
   }
 
   function renderFileModal(payload) {
+    if (payload.mission === 'gosat2_vn') {
+      renderGosatModal(payload);
+      return;
+    }
+    renderOco2Modal(payload);
+  }
+
+  function renderOco2Modal(payload) {
     var record = payload.record || {};
     var fileInfo = payload.file || {};
     var dataset = payload.dataset || {};
-    el.fileModalTitle.textContent = 'Chi tiet file nguon .nc4';
+    el.fileModalTitle.textContent = 'Chi tiết file nguồn .nc4';
     el.fileModalSubtitle.textContent = shortFileName(fileInfo.name || record.source_file || '-') + ' | ID ' + formatPlainValue(record.sounding_id);
 
-    var recordRows = [
-      '<tr><td>ID</td><td>' + escapeHtml(formatPlainValue(record.sounding_id)) + '</td></tr>',
-      '<tr><td>Thoi gian</td><td>' + escapeHtml(formatDateTime(record.acquisition_time)) + '</td></tr>',
-      '<tr><td>XCO2</td><td>' + escapeHtml(formatNumber(record.xco2, 2)) + ' ppm</td></tr>',
-      '<tr><td>Uncertainty</td><td>' + escapeHtml(formatNumber(record.xco2_uncertainty, 2)) + '</td></tr>',
-      '<tr><td>Quality flag</td><td>' + escapeHtml(formatQualityFlag(record.xco2_quality_flag)) + '</td></tr>',
-      '<tr><td>Operation mode</td><td>' + escapeHtml(formatPlainValue(record.operation_mode)) + '</td></tr>',
-      '<tr><td>Orbit</td><td>' + escapeHtml(formatPlainValue(record.orbit)) + '</td></tr>',
-      '<tr><td>Vi do / Kinh do</td><td>' + escapeHtml(formatNumber(record.latitude, 5)) + ' / ' + escapeHtml(formatNumber(record.longitude, 5)) + '</td></tr>'
+    var recordItems = [
+      { label: 'ID', value: record.sounding_id },
+      { label: 'Thời gian', value: formatDateTime(record.acquisition_time) },
+      { label: 'XCO2', value: formatNumber(record.xco2, 2) + ' ppm' },
+      { label: 'Uncertainty', value: formatNumber(record.xco2_uncertainty, 2) },
+      { label: 'Quality flag', value: formatQualityFlag(record.xco2_quality_flag) },
+      { label: 'Operation mode', value: record.operation_mode },
+      { label: 'Orbit', value: record.orbit },
+      { label: 'Vĩ độ / Kinh độ', value: formatNumber(record.latitude, 5) + ' / ' + formatNumber(record.longitude, 5) }
     ];
-
-    var fileRows = [
-      '<tr><td>Duong dan file</td><td>' + escapeHtml(formatPlainValue(fileInfo.resolved_path)) + '</td></tr>',
-      '<tr><td>Kich thuoc</td><td>' + escapeHtml(formatInteger(fileInfo.size_bytes)) + ' bytes</td></tr>',
-      '<tr><td>Cap nhat file</td><td>' + escapeHtml(formatDateTime(fileInfo.modified_at)) + '</td></tr>',
-      '<tr><td>Source folder</td><td>' + escapeHtml(formatPlainValue(record.source_folder)) + '</td></tr>',
-      '<tr><td>Dimensions</td><td>' + escapeHtml((dataset.dims || []).map(function (row) {
-        return row.name + ': ' + formatInteger(row.size);
-      }).join(' | ') || '-') + '</td></tr>'
+    var fileItems = [
+      { label: 'Đường dẫn file', value: fileInfo.resolved_path || 'Không tìm thấy trên máy chủ' },
+      { label: 'Tồn tại trên máy chủ', value: fileInfo.exists ? 'Có' : 'Không' },
+      { label: 'Kích thước', value: fileInfo.size_bytes ? formatInteger(fileInfo.size_bytes) + ' bytes' : '-' },
+      { label: 'Cập nhật file', value: formatDateTime(fileInfo.modified_at) },
+      { label: 'Engine xarray', value: fileInfo.xarray_engine || '-' }
     ];
-
-    var rawMetadataText = record.raw_metadata
-      ? JSON.stringify(record.raw_metadata, null, 2)
-      : 'Khong co raw_metadata';
+    var rawMetadataText = record.raw_metadata ? JSON.stringify(record.raw_metadata, null, 2) : 'Không có raw_metadata';
+    var errorBlock = payload.dataset_error
+      ? '<div class="alert alert-warning">' + escapeHtml(payload.dataset_error) + '</div>'
+      : '';
 
     el.fileModalBody.innerHTML =
+      errorBlock +
       '<div class="ct-modal-section">' +
         '<div class="ct-modal-grid">' +
-          '<div><h6>Thong tin ban ghi</h6>' + buildTableFromRows(recordRows, ['Truong', 'Gia tri']) + '</div>' +
-          '<div><h6>Thong tin tep</h6>' + buildTableFromRows(fileRows, ['Truong', 'Gia tri']) + '</div>' +
+          '<div><h6>Thông tin bản ghi</h6>' + buildKeyValueTable(recordItems) + '</div>' +
+          '<div><h6>Thông tin tệp</h6>' + buildKeyValueTable(fileItems) + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="ct-modal-section">' +
@@ -1105,6 +1295,163 @@
       '</div>';
   }
 
+  function renderGosatModal(payload) {
+    var record = payload.record || {};
+    var product = payload.product || {};
+    var retrieval = payload.retrieval || {};
+    var quality = payload.quality || {};
+    var fileInfo = payload.file || {};
+    var catalog = payload.catalog || {};
+    var h5Preview = payload.h5_preview || {};
+    el.fileModalTitle.textContent = 'Chi tiết product / file H5';
+    el.fileModalSubtitle.textContent = shortFileName(product.file_name || fileInfo.name || '-') + ' | ' + formatPlainValue(record.display_id);
+
+    var recordItems = [
+      { label: 'Sounding', value: record.display_id },
+      { label: 'Observation request ID', value: record.observation_request_id },
+      { label: 'Thời gian', value: formatDateTime(record.observation_time) },
+      { label: 'Vĩ độ / Kinh độ', value: formatNumber(record.latitude, 5) + ' / ' + formatNumber(record.longitude, 5) },
+      { label: 'Operation mode', value: record.operation_mode },
+      { label: 'Sunglint flag', value: record.sunglint_flag },
+      { label: 'Solar zenith', value: formatNumber(record.solar_zenith, 2) },
+      { label: 'View zenith', value: formatNumber(record.view_zenith, 2) }
+    ];
+    var productItems = [
+      { label: 'File name', value: product.file_name },
+      { label: 'File ID', value: product.file_id },
+      { label: 'Sensor', value: product.sensor_name },
+      { label: 'Processing level', value: product.processing_level },
+      { label: 'Product version', value: product.product_version },
+      { label: 'Algorithm version', value: product.algorithm_version },
+      { label: 'Time coverage', value: formatDateTime(product.start_date) + ' -> ' + formatDateTime(product.end_date) },
+      { label: 'Num sounding', value: product.num_sounding }
+    ];
+    var retrievalItems = [
+      { label: 'XCO2', value: formatNumber(retrieval.xco2, 2) + ' ppm' },
+      { label: 'XCO2 uncertainty', value: formatNumber(retrieval.xco2_uncertainty, 2) },
+      { label: 'XCO2 quality flag', value: formatQualityFlag(retrieval.xco2_quality_flag) },
+      { label: 'XCH4', value: formatNumber(retrieval.xch4, 2) },
+      { label: 'XCO', value: formatNumber(retrieval.xco, 2) },
+      { label: 'XH2O', value: formatNumber(retrieval.xh2o, 2) },
+      { label: 'Surface pressure', value: formatNumber(retrieval.surface_pressure, 2) },
+      { label: 'Wind speed', value: formatNumber(retrieval.wind_speed, 2) }
+    ];
+    var qualityItems = [
+      { label: 'Cloud info sẵn sàng', value: quality.related_counts && quality.related_counts.cloud_present ? 'Có' : 'Không' },
+      { label: 'L1 quality sẵn sàng', value: quality.related_counts && quality.related_counts.l1_summary_present ? 'Có' : 'Không' },
+      { label: 'CO2 ratio', value: formatNumber((quality.cloud_information || {}).co2_ratio, 3) },
+      { label: 'H2O ratio', value: formatNumber((quality.cloud_information || {}).h2o_ratio, 3) },
+      { label: 'Surface pressure delta', value: formatNumber((quality.cloud_information || {}).surface_pressure_delta, 3) },
+      { label: 'Sounding quality flag', value: formatPlainValue((quality.l1_quality_summary || {}).sounding_quality_flag) },
+      { label: 'Scan stability', value: formatPlainValue((quality.l1_quality_summary || {}).scan_stability_flag) },
+      { label: 'IMC stability', value: formatPlainValue((quality.l1_quality_summary || {}).imc_stability_flag) }
+    ];
+    var fileItems = [
+      { label: 'Đường dẫn file', value: fileInfo.resolved_path || product.file_path || 'Không tìm thấy trên máy chủ' },
+      { label: 'Tồn tại trên máy chủ', value: fileInfo.exists ? 'Có' : 'Không' },
+      { label: 'Kích thước', value: fileInfo.size_bytes ? formatInteger(fileInfo.size_bytes) + ' bytes' : '-' },
+      { label: 'Cập nhật file', value: formatDateTime(fileInfo.modified_at) },
+      { label: 'Catalog rows', value: formatInteger(catalog.count) }
+    ];
+    var metadataText = product.metadata_json ? JSON.stringify(product.metadata_json, null, 2) : 'Không có metadata_json';
+    var h5PreviewHtml = h5Preview.top_level_items
+      ? buildTableFromRows(
+          h5Preview.top_level_items.map(function (row) {
+            return '<tr><td>' + escapeHtml(row.name) + '</td><td>' + escapeHtml(row.type) + '</td><td>' + escapeHtml(row.shape || '-') + '</td></tr>';
+          }),
+          ['Tên', 'Loại', 'Shape']
+        )
+      : '<div class="ct-empty">Không có H5 preview.</div>';
+    var errorBlock = payload.dataset_error
+      ? '<div class="alert alert-warning">' + escapeHtml(payload.dataset_error) + '</div>'
+      : '';
+
+    el.fileModalBody.innerHTML =
+      errorBlock +
+      '<div class="ct-modal-section">' +
+        '<div class="ct-modal-grid">' +
+          '<div><h6>Sounding summary</h6>' + buildKeyValueTable(recordItems) + '</div>' +
+          '<div><h6>Product metadata</h6>' + buildKeyValueTable(productItems) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ct-modal-section">' +
+        '<div class="ct-modal-grid">' +
+          '<div><h6>Retrieval summary</h6>' + buildKeyValueTable(retrievalItems) + '</div>' +
+          '<div><h6>Cloud / L1 quality</h6>' + buildKeyValueTable(qualityItems) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ct-modal-section">' +
+        '<div class="ct-modal-grid">' +
+          '<div><h6>Thông tin file H5</h6>' + buildKeyValueTable(fileItems) + '</div>' +
+          '<div><h6>Metadata JSON</h6><pre class="ct-pre">' + escapeHtml(metadataText) + '</pre></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ct-modal-section">' +
+        '<h6>H5 dataset catalog</h6>' +
+        buildCatalogTable(catalog.items || []) +
+      '</div>' +
+      '<div class="ct-modal-section">' +
+        '<div class="ct-modal-grid">' +
+          '<div><h6>Top-level H5 items</h6>' + h5PreviewHtml + '</div>' +
+          '<div><h6>H5 attributes</h6>' + buildAttrTable(h5Preview.attributes || []) + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function buildMissionSwitcher() {
+    var missions = missionPayload.missions || [];
+    el.missionSwitcher.innerHTML = missions.map(function (mission) {
+      return '<button type="button" class="btn btn-default' + (mission.key === state.mission ? ' is-active' : '') +
+        '" data-mission="' + escapeHtml(mission.key) + '">' + escapeHtml(mission.label) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(el.missionSwitcher.querySelectorAll('[data-mission]'), function (button) {
+      button.addEventListener('click', function () {
+        var missionKey = button.getAttribute('data-mission');
+        if (missionKey === state.mission) {
+          return;
+        }
+        switchMission(missionKey);
+      });
+    });
+  }
+
+  function updateScopedFields() {
+    Array.prototype.forEach.call(el.scopedFields, function (field) {
+      field.dataset.visible = field.getAttribute('data-scope') === state.mission ? 'true' : 'false';
+    });
+    if (state.mission !== 'gosat2_vn') {
+      el.productVersion.value = '';
+      el.processingLevel.value = '';
+      el.sensorName.value = '';
+      el.fileSearch.value = '';
+    }
+  }
+
+  function updateMissionHeader() {
+    var definition = getMissionDefinition();
+    var overview = getMissionOverview();
+    el.missionTitle.textContent = definition.label;
+    el.overviewTotal.textContent = formatInteger(overview.total_records || 0);
+    if (state.mission === 'gosat2_vn') {
+      el.missionDescription.textContent =
+        'Tập trung vào sounding GOSAT-2 trong phạm vi Việt Nam, ưu tiên XCO2, uncertainty, chất lượng retrieval và drill-down theo product/file.';
+    } else {
+      el.missionDescription.textContent =
+        'Theo dõi XCO2 OCO-2 tại Việt Nam, kiểm tra chất lượng quan sát, gom thống kê theo AOI và xem nhanh cấu trúc file .nc4 nguồn.';
+    }
+  }
+
+  function switchMission(missionKey) {
+    state.mission = missionKey;
+    state.page = 1;
+    clearActiveFeature();
+    buildMissionSwitcher();
+    updateScopedFields();
+    updateMissionHeader();
+    initializeDefaultDateRange(true);
+    refreshAll();
+  }
+
   el.refresh.addEventListener('click', function () {
     state.page = 1;
     refreshAll();
@@ -1116,7 +1463,7 @@
       clearError();
       setLoading(true);
       loadPoints().catch(function (error) {
-        showError(error.message || 'Co loi khi tai du lieu.');
+        showError(error.message || 'Có lỗi khi tải dữ liệu.');
       }).finally(function () {
         setLoading(false);
       });
@@ -1129,20 +1476,20 @@
     setLoading(true);
     loadPoints().catch(function (error) {
       state.page -= 1;
-      showError(error.message || 'Co loi khi tai du lieu.');
+      showError(error.message || 'Có lỗi khi tải dữ liệu.');
     }).finally(function () {
       setLoading(false);
     });
   });
 
-  el.pageSize.addEventListener('change', function () {
-    state.page = 1;
-    refreshAll();
-  });
-
-  el.granularity.addEventListener('change', function () {
-    state.page = 1;
-    refreshAll();
+  [el.pageSize, el.granularity, el.productVersion, el.processingLevel, el.sensorName, el.fileSearch].forEach(function (node) {
+    if (!node) {
+      return;
+    }
+    node.addEventListener('change', function () {
+      state.page = 1;
+      refreshAll();
+    });
   });
 
   el.clearAoi.addEventListener('click', function () {
@@ -1173,7 +1520,10 @@
     }
   });
 
-  initializeDefaultDateRange();
+  buildMissionSwitcher();
+  updateScopedFields();
+  updateMissionHeader();
+  initializeDefaultDateRange(true);
 
   map.whenReady(function () {
     window.setTimeout(function () {

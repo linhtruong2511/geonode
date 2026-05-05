@@ -11,19 +11,34 @@
   }
   .ct-header {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
+    align-items: flex-start;
     margin-bottom: 14px;
   }
   .ct-header h4 {
-    margin: 0 0 4px;
+    margin: 0 0 6px;
     font-weight: 700;
   }
   .ct-header p {
     margin: 0;
     color: #667085;
-    max-width: 760px;
+    max-width: 780px;
+  }
+  .ct-switcher {
+    display: inline-flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .ct-switcher button {
+    border-radius: 999px;
+    min-width: 146px;
+  }
+  .ct-switcher button.is-active {
+    background: #175cd3;
+    border-color: #175cd3;
+    color: #fff;
   }
   .ct-toolbar,
   .ct-panel,
@@ -42,12 +57,12 @@
   }
   .ct-field label {
     display: block;
+    margin-bottom: 5px;
     color: #667085;
     font-size: 12px;
     font-weight: 700;
-    letter-spacing: .03em;
-    margin-bottom: 5px;
     text-transform: uppercase;
+    letter-spacing: .03em;
   }
   .ct-field input,
   .ct-field select {
@@ -59,6 +74,12 @@
     align-items: flex-end;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .ct-field[data-scope="gosat2_vn"] {
+    display: none;
+  }
+  .ct-field[data-visible="true"] {
+    display: block;
   }
   .ct-summary-grid {
     display: grid;
@@ -78,16 +99,17 @@
     overflow-wrap: anywhere;
   }
   .ct-stat .label {
-    color: #667085;
     display: block;
+    color: #667085;
     font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
     letter-spacing: .03em;
     margin-top: 6px;
-    text-transform: uppercase;
   }
   .ct-stat .subtext {
-    color: #475467;
     display: block;
+    color: #475467;
     font-size: 12px;
     margin-top: 5px;
   }
@@ -99,7 +121,7 @@
     margin-bottom: 14px;
   }
   .ct-main-grid {
-    grid-template-columns: minmax(0, 1.35fr) minmax(430px, 1fr);
+    grid-template-columns: minmax(0, 1.35fr) minmax(450px, 1fr);
   }
   .ct-chart-grid,
   .ct-detail-grid {
@@ -109,19 +131,19 @@
     padding: 14px;
   }
   .ct-panel-header {
-    align-items: center;
     display: flex;
     justify-content: space-between;
     gap: 10px;
+    align-items: center;
     margin-bottom: 10px;
   }
   .ct-panel-title {
+    margin: 0;
     color: #344054;
     font-size: 12px;
     font-weight: 700;
-    letter-spacing: .05em;
-    margin: 0;
     text-transform: uppercase;
+    letter-spacing: .05em;
   }
   .ct-panel-subtitle {
     color: #667085;
@@ -147,16 +169,16 @@
     padding: 8px;
   }
   .ct-legend-row {
-    align-items: center;
     display: flex;
     gap: 6px;
+    align-items: center;
     margin-top: 4px;
   }
   .ct-swatch {
-    border-radius: 2px;
     display: inline-block;
-    height: 10px;
     width: 18px;
+    height: 10px;
+    border-radius: 2px;
   }
   .ct-table-wrap {
     max-height: 530px;
@@ -222,38 +244,26 @@
     text-decoration: underline;
   }
   .ct-pagination {
-    align-items: center;
     display: flex;
     justify-content: center;
     gap: 10px;
+    align-items: center;
     margin-top: 10px;
   }
   .ct-chart-panel canvas {
     height: 285px !important;
     width: 100% !important;
   }
-  .ct-panel.is-muted {
-    background: #fcfcfd;
-  }
-  .ct-placeholder {
-    align-items: center;
-    color: #667085;
-    display: flex;
-    justify-content: center;
-    min-height: 285px;
-    text-align: center;
-    padding: 24px;
-  }
   .ct-kv-grid {
     display: grid;
     gap: 8px;
   }
   .ct-kv {
-    border-bottom: 1px solid #eef2f7;
     display: flex;
     justify-content: space-between;
     gap: 12px;
     padding: 7px 0;
+    border-bottom: 1px solid #eef2f7;
   }
   .ct-kv span:first-child {
     color: #667085;
@@ -300,15 +310,13 @@
     position: relative;
   }
   .leaflet-draw-toolbar a.ct-draw-button .ct-draw-label {
-    color: #344054;
     display: block;
+    position: absolute;
+    inset: 0;
+    color: #344054;
     font-size: 11px;
     font-weight: 700;
-    left: 0;
     line-height: 30px;
-    position: absolute;
-    top: 0;
-    width: 100%;
   }
   .leaflet-draw-toolbar .leaflet-disabled .ct-draw-label {
     color: #98a2b3;
@@ -327,7 +335,7 @@
     display: flex;
   }
   .ct-modal-card {
-    width: min(1100px, 100%);
+    width: min(1120px, 100%);
     max-height: 90vh;
     overflow: hidden;
     display: flex;
@@ -375,8 +383,8 @@
     color: #344054;
     font-size: 12px;
     font-weight: 700;
-    letter-spacing: .05em;
     text-transform: uppercase;
+    letter-spacing: .05em;
   }
   .ct-modal-grid {
     display: grid;
@@ -456,20 +464,19 @@
   data-summary-url="{% url 'carbon_tracker:summary' %}"
   data-timeseries-url="{% url 'carbon_tracker:timeseries' %}"
   data-aoi-summary-url="{% url 'carbon_tracker:aoi_summary' %}"
-  data-file-detail-template="{% url 'carbon_tracker:file_detail' 0 %}"
-  data-latest-date="{{ latest_date_value }}"
-  data-vietnam-bounds="{{ vietnam_bounds }}"
+  data-file-detail-template="{% url 'carbon_tracker:file_detail' '0' %}"
 >
   <div class="ct-header">
     <div>
-      <h4>Carbon Tracker Vietnam</h4>
-      <p>
-        Màn hình phân tích một cửa cho dữ liệu OCO-2 tại Việt Nam: theo dõi XCO2,
-        kiểm tra chất lượng, đọc theo AOI và xem nhanh cấu trúc file nguồn `.nc4`.
+      <div class="ct-switcher" id="ct-mission-switcher"></div>
+      <h4 id="ct-mission-title">Carbon Tracker Vietnam</h4>
+      <p id="ct-mission-description">
+        Màn hình phân tích một cửa cho dữ liệu carbon vệ tinh tại Việt Nam: xem sounding trên bản đồ,
+        thống kê theo khung nhìn hoặc AOI, và mở chi tiết file gốc trong modal mà không phải rời màn hình.
       </p>
     </div>
     <div class="text-muted">
-      Tổng dữ liệu ước tính: <strong>{{ total_records }}</strong>
+      Tổng dữ liệu ước tính: <strong id="ct-overview-total">{{ total_records }}</strong>
     </div>
   </div>
 
@@ -500,6 +507,22 @@
         <option value="2000">2000</option>
       </select>
     </div>
+    <div class="ct-field" data-scope="gosat2_vn" id="ct-field-product-version">
+      <label for="ct-product-version">Product version</label>
+      <input id="ct-product-version" class="form-control" type="text" placeholder="Ví dụ: 210210">
+    </div>
+    <div class="ct-field" data-scope="gosat2_vn" id="ct-field-processing-level">
+      <label for="ct-processing-level">Processing level</label>
+      <input id="ct-processing-level" class="form-control" type="text" placeholder="Ví dụ: L2">
+    </div>
+    <div class="ct-field" data-scope="gosat2_vn" id="ct-field-sensor-name">
+      <label for="ct-sensor-name">Sensor</label>
+      <input id="ct-sensor-name" class="form-control" type="text" placeholder="Ví dụ: FTS-2">
+    </div>
+    <div class="ct-field" data-scope="gosat2_vn" id="ct-field-file-search">
+      <label for="ct-file-search">File ID / tên file</label>
+      <input id="ct-file-search" class="form-control" type="text" placeholder="Tìm file hoặc file ID">
+    </div>
     <div class="ct-quick-ranges">
       <button type="button" class="btn btn-default btn-sm ct-quick-range" data-days="7">7 ngày</button>
       <button type="button" class="btn btn-default btn-sm ct-quick-range" data-days="30">30 ngày</button>
@@ -518,7 +541,7 @@
   <div class="ct-summary-grid">
     <div class="ct-stat">
       <div class="value" id="ct-summary-count">0</div>
-      <span class="label">Điểm đo</span>
+      <span class="label">Số quan sát</span>
       <span class="subtext" id="ct-summary-count-sub">Theo vùng đang lọc</span>
     </div>
     <div class="ct-stat">
@@ -533,7 +556,7 @@
     </div>
     <div class="ct-stat">
       <div class="value" id="ct-summary-uncertainty">-</div>
-      <span class="label">Bất định trung bình</span>
+      <span class="label">Uncertainty trung bình</span>
       <span class="subtext" id="ct-summary-uncertainty-sub">Độ bất định đo đạc</span>
     </div>
     <div class="ct-stat">
@@ -543,14 +566,9 @@
     </div>
     <div class="ct-stat">
       <div class="value" id="ct-summary-files">0</div>
-      <span class="label">File nguồn</span>
-      <span class="subtext" id="ct-summary-folders">0 thư mục nguồn</span>
+      <span class="label">Nguồn dữ liệu</span>
+      <span class="subtext" id="ct-summary-files-sub">File / product đang chi phối</span>
     </div>
-    <!-- <div class="ct-stat">
-      <div class="value" id="ct-summary-metadata">-</div>
-      <span class="label">Metadata bổ trợ</span>
-      <span class="subtext" id="ct-summary-metadata-sub">Mode và orbit</span>
-    </div> -->
     <div class="ct-stat">
       <div class="value" id="ct-summary-days">0</div>
       <span class="label">Ngày có dữ liệu</span>
@@ -562,22 +580,26 @@
     <div class="ct-panel">
       <div class="ct-panel-header">
         <div>
-          <h5 class="ct-panel-title">Bản đồ điểm đo Việt Nam</h5>
-          <div class="ct-panel-subtitle">Màu thể hiện XCO2, dùng AOI để gom thống kê theo vùng cần phân tích.</div>
+          <h5 class="ct-panel-title">Bản đồ sounding / điểm đo Việt Nam</h5>
+          <div class="ct-panel-subtitle">
+            Màu marker thể hiện XCO2. Dùng AOI để gom thống kê theo vùng analyst đang quan tâm.
+          </div>
         </div>
         <span id="ct-map-scope" class="label label-info">Khung nhìn hiện tại</span>
       </div>
       <div id="carbon-map"></div>
       <div class="ct-map-note" id="ct-map-note">
-        Bản đồ và bảng hiển thị theo trang hiện tại. Khối thống kê, biểu đồ và chỉ dấu phân tích dùng toàn bộ vùng lọc đang chọn.
+        Bản đồ và bảng hiển thị theo trang hiện tại. Khối thống kê, biểu đồ và các chỉ dấu dùng toàn bộ vùng lọc đang chọn.
       </div>
     </div>
 
     <div class="ct-panel">
       <div class="ct-panel-header">
         <div>
-          <h5 class="ct-panel-title">Bảng điểm đo</h5>
-          <div class="ct-panel-subtitle">Nhấn vào một dòng để zoom bản đồ. Dùng “Mở file” để xem chi tiết `.nc4` trong modal.</div>
+          <h5 class="ct-panel-title">Bảng quan sát</h5>
+          <div class="ct-panel-subtitle" id="ct-table-subtitle">
+            Nhấn vào một dòng để zoom bản đồ. Mở chi tiết file để xem cấu trúc .nc4 hoặc metadata H5.
+          </div>
         </div>
         <span>
           Hiển thị <strong id="ct-showing-from">0</strong>-<strong id="ct-showing-to">0</strong> /
@@ -586,18 +608,7 @@
       </div>
       <div class="ct-table-wrap">
         <table class="table table-hover table-bordered">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Thời gian</th>
-              <th>XCO2</th>
-              <th>Uncertainty</th>
-              <th>Quality</th>
-              <th>File nguồn</th>
-              <th>Thư mục nguồn</th>
-              <th></th>
-            </tr>
-          </thead>
+          <thead id="ct-table-head"></thead>
           <tbody id="ct-table-body">
             <tr>
               <td colspan="8" class="text-muted text-center">Chưa có dữ liệu</td>
@@ -617,8 +628,10 @@
     <div class="ct-panel ct-chart-panel">
       <div class="ct-panel-header">
         <div>
-          <h5 class="ct-panel-title">XCO2 và số điểm theo thời gian</h5>
-          <div class="ct-panel-subtitle">Giữ riêng trục XCO2 để analyst đọc biến động nồng độ mà không bị uncertainty làm méo thang đo.</div>
+          <h5 class="ct-panel-title">XCO2 và số quan sát theo thời gian</h5>
+          <div class="ct-panel-subtitle">
+            Giữ trục XCO2 riêng để analyst đọc biến động nồng độ mà không bị uncertainty làm méo thang đo.
+          </div>
         </div>
       </div>
       <canvas id="ct-timeseries-chart"></canvas>
@@ -627,7 +640,9 @@
       <div class="ct-panel-header">
         <div>
           <h5 class="ct-panel-title">Uncertainty theo thời gian</h5>
-          <div class="ct-panel-subtitle">Tách riêng để analyst thấy độ ổn định đo đạc theo ngày hoặc tháng.</div>
+          <div class="ct-panel-subtitle">
+            Tách riêng độ bất định và tỷ lệ quality tốt để analyst nhìn ra độ ổn định của chuỗi đo.
+          </div>
         </div>
       </div>
       <canvas id="ct-uncertainty-chart"></canvas>
@@ -639,7 +654,9 @@
       <div class="ct-panel-header">
         <div>
           <h5 class="ct-panel-title">Phân bố XCO2</h5>
-          <div class="ct-panel-subtitle">Đọc nhanh độ lệch, cụm giá trị phổ biến và vùng biên.</div>
+          <div class="ct-panel-subtitle">
+            Đọc nhanh độ lệch, cụm giá trị phổ biến và các cụm biên cần kiểm tra thêm.
+          </div>
         </div>
       </div>
       <canvas id="ct-histogram-chart"></canvas>
@@ -648,7 +665,9 @@
       <div class="ct-panel-header">
         <div>
           <h5 class="ct-panel-title">Phân bố cờ chất lượng</h5>
-          <div class="ct-panel-subtitle">Tỷ trọng bản ghi tốt và bản ghi cần xem xét thêm trước khi kết luận.</div>
+          <div class="ct-panel-subtitle">
+            Xem nhanh tỷ trọng bản ghi tốt và bản ghi cần thận trọng trước khi kết luận.
+          </div>
         </div>
       </div>
       <canvas id="ct-quality-chart"></canvas>
@@ -659,8 +678,10 @@
     <div class="ct-panel ct-chart-panel">
       <div class="ct-panel-header">
         <div>
-          <h5 class="ct-panel-title">File nguồn xuất hiện nhiều</h5>
-          <div class="ct-panel-subtitle">Nhanh chóng biết file nào đang chi phối tập quan sát trong vùng này.</div>
+          <h5 class="ct-panel-title" id="ct-source-chart-title">Nguồn dữ liệu chi phối</h5>
+          <div class="ct-panel-subtitle">
+            Nhanh chóng biết file hoặc product nào đang chi phối tập quan sát trong vùng đang xem.
+          </div>
         </div>
       </div>
       <canvas id="ct-source-chart"></canvas>
@@ -669,7 +690,9 @@
       <div class="ct-panel-header">
         <div>
           <h5 class="ct-panel-title">Mức độ đầy đủ metadata</h5>
-          <div class="ct-panel-subtitle">Cho biết uncertainty, quality, orbit và mode có thật sự sẵn sàng để dùng cho phân tích hay không.</div>
+          <div class="ct-panel-subtitle">
+            Cho analyst biết trường nào đã sẵn sàng cho phân tích và trường nào vẫn còn thiếu hụt.
+          </div>
         </div>
       </div>
       <canvas id="ct-completeness-chart"></canvas>
@@ -681,32 +704,13 @@
       <div class="ct-panel-header">
         <div>
           <h5 class="ct-panel-title">Tra cứu thời gian và độ phủ</h5>
-          <div class="ct-panel-subtitle">Xem nhanh khoảng thời gian, biên độ tọa độ và các ngày có mật độ điểm cao.</div>
+          <div class="ct-panel-subtitle">
+            Xem nhanh khoảng thời gian, biên độ tọa độ và những ngày có mật độ quan sát cao nhất.
+          </div>
         </div>
       </div>
-      <div class="ct-kv-grid">
-        <div class="ct-kv">
-          <span>Thời điểm sớm nhất</span>
-          <span id="ct-time-first">-</span>
-        </div>
-        <div class="ct-kv">
-          <span>Thời điểm mới nhất</span>
-          <span id="ct-time-latest">-</span>
-        </div>
-        <div class="ct-kv">
-          <span>Số ngày có dữ liệu</span>
-          <span id="ct-time-days">0</span>
-        </div>
-        <div class="ct-kv">
-          <span>Vĩ độ phủ</span>
-          <span id="ct-lat-range">-</span>
-        </div>
-        <div class="ct-kv">
-          <span>Kinh độ phủ</span>
-          <span id="ct-lng-range">-</span>
-        </div>
-      </div>
-      <h5 class="ct-panel-title" style="margin-top: 14px;">Ngày có nhiều điểm đo nhất</h5>
+      <div class="ct-kv-grid" id="ct-time-grid"></div>
+      <h5 class="ct-panel-title" style="margin-top: 14px;">Ngày có nhiều quan sát nhất</h5>
       <ol class="ct-bullet-list" id="ct-top-days">
         <li class="ct-empty">Chưa có dữ liệu</li>
       </ol>
@@ -716,33 +720,14 @@
       <div class="ct-panel-header">
         <div>
           <h5 class="ct-panel-title">Chỉ dấu hỗ trợ quyết định</h5>
-          <div class="ct-panel-subtitle">Tập trung vào dữ liệu thực sự đang có: chất lượng, nguồn file, độ đầy đủ metadata và các lô dữ liệu chi phối.</div>
+          <div class="ct-panel-subtitle">
+            Tập trung vào những tín hiệu dữ liệu thực sự hữu ích cho analyst ra quyết định.
+          </div>
         </div>
       </div>
-      <div class="ct-kv-grid">
-        <div class="ct-kv">
-          <span>Tỷ lệ uncertainty sẵn sàng</span>
-          <span id="ct-insight-uncertainty">-</span>
-        </div>
-        <div class="ct-kv">
-          <span>Tỷ lệ quality flag sẵn sàng</span>
-          <span id="ct-insight-quality-ready">-</span>
-        </div>
-        <div class="ct-kv">
-          <span>File nguồn chi phối</span>
-          <span id="ct-insight-source">-</span>
-        </div>
-        <div class="ct-kv">
-          <span>Thư mục nguồn chi phối</span>
-          <span id="ct-insight-folder">-</span>
-        </div>
-        <div class="ct-kv">
-          <span>Mode / orbit sẵn sàng</span>
-          <span id="ct-insight-metadata">-</span>
-        </div>
-      </div>
-      <h5 class="ct-panel-title" style="margin-top: 14px;">Thư mục nguồn xuất hiện nhiều</h5>
-      <ol class="ct-bullet-list" id="ct-top-folders">
+      <div class="ct-kv-grid" id="ct-insight-grid"></div>
+      <h5 class="ct-panel-title" style="margin-top: 14px;" id="ct-secondary-list-title">Danh sách nguồn nổi bật</h5>
+      <ol class="ct-bullet-list" id="ct-secondary-list">
         <li class="ct-empty">Chưa có dữ liệu</li>
       </ol>
     </div>
@@ -754,7 +739,7 @@
     <div class="ct-modal-header">
       <div class="ct-modal-heading">
         <div>
-          <h5 id="ct-file-modal-title">Chi tiết file nguồn .nc4</h5>
+          <h5 id="ct-file-modal-title">Chi tiết file nguồn</h5>
           <div class="ct-panel-subtitle" id="ct-file-modal-subtitle">-</div>
         </div>
         <button type="button" class="ct-modal-close" id="ct-file-modal-close" aria-label="Đóng">&times;</button>
@@ -768,6 +753,8 @@
     </div>
   </div>
 </div>
+
+{{ mission_payload|json_script:"ct-mission-payload" }}
 {% endblock container %}
 
 {% block scripts %}
