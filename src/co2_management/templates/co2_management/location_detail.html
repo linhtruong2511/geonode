@@ -1,0 +1,66 @@
+{% extends "co2_management/crud_detail.html" %}
+{% load i18n %}
+
+{% block extra_detail %}
+  <!-- Time Series Chart -->
+  <div class="co2-card mt-3">
+    <div class="co2-card-header">
+      <i class="fa fa-line-chart"></i> {% trans "Chuỗi thời gian XCO2" %}
+    </div>
+    <div class="co2-card-body">
+      <canvas id="timeSeriesChart" height="300"></canvas>
+    </div>
+  </div>
+{% endblock %}
+
+{% block co2_scripts %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+      // Placeholder data
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          datasets: [{
+            label: 'OCO-2',
+            data: [412, 413.5, 414, 413, 411, 409],
+            borderColor: '#27ae60',
+            backgroundColor: 'rgba(39, 174, 96, 0.1)',
+            fill: true,
+            tension: 0.4
+          }, {
+            label: 'GOSAT-2',
+            data: [411.5, 413, 414.2, 412.5, 411.2, 409.5],
+            borderColor: '#e74c3c',
+            backgroundColor: 'transparent',
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: 'XCO2 (ppm)' } }
+          }
+        }
+      });
+      
+      // Center map on location
+      setTimeout(() => {
+        if(window.CO2Map && window.CO2Map.map) {
+          window.CO2Map.map.flyTo([{{ object.latitude }}, {{ object.longitude }}], 10);
+          L.circle([{{ object.latitude }}, {{ object.longitude }}], {
+            radius: {{ object.radius_km }} * 1000,
+            color: '#27ae60',
+            fillColor: '#2ecc71',
+            fillOpacity: 0.2
+          }).addTo(window.CO2Map.map);
+        }
+      }, 500);
+    });
+  </script>
+{% endblock %}

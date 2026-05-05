@@ -1,0 +1,31 @@
+{% extends "co2_management/co2_base.html" %}
+{% load i18n %}
+
+{% block co2_content %}
+  <div class="co2-card">
+    <div class="co2-card-header">
+      <i class="fa fa-info-circle"></i> {% trans "Thông tin chi tiết" %}
+    </div>
+    <div class="co2-card-body">
+      <div>
+        {% for row in detail_rows %}
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 15px;">
+            <span style="color: #64748b; font-weight: 500;">{{ row.label }}</span>
+            <span style="text-align: right; word-break: break-word;">{{ row.value }}</span>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div style="margin-top: 20px; display: flex; gap: 10px;">
+        {% if edit_url %}
+            <a href="{{ edit_url }}" class="btn btn-primary">{% trans "Sửa" %}</a>
+        {% endif %}
+        {% if delete_url %}
+            <a href="{{ delete_url }}" class="btn btn-danger">{% trans "Xóa" %}</a>
+        {% endif %}
+      </div>
+
+      {% block extra_detail %}{% endblock %}
+    </div>
+  </div>
+{% endblock %}

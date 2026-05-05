@@ -1,0 +1,98 @@
+{% extends "co2_management/crud_detail.html" %}
+{% load i18n %}
+
+{% block extra_detail %}
+  <!-- XCO2 Highlight Card -->
+  <div class="co2-card" style="margin-top: 20px; text-align: center; border-color: var(--accent-color);">
+    <div class="co2-card-body" style="background: var(--accent-light);">
+      <div style="font-size: 14px; color: #64748b; text-transform: uppercase; font-weight: 600;">{% trans "Nồng độ CO2" %}</div>
+      <div style="font-size: 36px; font-weight: bold; color: var(--accent-color); margin: 5px 0;">
+        {{ object.xco2_ppm|floatformat:2 }} <span style="font-size: 16px; color: #64748b;">ppm</span>
+      </div>
+      {% if object.xco2_uncertainty_ppm %}
+        <div style="font-size: 13px; color: #64748b;">± {{ object.xco2_uncertainty_ppm|floatformat:2 }} ppm</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Vertical Profile Chart -->
+  <div class="co2-card mt-3">
+    <div class="co2-card-header">
+      <i class="fa fa-line-chart"></i> {% trans "Vertical Profile" %}
+    </div>
+    <div class="co2-card-body">
+      {% if profiles %}
+        <canvas id="profileChart" height="250"></canvas>
+      {% else %}
+        <p class="text-muted text-center" style="padding: 20px;">{% trans "Không có dữ liệu vertical profile cho điểm đo này." %}</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block co2_scripts %}
+  {{ block.super }}
+  {% if profiles %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const ctx = document.getElementById('profileChart').getContext('2d');
+      
+      const pressureData = [];
+      const co2Data = [];
+      
+      {% for p in profiles %}
+        {% if p.pressure_hpa and p.co2_concentration_ppm %}
+          pressureData.push({{ p.pressure_hpa|floatformat:2 }});
+          co2Data.push({{ p.co2_concentration_ppm|floatformat:2 }});
+        {% endif %}
+      {% endfor %}
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: co2Data, // X-axis is CO2
+          datasets: [{
+            label: 'CO2 Concentration (ppm)',
+            data: pressureData, // Y-axis is Pressure
+            borderColor: '#27ae60',
+            backgroundColor: 'rgba(39, 174, 96, 0.1)',
+            borderWidth: 2,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: '#27ae60',
+            pointRadius: 4,
+            fill: false,
+            tension: 0.4
+          }]
+        },
+        options: {
+          indexAxis: 'y', // Swap X and Y to make vertical profile
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `Pressure: ${context.raw} hPa, CO2: ${context.label} ppm`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              reverse: true, // Invert Y axis so higher pressure (surface) is at bottom
+              title: { display: true, text: 'Pressure (hPa)' }
+            },
+            x: {
+              title: { display: true, text: 'CO2 (ppm)' },
+              // Optional: set min/max to frame it nicely
+              min: Math.min(...co2Data) - 2,
+              max: Math.max(...co2Data) + 2
+            }
+          }
+        }
+      });
+    });
+  </script>
+  {% endif %}
+{% endblock %}

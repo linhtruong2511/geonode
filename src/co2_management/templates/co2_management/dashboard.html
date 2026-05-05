@@ -1,0 +1,67 @@
+{% extends "co2_management/co2_base.html" %}
+{% load i18n %}
+
+{% block co2_content %}
+  <div class="row">
+    <div class="col-sm-6">
+      <div class="co2-card" style="text-align: center; padding: 20px 0;">
+        <h2 style="margin: 0; color: var(--accent-color);">{{ stats.measurements_total|default:"0" }}</h2>
+        <div style="color: #64748b; font-size: 13px; text-transform: uppercase;">{% trans "Tổng điểm đo" %}</div>
+      </div>
+    </div>
+    <div class="col-sm-6">
+      <div class="co2-card" style="text-align: center; padding: 20px 0;">
+        <h2 style="margin: 0; color: #3b82f6;">{{ stats.sources_total|default:"0" }}</h2>
+        <div style="color: #64748b; font-size: 13px; text-transform: uppercase;">{% trans "Nguồn dữ liệu" %}</div>
+      </div>
+    </div>
+    <div class="col-sm-6">
+      <div class="co2-card" style="text-align: center; padding: 20px 0;">
+        <h2 style="margin: 0; color: #8b5cf6;">{{ stats.locations_total|default:"0" }}</h2>
+        <div style="color: #64748b; font-size: 13px; text-transform: uppercase;">{% trans "Vị trí giám sát" %}</div>
+      </div>
+    </div>
+    <div class="col-sm-6">
+      <div class="co2-card" style="text-align: center; padding: 20px 0;">
+        <h2 style="margin: 0; color: #f59e0b;">{{ stats.jobs_running|default:"0" }}</h2>
+        <div style="color: #64748b; font-size: 13px; text-transform: uppercase;">{% trans "Jobs đang chạy" %}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="co2-card mt-3">
+    <div class="co2-card-header">
+      <i class="fa fa-database"></i> {% trans "Files mới import" %}
+    </div>
+    <div class="co2-card-body p-0">
+      <ul class="list-group" style="margin: 0;">
+        {% for src in recent_sources %}
+          <li class="list-group-item" style="border: none; border-bottom: 1px solid #e2e8f0;">
+            <a href="{% url 'co2_management:source_detail' pk=src.pk %}">{{ src.file_name }}</a>
+            <span class="pull-right text-muted" style="font-size: 12px;">{{ src.measurement_date|date:"d/m/Y" }}</span>
+          </li>
+        {% empty %}
+          <li class="list-group-item text-muted">{% trans "Chưa có file nào." %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  
+  <div class="co2-card mt-3">
+    <div class="co2-card-header">
+      <i class="fa fa-cogs"></i> {% trans "Phân tích gần đây" %}
+    </div>
+    <div class="co2-card-body p-0">
+      <ul class="list-group" style="margin: 0;">
+        {% for job in recent_jobs %}
+          <li class="list-group-item" style="border: none; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+            <a href="#">{{ job.job_name }}</a>
+            <span class="label {% if job.status == 'COMPLETED' %}label-success{% elif job.status == 'FAILED' %}label-danger{% else %}label-warning{% endif %}">{{ job.get_status_display }}</span>
+          </li>
+        {% empty %}
+          <li class="list-group-item text-muted">{% trans "Chưa có job nào." %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endblock %}
