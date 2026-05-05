@@ -28,6 +28,7 @@ from django.urls import path, include
 urlpatterns += [
     path("mining-detection/", include("mining_detection.urls", namespace="mining_detection")),
     path("carbon-tracker/", include("carbon_tracker.urls")),
+    path("co2/", include("co2_management.urls")),
 
     path('api/v2/', include('mining_detection.api_urls')),
 ]

@@ -24,7 +24,7 @@ HISTOGRAM_BIN_COUNT = 10
 HISTOGRAM_SAMPLE_LIMIT = 50000
 TOP_LIMIT = 10
 QUALITY_GOOD_FLAG = 0
-VIETNAM_DEFAULT_BOUNDS = [8.18, 102.14, 23.39, 109.47]
+VIETNAM_DEFAULT_BOUNDS = [6.5, 102.1, 23.4, 117.5]  # Bao gồm cả Hoàng Sa, Trường Sa
 VIETNAM_BOUNDS_POLYGON = Polygon.from_bbox(
     (
         VIETNAM_DEFAULT_BOUNDS[1],
@@ -763,10 +763,7 @@ class GOSAT2MissionAdapter(BaseMissionAdapter):
                 .first()
             )
             overview = {
-                "total_records": get_table_row_estimate(
-                    Sounding._meta.db_table,
-                    self.base_queryset(),
-                ),
+                "total_records": self.base_queryset().count(),
                 "first_acquisition_time": first_observation_time,
                 "latest_acquisition_time": latest_observation_time,
             }

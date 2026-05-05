@@ -54,6 +54,7 @@ if PROJECT_NAME not in INSTALLED_APPS:
         PROJECT_NAME,
         'mining_detection',
         'carbon_tracker',
+        'co2_management',
     )
 
 # Location of url mappings
@@ -104,6 +105,11 @@ LOGGING = {
         'mining_detection': { 
             'handlers': ['console'],
             'level': 'DEBUG', # Xem tất cả từ DEBUG trở lên
+            'propagate': True,
+        },
+        'co2_management': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
             'propagate': True,
         },
     },
