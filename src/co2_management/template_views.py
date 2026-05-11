@@ -1,3 +1,4 @@
+from django.contrib.gis.geos import Point
 import logging
 import json
 from datetime import datetime, timezone
@@ -5,7 +6,8 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Avg, Max, Min, StdDev, FloatField
+from django.db.models.functions import TruncMonth, TruncYear
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -13,8 +15,8 @@ from django.views.generic import CreateView, DeleteView, DetailView, FormView, L
 from django.core.paginator import Paginator
 
 from .models import (
-    Satellite, MeasurementSource, Measurement, 
-    MonitoringLocation, TemporalSeries, DataComparison, 
+    Satellite, MeasurementSource, Measurement,
+    MonitoringLocation, TemporalSeries, DataComparison,
     AnalysisJob, AuditLog, JobStatus
 )
 
@@ -174,7 +176,8 @@ def trigger_source_import(request, pk):
 class DashboardView(CO2TemplateMixin, TemplateView):
     """
     Trang Bảng điều khiển (Dashboard) tổng quan của hệ thống CO2.
-    Hiển thị các thống kê quan trọng và danh sách các hoạt động gần đây.
+    Hiển thị các thống kê quan trọng, biểu đồ phân tích dữ liệu theo nguồn,
+    xu hướng theo tháng, và danh sách hoạt động gần đây.
     """
     template_name = "co2_management/dashboard.html"
     active_section = "dashboard"
@@ -183,26 +186,93 @@ class DashboardView(CO2TemplateMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Tính toán các số liệu thống kê tổng hợp
+
+        # ── 1. KPI tổng quan ──────────────────────────────────────────────
+        base_qs = Measurement.objects.filter(deleted_at__isnull=True)
+        agg = base_qs.aggregate(
+            total=Count('id'),
+            avg_xco2=Avg('xco2_ppm'),
+            max_xco2=Max('xco2_ppm'),
+            min_xco2=Min('xco2_ppm'),
+        )
         context["stats"] = {
-            "measurements_total": Measurement.objects.count(),
-            "sources_total": MeasurementSource.objects.count(),
-            "locations_total": MonitoringLocation.objects.count(),
-            "comparisons_total": DataComparison.objects.count(),
-            "jobs_total": AnalysisJob.objects.count(),
-            "jobs_running": AnalysisJob.objects.filter(status__in=[JobStatus.PENDING, JobStatus.RUNNING]).count(),
+            "measurements_total": agg['total'] or 0,
+            "sources_total":      MeasurementSource.objects.count(),
+            "locations_total":    MonitoringLocation.objects.count(),
+            "comparisons_total":  DataComparison.objects.count(),
+            "jobs_total":         AnalysisJob.objects.count(),
+            "jobs_running":       AnalysisJob.objects.filter(
+                status__in=[JobStatus.PENDING, JobStatus.RUNNING]
+            ).count(),
+            "avg_xco2":           round(agg['avg_xco2'], 2) if agg['avg_xco2'] else 0,
+            "max_xco2":           round(agg['max_xco2'], 2) if agg['max_xco2'] else 0,
+            "min_xco2":           round(agg['min_xco2'], 2) if agg['min_xco2'] else 0,
+            "good_quality_pct":   self._good_quality_pct(base_qs),
         }
-        # Lấy danh sách 5 tệp nguồn và 5 công việc phân tích gần nhất
+
+        # ── 2. Phân bố theo nguồn (biểu đồ Donut) ────────────────────────
+        by_source = list(
+            base_qs.values('data_source')
+            .annotate(count=Count('id'), avg=Avg('xco2_ppm'))
+            .order_by('data_source')
+        )
+        context["by_source_json"] = json.dumps([
+            {
+                "label": s['data_source'],
+                "count": s['count'],
+                "avg":   round(s['avg'], 2) if s['avg'] else 0,
+            }
+            for s in by_source
+        ])
+
+        # ── 3. Xu hướng XCO2 theo tháng (biểu đồ Line) ───────────────────
+        monthly = list(
+            base_qs.filter(xco2_quality_flag=0)
+            .annotate(month=TruncMonth('measurement_time'))
+            .values('month', 'data_source')
+            .annotate(avg_xco2=Avg('xco2_ppm'), cnt=Count('id'))
+            .order_by('month')
+        )
+        context["monthly_trend_json"] = json.dumps([
+            {
+                "month":  m['month'].strftime('%Y-%m') if m['month'] else '',
+                "source": m['data_source'],
+                "avg":    round(m['avg_xco2'], 3) if m['avg_xco2'] else 0,
+                "count":  m['cnt'],
+            }
+            for m in monthly
+        ])
+
+        # ── 4. Trạng thái Jobs (biểu đồ Bar ngang) ───────────────────────
+        jobs_by_status = list(
+            AnalysisJob.objects.values('status')
+            .annotate(count=Count('id'))
+        )
+        context["jobs_by_status_json"] = json.dumps([
+            {"status": j['status'], "count": j['count']}
+            for j in jobs_by_status
+        ])
+
+        # ── 5. Danh sách gần đây ─────────────────────────────────────────
         context["recent_sources"] = MeasurementSource.objects.order_by("-id")[:5]
-        context["recent_jobs"] = AnalysisJob.objects.order_by("-id")[:5]
+        context["recent_jobs"]    = AnalysisJob.objects.order_by("-id")[:5]
+
         return context
+
+    def _good_quality_pct(self, base_qs):
+        """Tỷ lệ % điểm đo chất lượng tốt (xco2_quality_flag=0)"""
+        total = base_qs.count()
+        if not total:
+            return 0
+        good = base_qs.filter(xco2_quality_flag=0).count()
+        return round(good / total * 100, 1)
 
     def get_map_config(self):
         """Cấu hình mặc định cho bản đồ trên Dashboard (vùng Việt Nam)"""
         return {
             "center": [16.0, 107.0],
             "zoom": 5,
-            "data_url": reverse("co2_management:measurement-list") + "spatial_query/?limit=500"
+            "data_url": "/co2/api/v1/measurements/spatial_query/?limit=500&quality=0",
         }
 
 
@@ -354,6 +424,16 @@ class MeasurementListView(CO2TemplateMixin, ListView):
                 longitude__gte=float(min_lon),
                 longitude__lte=float(max_lon)
             )
+        
+        # Lọc theo vùng hình học tùy ý (WKT Polygon/Rectangle)
+        geometry_wkt = self.request.GET.get("geometry")
+        if geometry_wkt:
+            try:
+                from django.contrib.gis.geos import GEOSGeometry
+                geom = GEOSGeometry(geometry_wkt, srid=4326)
+                qs = qs.filter(geom__intersects=geom)
+            except Exception as e:
+                logger.error(f"Spatial filter error: {e}")
             
         return qs.order_by("-measurement_time")
 
@@ -412,9 +492,9 @@ class LocationListView(CO2SearchableListView):
     model = MonitoringLocation
     active_section = "locations"
     page_title = _("Vị trí giám sát")
-    search_fields = ["name"]
+    search_fields = ["location_name"]
     table_columns = [
-        (_("Tên vị trí"), "name"),
+        (_("Tên vị trí"), "location_name"),
         (_("Loại"), "location_type"),
         (_("Vĩ độ"), "latitude"),
         (_("Kinh độ"), "longitude"),
@@ -428,10 +508,14 @@ class LocationListView(CO2SearchableListView):
 class LocationCreateView(CO2TemplateMixin, CreateView):
     """Biểu mẫu thêm mới vị trí giám sát"""
     model = MonitoringLocation
-    fields = ["name", "location_type", "latitude", "longitude", "radius_km"]
+    fields = ["location_name", "location_type", "latitude", "longitude", "radius_km"]
     active_section = "locations"
     template_name = "co2_management/location_form.html"
     page_title = _("Thêm vị trí giám sát")
+
+    def get_initial(self):
+        # Thiết lập giá trị mặc định cho bán kính
+        return {"radius_km": 1.0}
 
     def get_success_url(self):
         return reverse("co2_management:location_list")
@@ -463,7 +547,7 @@ class LocationDetailView(CO2GenericDetailView):
 class LocationUpdateView(CO2TemplateMixin, UpdateView):
     """Biểu mẫu chỉnh sửa thông tin vị trí giám sát"""
     model = MonitoringLocation
-    fields = ["name", "location_type", "latitude", "longitude", "radius_km"]
+    fields = ["location_name", "location_type", "latitude", "longitude", "radius_km"]
     active_section = "locations"
     template_name = "co2_management/location_form.html"
     page_title = _("Sửa vị trí giám sát")
@@ -502,43 +586,277 @@ class ComparisonListView(CO2SearchableListView):
         return context
 
 class ComparisonReportView(CO2TemplateMixin, TemplateView):
-    """Trang báo cáo tổng hợp với biểu đồ so sánh dữ liệu thực tế"""
+    """Trang báo cáo so sánh OCO-2 vs GOSAT-2 đầy đủ:
+    scatter plot, histogram phân phối bias, biểu đồ bias theo thời gian,
+    và bảng thống kê chi tiết.
+    """
     active_section = "comparisons"
     template_name = "co2_management/comparison_report.html"
-    page_title = _("Báo cáo so sánh dữ liệu")
+    page_title = _("Báo cáo so sánh OCO-2 vs GOSAT-2")
+    page_subtitle = _("Đánh giá chéo (cross-validation) giữa hai nguồn đo đạc vệ tinh.")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # Hỗ trợ xem báo cáo theo Job cụ thể hoặc toàn cục
+
+        # ── Lọc theo Job (nếu có) ─────────────────────────────────────────
         job_id = self.request.GET.get('job_id')
-        comparisons = DataComparison.objects.all()
+        qs = DataComparison.objects.select_related(
+            'oco2_measurement', 'gosat2_measurement', 'job'
+        )
         if job_id:
-            comparisons = comparisons.filter(job_id=job_id)
+            qs = qs.filter(job_id=job_id)
             context["current_job"] = AnalysisJob.objects.filter(id=job_id).first()
-        
-        count = comparisons.count()
-        if count > 0:
+
+        # Danh sách tất cả jobs comparison để dropdown lọc
+        context["comparison_jobs"] = AnalysisJob.objects.filter(
+            job_type='COMPARISON', status='COMPLETED'
+        ).order_by('-id')[:20]
+        context["selected_job_id"] = job_id
+
+        count = qs.count()
+        context["total_pairs"] = count
+
+        if count == 0:
+            context["no_data"] = True
+            return context
+
+        try:
             import numpy as np
-            diffs = np.array(comparisons.values_list('xco2_difference_ppm', flat=True))
-            oco2_vals = np.array(comparisons.values_list('oco2_measurement__xco2_ppm', flat=True))
-            gosat2_vals = np.array(comparisons.values_list('gosat2_measurement__xco2_ppm', flat=True))
-            
-            context["bias"] = round(float(np.mean(diffs)), 3)
-            context["rmse"] = round(float(np.sqrt(np.mean(diffs**2))), 3)
-            # Tính hệ số tương quan Pearson
-            if len(oco2_vals) > 1:
-                context["corr"] = round(float(np.corrcoef(oco2_vals, gosat2_vals)[0, 1]), 3)
-            else:
-                context["corr"] = 0
-            context["total_pairs"] = count
-            
-            # Chuẩn bị dữ liệu cho biểu đồ Scatter (lấy tối đa 1000 điểm để hiển thị)
-            scatter_data = []
-            for o, g in zip(oco2_vals[:1000], gosat2_vals[:1000]):
-                scatter_data.append({"x": round(float(o), 2), "y": round(float(g), 2)})
-            context["scatter_data_json"] = json.dumps(scatter_data)
-        
+        except ImportError:
+            context["no_numpy"] = True
+            return context
+
+        # ── Lấy dữ liệu thô ──────────────────────────────────────────────
+        rows = list(qs.values(
+            'xco2_difference_ppm',
+            'spatial_distance_km',
+            'oco2_measurement__xco2_ppm',
+            'gosat2_measurement__xco2_ppm',
+            'oco2_measurement__measurement_time',
+        ))
+
+        diffs      = np.array([r['xco2_difference_ppm']            for r in rows], dtype=float)
+        distances  = np.array([r['spatial_distance_km']            for r in rows], dtype=float)
+        oco2_vals  = np.array([r['oco2_measurement__xco2_ppm']     for r in rows], dtype=float)
+        gosat2_vals= np.array([r['gosat2_measurement__xco2_ppm']   for r in rows], dtype=float)
+
+        # ── 1. Chỉ số tổng hợp ───────────────────────────────────────────
+        bias = float(np.mean(diffs))
+        rmse = float(np.sqrt(np.mean(diffs ** 2)))
+        std  = float(np.std(diffs))
+        mae  = float(np.mean(np.abs(diffs)))
+        corr = float(np.corrcoef(oco2_vals, gosat2_vals)[0, 1]) if len(oco2_vals) > 1 else 0.0
+        avg_dist = float(np.mean(distances))
+
+        context["bias"]     = round(bias, 4)
+        context["rmse"]     = round(rmse, 4)
+        context["std"]      = round(std, 4)
+        context["mae"]      = round(mae, 4)
+        context["corr"]     = round(corr, 4)
+        context["avg_dist"] = round(avg_dist, 2)
+        context["outlier_pct"] = round(
+            float(np.sum(np.abs(diffs) > 3 * std) / len(diffs) * 100), 1
+        ) if std > 0 else 0
+
+        # ── 2. Scatter Plot OCO-2 vs GOSAT-2 (tối đa 1500 điểm) ──────────
+        n_scatter = min(1500, len(oco2_vals))
+        idx = np.random.choice(len(oco2_vals), n_scatter, replace=False) if len(oco2_vals) > n_scatter else np.arange(len(oco2_vals))
+        context["scatter_data_json"] = json.dumps([
+            {"x": round(float(oco2_vals[i]), 3), "y": round(float(gosat2_vals[i]), 3)}
+            for i in idx
+        ])
+
+        # ── 3. Histogram phân phối Bias (30 bins) ────────────────────────
+        hist_counts, bin_edges = np.histogram(diffs, bins=30)
+        context["bias_hist_json"] = json.dumps({
+            "labels": [round(float(b), 3) for b in bin_edges[:-1]],
+            "counts": [int(c) for c in hist_counts],
+        })
+
+        # ── 4. Bias theo khoảng cách không gian (5 nhóm) ─────────────────
+        dist_bins = [0, 10, 20, 30, 40, 50]
+        dist_labels = ['0-10 km', '10-20 km', '20-30 km', '30-40 km', '40-50 km']
+        dist_bias, dist_count = [], []
+        for lo, hi in zip(dist_bins[:-1], dist_bins[1:]):
+            mask = (distances >= lo) & (distances < hi)
+            dist_bias.append(round(float(np.mean(diffs[mask])), 4) if mask.sum() > 0 else 0)
+            dist_count.append(int(mask.sum()))
+        context["dist_analysis_json"] = json.dumps({
+            "labels": dist_labels,
+            "bias":   dist_bias,
+            "count":  dist_count,
+        })
+
+        # ── 5. Bias theo tháng (trend) ────────────────────────────────────
+        monthly_map = {}
+        for r in rows:
+            t = r['oco2_measurement__measurement_time']
+            if t:
+                key = t.strftime('%Y-%m') if hasattr(t, 'strftime') else str(t)[:7]
+                monthly_map.setdefault(key, []).append(r['xco2_difference_ppm'])
+        monthly_labels = sorted(monthly_map.keys())
+        context["bias_monthly_json"] = json.dumps({
+            "labels": monthly_labels,
+            "bias":   [round(float(np.mean(monthly_map[k])), 4) for k in monthly_labels],
+            "count":  [len(monthly_map[k]) for k in monthly_labels],
+        })
+
+        return context
+
+
+class XCO2StatisticsView(CO2TemplateMixin, TemplateView):
+    """
+    Trang thống kê chuyên sâu về nồng độ XCO2:
+    - Phân phối theo nguồn (histogram)
+    - Xu hướng tháng/năm
+    - Top vị trí có XCO2 cao nhất
+    - Phân tích chất lượng dữ liệu
+    """
+    template_name = "co2_management/xco2_statistics.html"
+    active_section = "statistics"
+    page_title = _("Thống kê XCO2")
+    page_subtitle = _("Phân tích chi tiết nồng độ CO2 từ dữ liệu vệ tinh.")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Bộ lọc tùy chọn từ URL params
+        src_filter   = self.request.GET.get('source', '')   # OCO2 / GOSAT2 / ''
+        year_filter  = self.request.GET.get('year', '')     # YYYY
+        quality_only = self.request.GET.get('quality', '1') == '1'  # default: chỉ data tốt
+
+        context["filter_source"]       = src_filter
+        context["filter_year"]         = year_filter
+        context["filter_quality_only"] = quality_only
+
+        qs = Measurement.objects.filter(deleted_at__isnull=True)
+        if quality_only:
+            qs = qs.filter(xco2_quality_flag=0)
+        if src_filter:
+            qs = qs.filter(data_source=src_filter)
+        if year_filter:
+            qs = qs.filter(measurement_time__year=year_filter)
+
+        total = qs.count()
+        context["total_filtered"] = total
+
+        if total == 0:
+            context["no_data"] = True
+            return context
+
+        # ── Thống kê mô tả ────────────────────────────────────────────────
+        agg = qs.aggregate(
+            avg=Avg('xco2_ppm'),
+            minimum=Min('xco2_ppm'),
+            maximum=Max('xco2_ppm'),
+            std=StdDev('xco2_ppm'),
+        )
+        context["desc_stats"] = {
+            "avg":  round(agg['avg'],     3) if agg['avg']     else 0,
+            "min":  round(agg['minimum'], 3) if agg['minimum'] else 0,
+            "max":  round(agg['maximum'], 3) if agg['maximum'] else 0,
+            "std":  round(agg['std'],     3) if agg['std']     else 0,
+        }
+
+        # ── Xu hướng theo tháng, phân tách theo nguồn ────────────────────
+        monthly = list(
+            qs.annotate(month=TruncMonth('measurement_time'))
+            .values('month', 'data_source')
+            .annotate(avg_xco2=Avg('xco2_ppm'), count=Count('id'))
+            .order_by('month')
+        )
+        # Tổ chức thành cấu trúc cho Chart.js multi-dataset
+        month_set = sorted({m['month'].strftime('%Y-%m') for m in monthly if m['month']})
+        oco2_monthly  = {m['month'].strftime('%Y-%m'): round(m['avg_xco2'], 3)
+                         for m in monthly if m['data_source'] == 'OCO2' and m['month']}
+        gosat2_monthly = {m['month'].strftime('%Y-%m'): round(m['avg_xco2'], 3)
+                          for m in monthly if m['data_source'] == 'GOSAT2' and m['month']}
+        context["monthly_trend_json"] = json.dumps({
+            "labels":  month_set,
+            "oco2":   [oco2_monthly.get(m)   for m in month_set],
+            "gosat2": [gosat2_monthly.get(m) for m in month_set],
+        })
+
+        # ── Phân bố theo nguồn (summary) ─────────────────────────────────
+        by_source = list(
+            qs.values('data_source')
+            .annotate(
+                count=Count('id'),
+                avg=Avg('xco2_ppm'),
+                minimum=Min('xco2_ppm'),
+                maximum=Max('xco2_ppm'),
+                std=StdDev('xco2_ppm'),
+            )
+        )
+        context["by_source"] = [
+            {
+                "source":  s['data_source'],
+                "count":   s['count'],
+                "avg":     round(s['avg'],     3) if s['avg']     else 0,
+                "min":     round(s['minimum'], 3) if s['minimum'] else 0,
+                "max":     round(s['maximum'], 3) if s['maximum'] else 0,
+                "std":     round(s['std'],     3) if s['std']     else 0,
+            }
+            for s in by_source
+        ]
+        context["by_source_json"] = json.dumps([
+            {"label": s['data_source'], "count": s['count']}
+            for s in by_source
+        ])
+
+        # ── Phân tích chất lượng dữ liệu ─────────────────────────────────
+        total_all = Measurement.objects.filter(
+            deleted_at__isnull=True,
+            **({'data_source': src_filter} if src_filter else {}),
+        ).count()
+        good = Measurement.objects.filter(
+            deleted_at__isnull=True, xco2_quality_flag=0,
+            **({'data_source': src_filter} if src_filter else {}),
+        ).count()
+        context["quality_stats"] = {
+            "total":    total_all,
+            "good":     good,
+            "bad":      total_all - good,
+            "good_pct": round(good / total_all * 100, 1) if total_all else 0,
+        }
+        context["quality_json"] = json.dumps({
+            "good": good,
+            "bad":  total_all - good,
+        })
+
+        # ── Top tháng có XCO2 trung bình cao nhất ────────────────────────
+        top_months = list(
+            qs.annotate(month=TruncMonth('measurement_time'))
+            .values('month', 'data_source')
+            .annotate(avg_xco2=Avg('xco2_ppm'), count=Count('id'))
+            .order_by('-avg_xco2')[:10]
+        )
+        context["top_months"] = [
+            {
+                "month":  m['month'].strftime('%Y-%m') if m['month'] else '',
+                "source": m['data_source'],
+                "avg":    round(m['avg_xco2'], 3) if m['avg_xco2'] else 0,
+                "count":  m['count'],
+            }
+            for m in top_months
+        ]
+
+        # Danh sách năm để dropdown bộ lọc
+        years = list(
+            Measurement.objects.filter(deleted_at__isnull=True)
+            .dates('measurement_time', 'year')
+            .values_list('measurement_time__year', flat=True)
+            .distinct()
+            .order_by('-measurement_time__year')
+        )
+        context["available_years"] = list(
+            Measurement.objects.filter(deleted_at__isnull=True)
+            .annotate(yr=TruncYear('measurement_time'))
+            .values_list('yr', flat=True)
+            .distinct()
+            .order_by('-yr')
+        )
+
         return context
 
 

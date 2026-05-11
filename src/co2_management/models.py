@@ -1,4 +1,5 @@
 from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point
 from django.conf import settings
 
 # Lựa chọn loại nguồn dữ liệu vệ tinh
@@ -181,6 +182,12 @@ class MonitoringLocation(models.Model):
     latitude = models.FloatField() # Vĩ độ tâm
     longitude = models.FloatField() # Kinh độ tâm
     radius_km = models.FloatField() # Bán kính vùng giám sát (km)
+
+    def save(self, *args, **kwargs):
+        """Tự động đồng bộ trường geom từ tọa độ latitude/longitude"""
+        if self.latitude is not None and self.longitude is not None:
+            self.geom = Point(self.longitude, self.latitude, srid=4326)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.location_name

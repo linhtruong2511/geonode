@@ -1,0 +1,14 @@
+{# Partial: _kpi_card.html — dùng {% include %} với: value, label, icon, color, suffix #}
+<div class="col-sm-3" style="margin-bottom: 12px;">
+  <div class="co2-card" style="text-align: center; padding: 14px 8px 12px; border-top: 3px solid {{ color }}; margin-bottom: 0;">
+    <div style="font-size: 22px; color: {{ color }}; margin-bottom: 4px;">
+      <i class="fa {{ icon }}"></i>
+    </div>
+    <div style="font-size: 22px; font-weight: 700; color: #0f172a; line-height: 1.1;">
+      {{ value|default:"0"|floatformat:"-2" }}{% if suffix %}{{ suffix }}{% endif %}
+    </div>
+    <div style="color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px;">
+      {{ label }}
+    </div>
+  </div>
+</div>

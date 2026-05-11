@@ -5,7 +5,8 @@ from .template_views import (
     LocationListView, LocationCreateView, LocationDetailView, LocationUpdateView, LocationDeleteView,
     ComparisonListView, ComparisonReportView,
     JobListView, JobCreateView, JobDetailView,
-    AuditLogListView, trigger_source_import
+    AuditLogListView, trigger_source_import,
+    XCO2StatisticsView,
 )
 
 app_name = 'co2_management'
@@ -46,6 +47,9 @@ urlpatterns = [
 
     # Nhật ký hệ thống (Audit Log - chỉ dành cho admin)
     path('audit-log/', AuditLogListView.as_view(), name='audit_log'),
+
+    # Thống kê XCO2 chuyên sâu
+    path('statistics/', XCO2StatisticsView.as_view(), name='xco2_statistics'),
 
     # Các API REST Framework
     path('api/v1/', include('co2_management.api_urls')),

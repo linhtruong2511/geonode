@@ -4,6 +4,7 @@
 {% block extra_style %}
   {{ block.super }}
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
   <style>
     /* ─── CSS Variables ───────────────────────────────── */
     :root {
@@ -366,6 +367,10 @@
         <span class="nav-icon"><i class="fa fa-cogs"></i></span>
         <span class="nav-label">{% trans "Phiên phân tích" %}</span>
       </a>
+      <a href="{% url 'co2_management:xco2_statistics' %}" class="sidebar-nav-item {% if active_section == 'statistics' %}active{% endif %}" data-tooltip="{% trans 'Thống kê XCO2' %}">
+        <span class="nav-icon"><i class="fa fa-bar-chart"></i></span>
+        <span class="nav-label">{% trans "Thống kê XCO2" %}</span>
+      </a>
       {% if user.is_superuser %}
       <a href="{% url 'co2_management:audit_log' %}" class="sidebar-nav-item {% if active_section == 'audit' %}active{% endif %}" data-tooltip="{% trans 'Nhật ký hệ thống' %}">
         <span class="nav-icon"><i class="fa fa-list-alt"></i></span>
@@ -423,6 +428,8 @@
     <div id="co2-map-panel">
       <div id="co2-map"></div>
       
+      {% block co2_map_overlays %}{% endblock %}
+
       <!-- Map Controls Overlay -->
       <div style="position: absolute; top: 10px; left: 50px; z-index: 1000; display: flex; gap: 5px;">
         <div class="input-group input-group-sm" style="width: 250px;">
@@ -434,6 +441,7 @@
         <button id="btn-map-locate" class="btn btn-sm btn-default" title="{% trans 'Vị trí hiện tại' %}">
           <i class="fa fa-crosshairs"></i>
         </button>
+        {% block co2_map_actions %}{% endblock %}
       </div>
 
       <!-- Stats Overlay -->
@@ -477,7 +485,7 @@
         <div class="legend-gradient"></div>
         <div class="legend-labels">
           <span>~415</span>
-          <span>~460</span>
+          <span>~430</span>
         </div>
       </div>
     </div>
@@ -489,6 +497,7 @@
   {{ block.super }}
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -590,7 +599,7 @@
           // Data Layers
           this.oco2Layer = L.layerGroup().addTo(this.map);
           this.gosat2Layer = L.layerGroup().addTo(this.map);
-          this.heatLayer = L.heatLayer([], { radius: 25, blur: 15, max: 460 });
+          this.heatLayer = L.heatLayer([], { radius: 25, blur: 15, max: 430 });
 
           const overlayMaps = {
             "OCO-2": this.oco2Layer,
@@ -646,10 +655,10 @@
             };
         },
         getColor: function(xco2) {
-            if (xco2 < 425) return '#27ae60';
-            if (xco2 < 435) return '#2ecc71';
-            if (xco2 < 445) return '#f1c40f';
-            if (xco2 < 455) return '#e67e22';
+            if (xco2 < 418) return '#27ae60';
+            if (xco2 < 421) return '#2ecc71';
+            if (xco2 < 424) return '#f1c40f';
+            if (xco2 < 427) return '#e67e22';
             return '#e74c3c';
         },
         loadData: function(url) {

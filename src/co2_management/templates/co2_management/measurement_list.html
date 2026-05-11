@@ -10,6 +10,7 @@
         <input type="hidden" name="max_lat" id="id_max_lat" value="{{ request.GET.max_lat }}">
         <input type="hidden" name="min_lon" id="id_min_lon" value="{{ request.GET.min_lon }}">
         <input type="hidden" name="max_lon" id="id_max_lon" value="{{ request.GET.max_lon }}">
+        <input type="hidden" name="geometry" id="id_geometry" value="{{ request.GET.geometry }}">
         <div class="row">
           <div class="col-sm-4 form-group">
             <label style="font-size: 12px; color: #64748b;">{% trans "Nguồn dữ liệu" %}</label>
@@ -43,12 +44,9 @@
                 <input type="date" name="date_to" class="form-control input-sm" value="{{ request.GET.date_to }}">
              </div>
           </div>
-          <div class="col-sm-4 form-group" style="margin-bottom: 0; align-self: flex-end; display: flex; gap: 5px;">
-            <button type="submit" class="btn btn-sm btn-accent" style="flex: 1;">
+          <div class="col-sm-4 form-group" style="margin-bottom: 0; align-self: flex-end;">
+            <button type="submit" class="btn btn-sm btn-accent btn-block">
                <i class="fa fa-search"></i> {% trans "Tìm kiếm" %}
-            </button>
-            <button type="button" id="btn-search-viewport" class="btn btn-sm btn-default" style="flex: 1;">
-               <i class="fa fa-map"></i> {% trans "Theo bản đồ" %}
             </button>
           </div>
         </div>
@@ -79,9 +77,12 @@
             </thead>
             <tbody>
               {% for obj in object_list %}
-                <tr style="cursor: pointer;" onclick="window.CO2Map && window.CO2Map.focusPoint({{ obj.latitude }}, {{ obj.longitude }}, 10)">
+                <tr class="measurement-row" 
+                    data-lat="{{ obj.latitude|stringformat:".7f" }}" 
+                    data-lon="{{ obj.longitude|stringformat:".7f" }}"
+                    style="cursor: pointer;">
                   <td>{{ obj.pk }}</td>
-                  <td style="font-weight: bold; color: {% if obj.xco2_ppm > 415 %}#e74c3c{% else %}#27ae60{% endif %};">{{ obj.xco2_ppm|floatformat:2 }}</td>
+                  <td style="font-weight: bold; color: {% if obj.xco2_ppm > 425 %}#e74c3c{% else %}#27ae60{% endif %};">{{ obj.xco2_ppm|floatformat:2 }}</td>
                   <td><span class="label label-default">{{ obj.data_source }}</span></td>
                   <td>{{ obj.measurement_time|date:"d/m/y" }}</td>
                   <td><a href="{% url 'co2_management:measurement_detail' pk=obj.pk %}" title="{% trans 'Chi tiết' %}"><i class="fa fa-chevron-right text-muted"></i></a></td>
@@ -100,13 +101,13 @@
         <div class="text-center" style="padding: 10px;">
           <ul class="pagination pagination-sm" style="margin: 0;">
             {% if page_obj.has_previous %}
-              <li><a href="?page={{ page_obj.previous_page_number }}{% if request.GET.source %}&source={{ request.GET.source }}{% endif %}{% if request.GET.quality %}&quality={{ request.GET.quality }}{% endif %}{% if request.GET.min_xco2 %}&min_xco2={{ request.GET.min_xco2 }}{% endif %}{% if request.GET.max_xco2 %}&max_xco2={{ request.GET.max_xco2 }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">&laquo;</a></li>
+              <li><a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo;</a></li>
             {% endif %}
 
             {% for num in paginator.page_range %}
               {% if num == 1 or num == paginator.num_pages or num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
                 <li class="{% if num == page_obj.number %}active{% endif %}">
-                  <a href="?page={{ num }}{% if request.GET.source %}&source={{ request.GET.source }}{% endif %}{% if request.GET.quality %}&quality={{ request.GET.quality }}{% endif %}{% if request.GET.min_xco2 %}&min_xco2={{ request.GET.min_xco2 }}{% endif %}{% if request.GET.max_xco2 %}&max_xco2={{ request.GET.max_xco2 }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">{{ num }}</a>
+                  <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
                 </li>
               {% elif num == page_obj.number|add:-3 or num == page_obj.number|add:3 %}
                 <li class="disabled"><span>...</span></li>
@@ -114,7 +115,7 @@
             {% endfor %}
 
             {% if page_obj.has_next %}
-              <li><a href="?page={{ page_obj.next_page_number }}{% if request.GET.source %}&source={{ request.GET.source }}{% endif %}{% if request.GET.quality %}&quality={{ request.GET.quality }}{% endif %}{% if request.GET.min_xco2 %}&min_xco2={{ request.GET.min_xco2 }}{% endif %}{% if request.GET.max_xco2 %}&max_xco2={{ request.GET.max_xco2 }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">&raquo;</a></li>
+              <li><a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&raquo;</a></li>
             {% endif %}
           </ul>
         </div>
@@ -123,30 +124,124 @@
   </div>
 {% endblock %}
 
+{% block co2_map_actions %}
+  <button id="btn-search-viewport" class="btn btn-sm btn-default" title="{% trans 'Tìm trong vùng hiển thị' %}">
+    <i class="fa fa-expand"></i>
+  </button>
+  <div id="draw-info-overlay" style="display: none; align-items: center; background: white; padding: 2px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 11px;">
+    <span class="text-success"><i class="fa fa-check-circle"></i> {% trans "Đã chọn vùng" %}</span>
+    <button type="button" id="btn-clear-draw" class="btn btn-link btn-xs text-danger" style="margin-left: 5px; text-decoration: none;">{% trans "Xóa" %}</button>
+  </div>
+{% endblock %}
+
 {% block co2_scripts %}
+<style>
+  .measurement-row:hover {
+    background-color: rgba(39, 174, 96, 0.05) !important;
+  }
+</style>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const btnSearchViewport = document.getElementById('btn-search-viewport');
-    if (btnSearchViewport) {
-      btnSearchViewport.addEventListener('click', function() {
-        if (window.CO2Map && window.CO2Map.map) {
-          const bounds = window.CO2Map.map.getBounds();
-          const minLat = bounds.getSouth();
-          const maxLat = bounds.getNorth();
-          const minLon = bounds.getWest();
-          const maxLon = bounds.getEast();
+    // ─── Map Drawing Integration ─────────────────────────────────────
+    setTimeout(() => {
+      const mapObj = window.CO2Map && window.CO2Map.map;
+      if (!mapObj) return;
 
-          // Set hidden fields
-          document.getElementById('id_min_lat').value = minLat;
-          document.getElementById('id_max_lat').value = maxLat;
-          document.getElementById('id_min_lon').value = minLon;
-          document.getElementById('id_max_lon').value = maxLon;
-
-          // Submit form
-          document.getElementById('co2-advanced-filter').submit();
+      const drawnItems = new L.FeatureGroup().addTo(mapObj);
+      const drawControl = new L.Control.Draw({
+        edit: { featureGroup: drawnItems, remove: true },
+        draw: {
+          polygon: { allowIntersection: false, showArea: true },
+          rectangle: true,
+          circle: false, circlemarker: false, marker: false, polyline: false
         }
       });
-    }
+      mapObj.addControl(drawControl);
+
+      const geomInput = document.getElementById('id_geometry');
+      const drawInfo = document.getElementById('draw-info-overlay');
+      const btnClearDraw = document.getElementById('btn-clear-draw');
+
+      // Function to convert LatLngs to WKT Polygon
+      const toWKT = (layer) => {
+        let coords;
+        if (layer instanceof L.Rectangle || layer instanceof L.Polygon) {
+          coords = layer.getLatLngs()[0];
+          // Ensure polygon is closed for WKT
+          const points = coords.map(c => `${c.lng.toFixed(7)} ${c.lat.toFixed(7)}`);
+          points.push(points[0]);
+          return `POLYGON((${points.join(', ')}))`;
+        }
+        return null;
+      };
+
+      // Handle existing geometry from search
+      const existingGeom = geomInput.value;
+      if (existingGeom && existingGeom.startsWith('POLYGON')) {
+          drawInfo.style.display = 'flex';
+      }
+
+      mapObj.on(L.Draw.Event.CREATED, function (e) {
+        drawnItems.clearLayers();
+        const layer = e.layer;
+        drawnItems.addLayer(layer);
+        
+        const wkt = toWKT(layer);
+        if (wkt) {
+          geomInput.value = wkt;
+          drawInfo.style.display = 'flex';
+          
+          // Clear viewport bounds as geometry takes precedence
+          document.getElementById('id_min_lat').value = '';
+          document.getElementById('id_max_lat').value = '';
+          document.getElementById('id_min_lon').value = '';
+          document.getElementById('id_max_lon').value = '';
+        }
+      });
+
+      mapObj.on(L.Draw.Event.DELETED, function () {
+        geomInput.value = '';
+        drawInfo.style.display = 'none';
+      });
+
+      btnClearDraw.onclick = () => {
+        drawnItems.clearLayers();
+        geomInput.value = '';
+        drawInfo.style.display = 'none';
+      };
+
+      // Handle Viewport Search
+      const btnSearchViewport = document.getElementById('btn-search-viewport');
+      if (btnSearchViewport) {
+        btnSearchViewport.addEventListener('click', function() {
+          const bounds = mapObj.getBounds();
+          document.getElementById('id_min_lat').value = bounds.getSouth();
+          document.getElementById('id_max_lat').value = bounds.getNorth();
+          document.getElementById('id_min_lon').value = bounds.getWest();
+          document.getElementById('id_max_lon').value = bounds.getEast();
+          
+          // Clear custom geometry when searching by viewport
+          geomInput.value = '';
+          
+          document.getElementById('co2-advanced-filter').submit();
+        });
+      }
+    }, 500);
+
+    // Handle row click to zoom
+    const rows = document.querySelectorAll('.measurement-row');
+    rows.forEach(row => {
+      row.addEventListener('click', function(e) {
+        if (e.target.tagName === 'A' || e.target.parentElement.tagName === 'A') return;
+        
+        const lat = parseFloat(this.getAttribute('data-lat'));
+        const lon = parseFloat(this.getAttribute('data-lon'));
+        
+        if (window.CO2Map && window.CO2Map.focusPoint) {
+          window.CO2Map.focusPoint(lat, lon, 18);
+        }
+      });
+    });
   });
 </script>
 {% endblock %}

@@ -95,6 +95,16 @@ class MeasurementViewSet(viewsets.ReadOnlyModelViewSet):
                 longitude__gte=float(min_lon),
                 longitude__lte=float(max_lon)
             )
+        
+        # Lọc theo vùng hình học tùy ý (WKT Polygon/Rectangle)
+        geometry_wkt = self.request.query_params.get("geometry")
+        if geometry_wkt:
+            try:
+                from django.contrib.gis.geos import GEOSGeometry
+                geom = GEOSGeometry(geometry_wkt, srid=4326)
+                qs = qs.filter(geom__intersects=geom)
+            except Exception as e:
+                logger.error(f"Spatial filter error: {e}")
             
         return qs.order_by("-measurement_time")
 
