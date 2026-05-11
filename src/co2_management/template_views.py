@@ -1,4 +1,5 @@
 import logging
+import json
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
@@ -21,6 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 def resolve_attr(obj, accessor):
+    """
+    Hàm hỗ trợ truy xuất thuộc tính hoặc phương thức của một đối tượng dựa trên chuỗi truy cập.
+    Ví dụ: accessor='satellite.name' sẽ trả về obj.satellite.name
+    """
     value = obj
     for part in accessor.split("."):
         value = getattr(value, part, None)
@@ -32,47 +37,58 @@ def resolve_attr(obj, accessor):
 
 
 class CO2TemplateMixin(LoginRequiredMixin):
-    """Base mixin to inject common CO2 UI template context"""
-    active_section = "dashboard"
-    page_title = ""
-    page_subtitle = ""
-    primary_action = None
-    map_config = {}
+    """
+    Mixin cơ sở để cung cấp các thuộc tính và ngữ cảnh (context) chung cho các template của module CO2.
+    Đảm bảo người dùng phải đăng nhập mới có quyền truy cập.
+    """
+    active_section = "dashboard" # Phân đoạn đang hoạt động trong menu điều hướng
+    page_title = "" # Tiêu đề chính của trang
+    page_subtitle = "" # Mô tả ngắn dưới tiêu đề
+    primary_action = None # Hành động chính trên trang (nút bấm, link)
+    map_config = {} # Cấu hình bản đồ cho view này
 
     def get_map_config(self):
-        """Override to configure map state for this view"""
+        """Phương thức ghi đè để cấu hình trạng thái bản đồ (vị trí tâm, mức zoom, URL dữ liệu)"""
         return self.map_config
 
     def get_context_data(self, **kwargs):
+        """Bổ sung các tham số chung vào context của template"""
         try:
             context = super().get_context_data(**kwargs)
         except AttributeError:
             context = {}
             context.update(kwargs)
         
+        config = self.get_map_config()
         context["active_section"] = self.active_section
         context["page_title"] = self.page_title
         context["page_subtitle"] = self.page_subtitle
         context["primary_action"] = self.primary_action
-        context["map_config"] = self.get_map_config()
+        context["map_config"] = config
+        context["map_config_json"] = json.dumps(config)
         return context
 
 
 class CO2SearchableListView(CO2TemplateMixin, ListView):
+    """
+    View danh sách chung hỗ trợ tìm kiếm, phân trang và tự động định dạng bảng dữ liệu.
+    """
     template_name = "co2_management/crud_list.html"
-    paginate_by = 12
-    search_fields = []
-    table_columns = []
-    create_url_name = None
-    detail_url_name = None
-    edit_url_name = None
-    delete_url_name = None
+    paginate_by = 12 # Số lượng bản ghi mỗi trang
+    search_fields = [] # Các trường dữ liệu hỗ trợ tìm kiếm (icontains)
+    table_columns = [] # Danh sách các cột hiển thị: [(nhãn, truy cập), ...]
+    create_url_name = None # Name URL để tạo mới đối tượng
+    detail_url_name = None # Name URL để xem chi tiết
+    edit_url_name = None # Name URL để chỉnh sửa
+    delete_url_name = None # Name URL để xóa
     empty_message = _("Không tìm thấy bản ghi nào.")
 
     def get_search_query(self):
+        """Lấy từ khóa tìm kiếm từ tham số URL 'q'"""
         return self.request.GET.get("q", "").strip()
 
     def get_queryset(self):
+        """Lọc danh sách dữ liệu dựa trên từ khóa tìm kiếm"""
         queryset = super().get_queryset()
         q = self.get_search_query()
         if q and self.search_fields:
@@ -83,11 +99,12 @@ class CO2SearchableListView(CO2TemplateMixin, ListView):
         return queryset
 
     def build_row(self, obj):
+        """Xây dựng dữ liệu cho từng hàng của bảng dựa trên table_columns"""
         row = []
         for label, accessor in self.table_columns:
             value = accessor(obj) if callable(accessor) else resolve_attr(obj, accessor)
             row.append({"label": label, "value": value})
-        actions = []
+        actions = [] # Các nút thao tác (Chi tiết, Sửa, Xóa)
         if self.detail_url_name:
             actions.append({"label": _("Chi tiết"), "url": reverse(self.detail_url_name, kwargs={"pk": obj.pk})})
         if self.edit_url_name:
@@ -103,6 +120,7 @@ class CO2SearchableListView(CO2TemplateMixin, ListView):
         return {"object": obj, "cells": row, "actions": actions}
 
     def get_context_data(self, **kwargs):
+        """Bổ sung tiêu đề bảng và dữ liệu hàng đã được xử lý vào context"""
         context = super().get_context_data(**kwargs)
         context["search_query"] = self.get_search_query()
         context["table_headers"] = [label for label, _ in self.table_columns]
@@ -114,12 +132,16 @@ class CO2SearchableListView(CO2TemplateMixin, ListView):
 
 
 class CO2GenericDetailView(CO2TemplateMixin, DetailView):
+    """
+    View chi tiết đối tượng chung, hỗ trợ hiển thị thông tin dạng danh sách cặp nhãn-giá trị.
+    """
     template_name = "co2_management/crud_detail.html"
-    detail_fields = []
-    edit_url_name = None
-    delete_url_name = None
+    detail_fields = [] # Danh sách các trường hiển thị chi tiết: [(nhãn, truy cập), ...]
+    edit_url_name = None # Name URL để chỉnh sửa
+    delete_url_name = None # Name URL để xóa
 
     def get_detail_rows(self):
+        """Trích xuất dữ liệu chi tiết cho từng trường đã định nghĩa"""
         rows = []
         for label, accessor in self.detail_fields:
             value = accessor(self.object) if callable(accessor) else resolve_attr(self.object, accessor)
@@ -136,9 +158,24 @@ class CO2GenericDetailView(CO2TemplateMixin, DetailView):
         return context
 
 
-# --- Page Views ---
+def trigger_source_import(request, pk):
+    """
+    Hàm view hỗ trợ kích hoạt thủ công tác vụ nhập dữ liệu từ giao diện.
+    """
+    from .tasks import import_data_file_task
+    source = get_object_or_404(MeasurementSource, pk=pk)
+    import_data_file_task.delay(source.pk)
+    messages.success(request, _("Đã bắt đầu quy trình nhập dữ liệu cho tệp %s. Vui lòng chờ vài phút.") % source.file_name)
+    return redirect("co2_management:source_detail", pk=source.pk)
+
+
+# --- Page Views (Các trang chức năng cụ thể) ---
 
 class DashboardView(CO2TemplateMixin, TemplateView):
+    """
+    Trang Bảng điều khiển (Dashboard) tổng quan của hệ thống CO2.
+    Hiển thị các thống kê quan trọng và danh sách các hoạt động gần đây.
+    """
     template_name = "co2_management/dashboard.html"
     active_section = "dashboard"
     page_title = _("Bảng điều khiển CO2")
@@ -146,6 +183,7 @@ class DashboardView(CO2TemplateMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Tính toán các số liệu thống kê tổng hợp
         context["stats"] = {
             "measurements_total": Measurement.objects.count(),
             "sources_total": MeasurementSource.objects.count(),
@@ -154,20 +192,22 @@ class DashboardView(CO2TemplateMixin, TemplateView):
             "jobs_total": AnalysisJob.objects.count(),
             "jobs_running": AnalysisJob.objects.filter(status__in=[JobStatus.PENDING, JobStatus.RUNNING]).count(),
         }
+        # Lấy danh sách 5 tệp nguồn và 5 công việc phân tích gần nhất
         context["recent_sources"] = MeasurementSource.objects.order_by("-id")[:5]
         context["recent_jobs"] = AnalysisJob.objects.order_by("-id")[:5]
         return context
 
     def get_map_config(self):
-        # API to fetch latest 500 points for dashboard
+        """Cấu hình mặc định cho bản đồ trên Dashboard (vùng Việt Nam)"""
         return {
             "center": [16.0, 107.0],
             "zoom": 5,
-            # "data_url": reverse("co2_management:api_measurements_geojson") + "?limit=500"
+            "data_url": reverse("co2_management:measurement-list") + "spatial_query/?limit=500"
         }
 
 
 class SatelliteListView(CO2SearchableListView):
+    """Hiển thị danh sách các vệ tinh quan trắc trong hệ thống"""
     model = Satellite
     active_section = "satellites"
     page_title = _("Danh sách vệ tinh")
@@ -181,6 +221,7 @@ class SatelliteListView(CO2SearchableListView):
 
 
 class SatelliteDetailView(CO2GenericDetailView):
+    """Hiển thị chi tiết thông tin và thiết bị của một vệ tinh cụ thể"""
     model = Satellite
     active_section = "satellites"
     template_name = "co2_management/satellite_detail.html"
@@ -197,11 +238,13 @@ class SatelliteDetailView(CO2GenericDetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Lấy thêm danh sách thiết bị thuộc vệ tinh này
         context["instruments"] = self.object.instruments.all()
         return context
 
 
 class SourceListView(CO2SearchableListView):
+    """Danh sách các tệp nguồn dữ liệu đã nhập vào hệ thống"""
     model = MeasurementSource
     active_section = "sources"
     page_title = _("Nguồn dữ liệu (Files)")
@@ -217,6 +260,7 @@ class SourceListView(CO2SearchableListView):
 
 
 class SourceDetailView(CO2GenericDetailView):
+    """Chi tiết về một tệp nguồn dữ liệu và các siêu dữ liệu xử lý"""
     model = MeasurementSource
     active_section = "sources"
     template_name = "co2_management/source_detail.html"
@@ -233,8 +277,32 @@ class SourceDetailView(CO2GenericDetailView):
         (_("Algorithm"), "algorithm_version"),
     ]
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Bổ sung nút bấm thực hiện Import dữ liệu
+        if not self.object.quality_checked:
+            context["primary_action"] = {
+                "label": _("Xử lý tệp (Import)"),
+                "url": reverse("co2_management:source_import_trigger", kwargs={"pk": self.object.pk})
+            }
+        return context
+
+    def get_map_config(self):
+        """
+        Cấu hình bản đồ để lấy toàn bộ các điểm đo thuộc về tệp nguồn này.
+        Sử dụng spatial_query API với tham số lọc source_id.
+        """
+        url = reverse("co2_management:measurement-list") + f"spatial_query/?source_id={self.object.pk}&limit=5000"
+        return {
+            "data_url": url,
+            "fit_bounds": True # Gợi ý cho frontend tự động thu phóng bản đồ để hiển thị hết các điểm
+        }
+
 
 class MeasurementListView(CO2TemplateMixin, ListView):
+    """
+    Trang danh sách dữ liệu đo đạc chi tiết với bộ lọc nâng cao theo không gian, thời gian và chất lượng.
+    """
     model = Measurement
     active_section = "measurements"
     template_name = "co2_management/measurement_list.html"
@@ -242,17 +310,20 @@ class MeasurementListView(CO2TemplateMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
+        """Xây dựng queryset dựa trên các tham số lọc từ yêu cầu (GET parameters)"""
         qs = Measurement.objects.select_related("source")
         
-        # Advanced Filtering
+        # Lọc theo nguồn dữ liệu (OCO2/GOSAT2)
         src = self.request.GET.get("source")
         if src:
             qs = qs.filter(data_source=src)
             
+        # Lọc theo chất lượng (0: Tốt)
         q_flag = self.request.GET.get("quality")
         if q_flag == '0':
             qs = qs.filter(xco2_quality_flag=0)
             
+        # Lọc theo dải nồng độ XCO2
         min_xco2 = self.request.GET.get("min_xco2")
         if min_xco2:
             qs = qs.filter(xco2_ppm__gte=float(min_xco2))
@@ -261,6 +332,7 @@ class MeasurementListView(CO2TemplateMixin, ListView):
         if max_xco2:
             qs = qs.filter(xco2_ppm__lte=float(max_xco2))
             
+        # Lọc theo thời gian
         date_from = self.request.GET.get("date_from")
         if date_from:
             qs = qs.filter(measurement_time__date__gte=date_from)
@@ -269,10 +341,41 @@ class MeasurementListView(CO2TemplateMixin, ListView):
         if date_to:
             qs = qs.filter(measurement_time__date__lte=date_to)
             
+        # Lọc theo vùng quan sát (Bounding Box)
+        min_lat = self.request.GET.get("min_lat")
+        max_lat = self.request.GET.get("max_lat")
+        min_lon = self.request.GET.get("min_lon")
+        max_lon = self.request.GET.get("max_lon")
+        
+        if min_lat and max_lat and min_lon and max_lon:
+            qs = qs.filter(
+                latitude__gte=float(min_lat),
+                latitude__lte=float(max_lat),
+                longitude__gte=float(min_lon),
+                longitude__lte=float(max_lon)
+            )
+            
         return qs.order_by("-measurement_time")
+
+    def get_map_config(self):
+        """Cung cấp URL API để bản đồ tải dữ liệu dựa trên các tham số lọc hiện tại"""
+        params = self.request.GET.copy()
+        if 'page' in params:
+            del params['page']
+            
+        url = reverse("co2_management:measurement-list") + "spatial_query/"
+        
+        query_string = params.urlencode()
+        if query_string:
+            url += f"?{query_string}"
+            
+        return {
+            "data_url": url
+        }
 
 
 class MeasurementDetailView(CO2GenericDetailView):
+    """Trang chi tiết của một điểm đo duy nhất, bao gồm cả hồ sơ thẳng đứng (profile)"""
     model = Measurement
     active_section = "measurements"
     template_name = "co2_management/measurement_detail.html"
@@ -291,17 +394,21 @@ class MeasurementDetailView(CO2GenericDetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Lấy hồ sơ thẳng đứng của điểm đo này, sắp xếp theo áp suất
         context["profiles"] = self.object.profiles.order_by('pressure_hpa')
         return context
 
     def get_map_config(self):
+        """Căn giữa bản đồ vào vị trí của điểm đo"""
         return {
             "center": [self.object.latitude, self.object.longitude],
             "zoom": 12,
-            # will load just this point or nearby points via API later
         }
 
+# --- Quản lý Vị trí Giám sát (CRUD) ---
+
 class LocationListView(CO2SearchableListView):
+    """Danh sách các địa điểm cần giám sát định kỳ"""
     model = MonitoringLocation
     active_section = "locations"
     page_title = _("Vị trí giám sát")
@@ -319,6 +426,7 @@ class LocationListView(CO2SearchableListView):
     delete_url_name = "co2_management:location_delete"
 
 class LocationCreateView(CO2TemplateMixin, CreateView):
+    """Biểu mẫu thêm mới vị trí giám sát"""
     model = MonitoringLocation
     fields = ["name", "location_type", "latitude", "longitude", "radius_km"]
     active_section = "locations"
@@ -329,12 +437,13 @@ class LocationCreateView(CO2TemplateMixin, CreateView):
         return reverse("co2_management:location_list")
 
 class LocationDetailView(CO2GenericDetailView):
+    """Thông tin chi tiết về một vị trí giám sát"""
     model = MonitoringLocation
     active_section = "locations"
     template_name = "co2_management/location_detail.html"
     page_title = _("Chi tiết vị trí giám sát")
     detail_fields = [
-        (_("Tên"), "name"),
+        (_("Tên"), "location_name"),
         (_("Loại"), "location_type"),
         (_("Vĩ độ"), "latitude"),
         (_("Kinh độ"), "longitude"),
@@ -343,7 +452,16 @@ class LocationDetailView(CO2GenericDetailView):
     edit_url_name = "co2_management:location_update"
     delete_url_name = "co2_management:location_delete"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Cung cấp URL API để fetch chuỗi thời gian và thống kê cho vị trí này
+        base_url = reverse("co2_management:monitoringlocation-detail", kwargs={"pk": self.object.pk})
+        context["timeseries_api_url"] = base_url + "timeseries/"
+        context["statistics_api_url"] = base_url + "statistics/"
+        return context
+
 class LocationUpdateView(CO2TemplateMixin, UpdateView):
+    """Biểu mẫu chỉnh sửa thông tin vị trí giám sát"""
     model = MonitoringLocation
     fields = ["name", "location_type", "latitude", "longitude", "radius_km"]
     active_section = "locations"
@@ -354,6 +472,7 @@ class LocationUpdateView(CO2TemplateMixin, UpdateView):
         return reverse("co2_management:location_detail", kwargs={"pk": self.object.pk})
 
 class LocationDeleteView(CO2TemplateMixin, DeleteView):
+    """Trang xác nhận xóa vị trí giám sát"""
     model = MonitoringLocation
     active_section = "locations"
     template_name = "co2_management/crud_confirm_delete.html"
@@ -364,6 +483,7 @@ class LocationDeleteView(CO2TemplateMixin, DeleteView):
 
 
 class ComparisonListView(CO2SearchableListView):
+    """Hiển thị các kết quả so sánh đối chiếu dữ liệu giữa các nguồn (OCO-2 vs GOSAT-2)"""
     model = DataComparison
     active_section = "comparisons"
     page_title = _("So sánh dữ liệu")
@@ -377,16 +497,53 @@ class ComparisonListView(CO2SearchableListView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        # Nút dẫn tới báo cáo đồ họa chi tiết
         context["primary_action"] = {"label": _("Xem báo cáo tổng hợp"), "url": reverse("co2_management:comparison_report")}
         return context
 
 class ComparisonReportView(CO2TemplateMixin, TemplateView):
+    """Trang báo cáo tổng hợp với biểu đồ so sánh dữ liệu thực tế"""
     active_section = "comparisons"
     template_name = "co2_management/comparison_report.html"
     page_title = _("Báo cáo so sánh dữ liệu")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Hỗ trợ xem báo cáo theo Job cụ thể hoặc toàn cục
+        job_id = self.request.GET.get('job_id')
+        comparisons = DataComparison.objects.all()
+        if job_id:
+            comparisons = comparisons.filter(job_id=job_id)
+            context["current_job"] = AnalysisJob.objects.filter(id=job_id).first()
+        
+        count = comparisons.count()
+        if count > 0:
+            import numpy as np
+            diffs = np.array(comparisons.values_list('xco2_difference_ppm', flat=True))
+            oco2_vals = np.array(comparisons.values_list('oco2_measurement__xco2_ppm', flat=True))
+            gosat2_vals = np.array(comparisons.values_list('gosat2_measurement__xco2_ppm', flat=True))
+            
+            context["bias"] = round(float(np.mean(diffs)), 3)
+            context["rmse"] = round(float(np.sqrt(np.mean(diffs**2))), 3)
+            # Tính hệ số tương quan Pearson
+            if len(oco2_vals) > 1:
+                context["corr"] = round(float(np.corrcoef(oco2_vals, gosat2_vals)[0, 1]), 3)
+            else:
+                context["corr"] = 0
+            context["total_pairs"] = count
+            
+            # Chuẩn bị dữ liệu cho biểu đồ Scatter (lấy tối đa 1000 điểm để hiển thị)
+            scatter_data = []
+            for o, g in zip(oco2_vals[:1000], gosat2_vals[:1000]):
+                scatter_data.append({"x": round(float(o), 2), "y": round(float(g), 2)})
+            context["scatter_data_json"] = json.dumps(scatter_data)
+        
+        return context
+
 
 class JobListView(CO2SearchableListView):
+    """Danh sách các công việc phân tích (Xử lý file, So sánh, Thống kê)"""
     model = AnalysisJob
     active_section = "jobs"
     page_title = _("Phiên phân tích (Jobs)")
@@ -402,6 +559,7 @@ class JobListView(CO2SearchableListView):
     detail_url_name = "co2_management:job_detail"
 
 class JobCreateView(CO2TemplateMixin, CreateView):
+    """Biểu mẫu khởi tạo một công việc phân tích dữ liệu mới"""
     model = AnalysisJob
     fields = ["job_name", "job_type", "parameters"]
     active_section = "jobs"
@@ -409,13 +567,26 @@ class JobCreateView(CO2TemplateMixin, CreateView):
     page_title = _("Tạo phiên phân tích")
 
     def form_valid(self, form):
-        form.instance.created_by = self.request.user
-        return super().form_valid(form)
+        # Tự động gán người tạo là người dùng hiện tại
+        form.instance.user = self.request.user
+        response = super().form_valid(form)
+        
+        # Kích hoạt tác vụ Celery tương ứng
+        from .tasks import run_comparison_task, run_analysis_job_task
+        if self.object.job_type == 'COMPARISON':
+            run_comparison_task.delay(self.object.pk)
+            messages.info(self.request, _("Đã bắt đầu công việc so sánh dữ liệu trong nền."))
+        else:
+            run_analysis_job_task.delay(self.object.pk)
+            messages.info(self.request, _("Đã bắt đầu phiên phân tích trong nền."))
+            
+        return response
 
     def get_success_url(self):
         return reverse("co2_management:job_list")
 
 class JobDetailView(CO2GenericDetailView):
+    """Theo dõi tiến độ và kết quả của một công việc phân tích"""
     model = AnalysisJob
     active_section = "jobs"
     template_name = "co2_management/job_detail.html"
@@ -431,6 +602,7 @@ class JobDetailView(CO2GenericDetailView):
     ]
 
 class AuditLogListView(CO2SearchableListView):
+    """Xem nhật ký thay đổi hệ thống của module CO2 để phục vụ kiểm tra (audit)"""
     model = AuditLog
     active_section = "audit"
     page_title = _("Nhật ký hệ thống")
@@ -442,6 +614,3 @@ class AuditLogListView(CO2SearchableListView):
         (_("Mô hình"), "model_name"),
         (_("Đối tượng ID"), "object_id"),
     ]
-
-
-

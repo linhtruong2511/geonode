@@ -48,12 +48,13 @@ FILE_FORMAT = "NETCDF4"
 SATELLITE_NAME = "OCO-2"
 SATELLITE_OPERATOR = "NASA"
 
-# OCO-2 time base: seconds since 1993-01-01 00:00:00 UTC (TAI93)
+# OCO-2 time base: số giây tính từ 1993-01-01 00:00:00 UTC (TAI93)
 TAI93_EPOCH = datetime(1993, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 TAI93_EPOCH_TS = TAI93_EPOCH.timestamp()
 
 
 def parse_args():
+    """Phân tích các tham số dòng lệnh"""
     p = argparse.ArgumentParser(description="Import OCO-2 .nc4 file into CO2 Management DB")
     p.add_argument("path", help="Path to .nc4 file or directory containing .nc4 files")
     p.add_argument("--db-url", default=os.environ.get("DATABASE_URL"), help="PostgreSQL DSN")
@@ -67,14 +68,17 @@ def parse_args():
 
 
 def get_db_url(args):
-    """Resolve DB URL from args or Django settings."""
+    """
+    Xác định URL kết nối cơ sở dữ liệu.
+    Ưu tiên: Tham số dòng lệnh -> Biến môi trường -> Cấu hình Django (nếu có).
+    """
     db_url = args.db_url
     if db_url:
         if db_url.startswith("postgis://"):
             db_url = db_url.replace("postgis://", "postgresql://", 1)
         return db_url
     try:
-        # Try to get from Django settings if running in Django context
+        # Thử lấy từ cài đặt Django nếu script chạy trong môi trường Django
         sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "geonode_project.settings")
         import django
@@ -92,6 +96,7 @@ def get_db_url(args):
 
 
 def compute_sha256(path: str) -> str:
+    """Tính mã băm SHA-256 của tệp để kiểm tra trùng lặp"""
     sha = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -100,7 +105,7 @@ def compute_sha256(path: str) -> str:
 
 
 def date_array_to_datetime(date_row) -> datetime:
-    """Convert OCO-2 date array [Y, M, D, H, Min, S, ms] to UTC datetime."""
+    """Chuyển đổi mảng ngày của OCO-2 [Y, M, D, H, Min, S, ms] thành UTC datetime."""
     try:
         y, mo, d, h, mi, s, ms = int(date_row[0]), int(date_row[1]), int(date_row[2]), \
                                    int(date_row[3]), int(date_row[4]), int(date_row[5]), int(date_row[6])
@@ -110,11 +115,12 @@ def date_array_to_datetime(date_row) -> datetime:
 
 
 def tai93_to_datetime(seconds: float) -> datetime:
-    """Convert OCO-2 TAI93 timestamp to UTC datetime."""
+    """Chuyển đổi nhãn thời gian TAI93 của OCO-2 thành UTC datetime."""
     return datetime.fromtimestamp(TAI93_EPOCH_TS + float(seconds), tz=timezone.utc)
 
 
 def get_or_create_satellite(cur, satellite_id: int | None) -> int:
+    """Lấy hoặc tạo mới bản ghi vệ tinh OCO-2 trong cơ sở dữ liệu"""
     if satellite_id:
         cur.execute("SELECT id FROM co2_management_satellite WHERE id = %s", (satellite_id,))
         row = cur.fetchone()
@@ -141,13 +147,17 @@ def get_or_create_satellite(cur, satellite_id: int | None) -> int:
 
 
 def get_or_create_source(cur, sat_id: int, file_path: str, file_hash: str, n_soundings: int, measurement_date) -> int | None:
-    """Returns None if file was already imported (duplicate hash)."""
+    """
+    Tạo bản ghi nguồn dữ liệu (MeasurementSource).
+    Trả về None nếu file đã được nhập trước đó (trùng mã băm).
+    """
     cur.execute(
         "SELECT id FROM co2_management_measurementsource WHERE file_hash = %s",
         (file_hash,),
     )
     row = cur.fetchone()
     if row:
+
         log.warning(f"File already imported (hash match). source_id={row[0]}. Skipping.")
         return None
 

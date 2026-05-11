@@ -5,3 +5,5 @@ git+https://github.com/GeoNode/geonode.git@master#egg=GeoNode
 
 #custome library
 xarray==2026.2.0
+h5py
+netCDF4 

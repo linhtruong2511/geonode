@@ -422,12 +422,62 @@
     <!-- RIGHT MAP PANEL -->
     <div id="co2-map-panel">
       <div id="co2-map"></div>
+      
+      <!-- Map Controls Overlay -->
+      <div style="position: absolute; top: 10px; left: 50px; z-index: 1000; display: flex; gap: 5px;">
+        <div class="input-group input-group-sm" style="width: 250px;">
+          <input type="text" id="map-search-input" class="form-control" placeholder="{% trans 'Tìm địa danh...' %}">
+          <span class="input-group-btn">
+            <button id="btn-map-search" class="btn btn-default" type="button"><i class="fa fa-search"></i></button>
+          </span>
+        </div>
+        <button id="btn-map-locate" class="btn btn-sm btn-default" title="{% trans 'Vị trí hiện tại' %}">
+          <i class="fa fa-crosshairs"></i>
+        </button>
+      </div>
+
+      <!-- Stats Overlay -->
+      <div id="map-stats-overlay" style="position: absolute; top: 10px; right: 10px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 11px; min-width: 150px; display: none;">
+        <div style="font-weight: bold; border-bottom: 1px solid #e2e8f0; margin-bottom: 5px; padding-bottom: 3px; color: #1e293b;">
+          {% trans "Thống kê vùng hiển thị" %}
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+          <span style="color: #64748b;">{% trans "Trung bình:" %}</span>
+          <strong id="map-stat-avg" style="color: var(--accent-color);">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+          <span style="color: #64748b;">{% trans "Cao nhất:" %}</span>
+          <strong id="map-stat-max">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: #64748b;">{% trans "Số điểm đo:" %}</span>
+          <strong id="map-stat-count">-</strong>
+        </div>
+      </div>
+
+      <!-- Time Slider Overlay -->
+      <div id="map-time-slider-wrap" style="position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(255,255,255,0.95); padding: 10px 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); width: 80%; max-width: 600px; display: none; text-align: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <strong id="time-slider-label" style="font-size: 13px; color: var(--accent-color);">{% trans "Dòng thời gian" %}</strong>
+            <span id="time-slider-value" style="font-size: 12px; font-weight: bold; color: #1e293b;">-</span>
+        </div>
+        <input type="range" id="map-time-slider" style="width: 100%; cursor: pointer;" min="0" max="100" step="1">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-top: 3px;">
+            <span id="time-slider-start">-</span>
+            <span id="time-slider-end">-</span>
+        </div>
+      </div>
+
+      <div id="map-loader" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: rgba(255,255,255,0.9); padding: 15px 25px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
+        <i class="fa fa-spinner fa-spin fa-2x" style="color: var(--accent-color); margin-bottom: 10px;"></i>
+        <div style="font-weight: 600; color: #334155;">{% trans "Đang tải dữ liệu..." %}</div>
+      </div>
       <div class="map-legend">
         <div><strong>XCO2 (ppm)</strong></div>
         <div class="legend-gradient"></div>
         <div class="legend-labels">
-          <span>~390</span>
           <span>~415</span>
+          <span>~460</span>
         </div>
       </div>
     </div>
@@ -439,6 +489,7 @@
   {{ block.super }}
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       // Sidebar Toggle with persistence
@@ -506,69 +557,182 @@
           }
         }
       });
-
-      // Map Initialization (Stub)
-      const mapConfig = {{ map_config|default:"{}"|safe }};
+      // Map Initialization
+      const mapConfig = JSON.parse('{{ map_config_json|escapejs|default:"{}" }}');
       window.CO2Map = {
         map: null,
-        markersLayer: null,
+        oco2Layer: null,
+        gosat2Layer: null,
+        heatLayer: null,
         init: function() {
-          const center = mapConfig.center || [16.0, 107.0]; // Vietnam center
+          const center = mapConfig.center || [16.0, 107.0];
           const zoom = mapConfig.zoom || 6;
           this.map = L.map('co2-map').setView(center, zoom);
           
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          // Basemaps
+          const light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OSM contributors &copy; CARTO',
             subdomains: 'abcd',
             maxZoom: 20
-          }).addTo(this.map);
+          });
           
-          this.markersLayer = L.layerGroup().addTo(this.map);
-          console.log("CO2 Map initialized.");
+          const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri'
+          });
+
+          light.addTo(this.map);
           
-          // Load data if URL provided
+          const baseMaps = {
+            "{% trans 'Bản đồ sáng' %}": light,
+            "{% trans 'Bản đồ vệ tinh' %}": satellite
+          };
+
+          // Data Layers
+          this.oco2Layer = L.layerGroup().addTo(this.map);
+          this.gosat2Layer = L.layerGroup().addTo(this.map);
+          this.heatLayer = L.heatLayer([], { radius: 25, blur: 15, max: 460 });
+
+          const overlayMaps = {
+            "OCO-2": this.oco2Layer,
+            "GOSAT-2": this.gosat2Layer,
+            "{% trans 'Mật độ (Heatmap)' %}": this.heatLayer
+          };
+
+          L.control.layers(baseMaps, overlayMaps, { position: 'topleft' }).addTo(this.map);
+          
+          this.initSearch();
+          this.initLocate();
+
           if (mapConfig.data_url) {
-             this.loadPoints(mapConfig.data_url);
+             this.loadData(mapConfig.data_url);
           }
         },
+        initSearch: function() {
+            const self = this;
+            const input = document.getElementById('map-search-input');
+            const btn = document.getElementById('btn-map-search');
+            
+            const doSearch = () => {
+                const query = input.value.trim();
+                if (!query) return;
+                
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
+                    .then(res => res.json())
+                    .then(results => {
+                        if (results.length > 0) {
+                            const res = results[0];
+                            self.map.flyTo([res.lat, res.lon], 12);
+                        } else {
+                            alert('{% trans "Không tìm thấy địa danh này." %}');
+                        }
+                    })
+                    .catch(err => console.error("Search error:", err));
+            };
+            
+            btn.onclick = doSearch;
+            input.onkeypress = (e) => { if(e.key === 'Enter') doSearch(); };
+        },
+        initLocate: function() {
+            const self = this;
+            const btn = document.getElementById('btn-map-locate');
+            btn.onclick = () => {
+                if (!navigator.geolocation) return alert('{% trans "Trình duyệt của bạn không hỗ trợ định vị." %}');
+                
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    self.map.flyTo([pos.coords.latitude, pos.coords.longitude], 13);
+                }, (err) => {
+                    alert('{% trans "Không thể lấy vị trí của bạn." %}');
+                });
+            };
+        },
         getColor: function(xco2) {
-            // Simple gradient: green -> yellow -> red
-            if (xco2 < 400) return '#27ae60';
-            if (xco2 < 405) return '#2ecc71';
-            if (xco2 < 410) return '#f1c40f';
-            if (xco2 < 415) return '#e67e22';
+            if (xco2 < 425) return '#27ae60';
+            if (xco2 < 435) return '#2ecc71';
+            if (xco2 < 445) return '#f1c40f';
+            if (xco2 < 455) return '#e67e22';
             return '#e74c3c';
         },
-        loadPoints: function(url) {
-            // Placeholder for fetching GeoJSON
-            console.log("Loading map data from:", url);
-            // Example marker for testing
-            L.circleMarker([21.028, 105.854], {
-                radius: 6,
-                fillColor: this.getColor(412),
-                color: '#fff',
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.8
-            }).bindPopup("<b>Hanoi (Example)</b><br>XCO2: 412 ppm").addTo(this.markersLayer);
+        loadData: function(url) {
+            const self = this;
+            const loader = document.getElementById('map-loader');
+            if (loader) loader.style.display = 'block';
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (loader) loader.style.display = 'none';
+                    
+                    self.oco2Layer.clearLayers();
+                    self.gosat2Layer.clearLayers();
+                    const heatPoints = [];
+                    
+                    let features = data.features || data.results || data;
+                    if (!Array.isArray(features)) features = [];
+                    
+                    features.forEach(feat => {
+                        let lat, lng, xco2, source;
+                        if (feat.type === 'Feature') {
+                            lat = feat.geometry.coordinates[1];
+                            lng = feat.geometry.coordinates[0];
+                            xco2 = feat.properties.xco2_ppm;
+                            source = feat.properties.data_source;
+                        } else {
+                            lat = feat.latitude; lng = feat.longitude; 
+                            xco2 = feat.xco2_ppm; source = feat.data_source;
+                        }
+                        
+                        if (lat && lng) {
+                            const marker = L.circleMarker([lat, lng], {
+                                radius: source === 'GOSAT2' ? 7 : 5, // GOSAT-2 to hơn chút
+                                fillColor: self.getColor(xco2),
+                                color: source === 'GOSAT2' ? '#333' : '#fff', // Border tối cho GOSAT2
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            }).bindPopup(`<b>${source}</b><br>XCO2: ${xco2} ppm`);
+                            
+                            if (source === 'GOSAT2') marker.addTo(self.gosat2Layer);
+                            else marker.addTo(self.oco2Layer);
+                            
+                            heatPoints.push([lat, lng, xco2]);
+                        }
+                    });
+                    
+                    self.heatLayer.setLatLngs(heatPoints);
+                    
+                    // Update Stats Overlay
+                    const statsOverlay = document.getElementById('map-stats-overlay');
+                    if (heatPoints.length > 0) {
+                        const vals = heatPoints.map(p => p[2]);
+                        const sum = vals.reduce((a, b) => a + b, 0);
+                        const avg = sum / vals.length;
+                        const max = Math.max(...vals);
+                        
+                        document.getElementById('map-stat-avg').innerText = avg.toFixed(2) + ' ppm';
+                        document.getElementById('map-stat-max').innerText = max.toFixed(2) + ' ppm';
+                        document.getElementById('map-stat-count').innerText = vals.length;
+                        statsOverlay.style.display = 'block';
+                    } else {
+                        statsOverlay.style.display = 'none';
+                    }
+
+                    if (features.length > 0 && mapConfig.fit_bounds) {
+                        const group = new L.featureGroup([...self.oco2Layer.getLayers(), ...self.gosat2Layer.getLayers()]);
+                        if (group.getBounds().isValid()) self.map.fitBounds(group.getBounds(), { padding: [20, 20] });
+                    }
+                })
+                .catch(err => {
+                    if (loader) loader.style.display = 'none';
+                    console.error("Map data error:", err);
+                });
         },
         focusPoint: function(lat, lng, zoom=10) {
             if(lat && lng) this.map.flyTo([lat, lng], zoom);
         }
       };
 
-      // Ensure Leaflet renders correctly in flexbox
-      setTimeout(() => {
-        window.CO2Map.init();
-        window.CO2Map.map.invalidateSize();
-      }, 100);
-      
-      // Handle window resize for map
-      window.addEventListener('resize', () => {
-         if(window.CO2Map && window.CO2Map.map) {
-             window.CO2Map.map.invalidateSize();
-         }
-      });
+      setTimeout(() => { window.CO2Map.init(); window.CO2Map.map.invalidateSize(); }, 100);
+      window.addEventListener('resize', () => { if(window.CO2Map && window.CO2Map.map) window.CO2Map.map.invalidateSize(); });
     });
   </script>
   {% block co2_scripts %}{% endblock %}

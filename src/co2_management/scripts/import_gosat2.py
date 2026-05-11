@@ -38,6 +38,7 @@ Ví dụ:
     python import_gosat2.py GOSAT2TFTS220211029_02SWFPV0220000018.h5 --batch-size 1000 --no-profiles
 """
 
+import argparse
 import glob
 import hashlib
 import logging
@@ -66,6 +67,7 @@ SATELLITE_OPERATOR = "JAXA"
 
 
 def parse_args():
+    """Phân tích các tham số dòng lệnh"""
     p = argparse.ArgumentParser(description="Import GOSAT-2 .h5 file into CO2 Management DB")
     p.add_argument("path", help="Path to .h5 file or directory containing .h5 files")
     p.add_argument("--db-url", default=os.environ.get("DATABASE_URL"), help="PostgreSQL DSN")
@@ -79,6 +81,7 @@ def parse_args():
 
 
 def get_db_url(args):
+    """Xác định URL kết nối cơ sở dữ liệu"""
     db_url = args.db_url
     if db_url:
         if db_url.startswith("postgis://"):
@@ -102,6 +105,7 @@ def get_db_url(args):
 
 
 def compute_sha256(path: str) -> str:
+    """Tính mã băm SHA-256 để kiểm tra trùng lặp tệp"""
     sha = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -110,10 +114,10 @@ def compute_sha256(path: str) -> str:
 
 
 def parse_gosat2_time(obs_time_bytes) -> datetime | None:
-    """Parse GOSAT-2 observationTime string like b'2021-10-29T00:03:36.866592Z'"""
+    """Chuyển đổi nhãn thời gian ISO của GOSAT-2 thành đối tượng datetime."""
     try:
         ts = obs_time_bytes.decode("utf-8").strip()
-        # Handle fractional seconds
+        # Xử lý phần thập phân của giây
         if "." in ts:
             ts_part, frac = ts.rstrip("Z").split(".")
             dt = datetime.strptime(ts_part, "%Y-%m-%dT%H:%M:%S")
@@ -127,6 +131,7 @@ def parse_gosat2_time(obs_time_bytes) -> datetime | None:
 
 
 def get_or_create_satellite(cur, satellite_id: int | None) -> int:
+    """Lấy hoặc tạo mới bản ghi vệ tinh GOSAT-2"""
     if satellite_id:
         cur.execute("SELECT id FROM co2_management_satellite WHERE id = %s", (satellite_id,))
         row = cur.fetchone()
@@ -153,10 +158,12 @@ def get_or_create_satellite(cur, satellite_id: int | None) -> int:
 
 
 def get_or_create_source(cur, sat_id: int, file_path: str, file_hash: str, n_soundings: int, measurement_date) -> int | None:
+    """Tạo bản ghi nguồn dữ liệu cho tệp GOSAT-2"""
     cur.execute(
         "SELECT id FROM co2_management_measurementsource WHERE file_hash = %s",
         (file_hash,),
     )
+
     row = cur.fetchone()
     if row:
         log.warning(f"File already imported (hash match). source_id={row[0]}. Skipping.")

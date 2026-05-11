@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_ai_model_catalog():
+    """
+    Truy vấn danh mục các mô hình AI có sẵn từ dịch vụ AI API bên ngoài.
+    Trả về danh sách các mô hình và mô hình mặc định.
+    """
     url = f"{getattr(settings, 'AI_SERVICE_URL', 'http://ai_api:8001').rstrip('/')}/models"
     try:
         response = requests.get(url, timeout=10)
@@ -30,6 +34,9 @@ def get_ai_model_catalog():
 
 
 def build_model_choices(model_catalog: dict):
+    """
+    Chuyển đổi danh mục mô hình AI thành định dạng choices (id, label) để sử dụng trong form Django.
+    """
     choices = []
     for model in model_catalog.get("models", []):
         model_id = model.get("model_id")
@@ -45,6 +52,10 @@ def build_model_choices(model_catalog: dict):
 
 
 def send_analyze_job(payload: dict, url: str):
+    """
+    Gửi yêu cầu phân tích (analyze) tới dịch vụ AI API.
+    Payload chứa các tham số như coverage_id, model_id, ngưỡng (threshold), v.v.
+    """
     try:
         response = requests.post(url, json=payload, timeout=30)
         response.raise_for_status()
@@ -55,6 +66,9 @@ def send_analyze_job(payload: dict, url: str):
 
 
 def populate_job_from_payload(job: MiningDetectionJob, payload: dict, created_by, remote_job_id: str):
+    """
+    Cập nhật các thông tin từ payload và kết quả phản hồi của AI API vào đối tượng MiningDetectionJob cục bộ.
+    """
     extra_params = {
         "coverage_id": payload["coverage_id"],
         "threshold": payload["threshold"],
@@ -73,15 +87,19 @@ def populate_job_from_payload(job: MiningDetectionJob, payload: dict, created_by
     if payload.get("model_id"):
         job.model_version = payload["model_id"]
 
-    job.job_id = remote_job_id
+    job.job_id = remote_job_id # ID công việc từ AI API
     job.status = JobStatus.RUNNING
     job.created_by = created_by
     job.extra_params = extra_params
+    # Liên kết tới Dataset gốc trong GeoNode dựa trên alternate (ID của layer)
     job.base_dataset = Dataset.objects.filter(alternate=payload["coverage_id"]).first()
     return job
 
 
 def save_job_to_db(form, payload: dict, remote_job_id: str, created_by):
+    """
+    Lưu một công việc phát hiện khai thác mỏ mới vào cơ sở dữ liệu.
+    """
     job = form.save(commit=False)
     job = populate_job_from_payload(job, payload, created_by, remote_job_id)
     job.save()
@@ -89,6 +107,9 @@ def save_job_to_db(form, payload: dict, remote_job_id: str, created_by):
 
 
 def clone_job_for_retry(job: MiningDetectionJob, payload: dict, remote_job_id: str):
+    """
+    Tạo một bản sao của công việc cũ để thực hiện thử lại (retry) khi công việc trước đó thất bại.
+    """
     retried_job = MiningDetectionJob(
         title=f"{job.title} (retry)",
         model_version=job.model_version,

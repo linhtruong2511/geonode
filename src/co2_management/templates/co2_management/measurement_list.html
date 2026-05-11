@@ -6,6 +6,10 @@
   <div class="co2-card" style="border-left: 4px solid var(--accent-color);">
     <div class="co2-card-body" style="padding: 15px;">
       <form id="co2-advanced-filter" method="get">
+        <input type="hidden" name="min_lat" id="id_min_lat" value="{{ request.GET.min_lat }}">
+        <input type="hidden" name="max_lat" id="id_max_lat" value="{{ request.GET.max_lat }}">
+        <input type="hidden" name="min_lon" id="id_min_lon" value="{{ request.GET.min_lon }}">
+        <input type="hidden" name="max_lon" id="id_max_lon" value="{{ request.GET.max_lon }}">
         <div class="row">
           <div class="col-sm-4 form-group">
             <label style="font-size: 12px; color: #64748b;">{% trans "Nguồn dữ liệu" %}</label>
@@ -39,9 +43,12 @@
                 <input type="date" name="date_to" class="form-control input-sm" value="{{ request.GET.date_to }}">
              </div>
           </div>
-          <div class="col-sm-4 form-group" style="margin-bottom: 0; align-self: flex-end;">
-            <button type="submit" class="btn btn-sm btn-accent" style="width: 100%;">
+          <div class="col-sm-4 form-group" style="margin-bottom: 0; align-self: flex-end; display: flex; gap: 5px;">
+            <button type="submit" class="btn btn-sm btn-accent" style="flex: 1;">
                <i class="fa fa-search"></i> {% trans "Tìm kiếm" %}
+            </button>
+            <button type="button" id="btn-search-viewport" class="btn btn-sm btn-default" style="flex: 1;">
+               <i class="fa fa-map"></i> {% trans "Theo bản đồ" %}
             </button>
           </div>
         </div>
@@ -72,12 +79,12 @@
             </thead>
             <tbody>
               {% for obj in object_list %}
-                <tr onmouseover="window.CO2Map && window.CO2Map.focusPoint({{ obj.latitude }}, {{ obj.longitude }}, 8)" style="cursor: pointer;" onclick="window.location.href='{% url 'co2_management:measurement_detail' pk=obj.pk %}'">
+                <tr style="cursor: pointer;" onclick="window.CO2Map && window.CO2Map.focusPoint({{ obj.latitude }}, {{ obj.longitude }}, 10)">
                   <td>{{ obj.pk }}</td>
                   <td style="font-weight: bold; color: {% if obj.xco2_ppm > 415 %}#e74c3c{% else %}#27ae60{% endif %};">{{ obj.xco2_ppm|floatformat:2 }}</td>
                   <td><span class="label label-default">{{ obj.data_source }}</span></td>
                   <td>{{ obj.measurement_time|date:"d/m/y" }}</td>
-                  <td><i class="fa fa-chevron-right text-muted"></i></td>
+                  <td><a href="{% url 'co2_management:measurement_detail' pk=obj.pk %}" title="{% trans 'Chi tiết' %}"><i class="fa fa-chevron-right text-muted"></i></a></td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -93,15 +100,53 @@
         <div class="text-center" style="padding: 10px;">
           <ul class="pagination pagination-sm" style="margin: 0;">
             {% if page_obj.has_previous %}
-              <li><a href="?page={{ page_obj.previous_page_number }}">&laquo;</a></li>
+              <li><a href="?page={{ page_obj.previous_page_number }}{% if request.GET.source %}&source={{ request.GET.source }}{% endif %}{% if request.GET.quality %}&quality={{ request.GET.quality }}{% endif %}{% if request.GET.min_xco2 %}&min_xco2={{ request.GET.min_xco2 }}{% endif %}{% if request.GET.max_xco2 %}&max_xco2={{ request.GET.max_xco2 }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">&laquo;</a></li>
             {% endif %}
-            <li class="active"><span>{{ page_obj.number }}</span></li>
+
+            {% for num in paginator.page_range %}
+              {% if num == 1 or num == paginator.num_pages or num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
+                <li class="{% if num == page_obj.number %}active{% endif %}">
+                  <a href="?page={{ num }}{% if request.GET.source %}&source={{ request.GET.source }}{% endif %}{% if request.GET.quality %}&quality={{ request.GET.quality }}{% endif %}{% if request.GET.min_xco2 %}&min_xco2={{ request.GET.min_xco2 }}{% endif %}{% if request.GET.max_xco2 %}&max_xco2={{ request.GET.max_xco2 }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">{{ num }}</a>
+                </li>
+              {% elif num == page_obj.number|add:-3 or num == page_obj.number|add:3 %}
+                <li class="disabled"><span>...</span></li>
+              {% endif %}
+            {% endfor %}
+
             {% if page_obj.has_next %}
-              <li><a href="?page={{ page_obj.next_page_number }}">&raquo;</a></li>
+              <li><a href="?page={{ page_obj.next_page_number }}{% if request.GET.source %}&source={{ request.GET.source }}{% endif %}{% if request.GET.quality %}&quality={{ request.GET.quality }}{% endif %}{% if request.GET.min_xco2 %}&min_xco2={{ request.GET.min_xco2 }}{% endif %}{% if request.GET.max_xco2 %}&max_xco2={{ request.GET.max_xco2 }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">&raquo;</a></li>
             {% endif %}
           </ul>
         </div>
       {% endif %}
     </div>
   </div>
+{% endblock %}
+
+{% block co2_scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const btnSearchViewport = document.getElementById('btn-search-viewport');
+    if (btnSearchViewport) {
+      btnSearchViewport.addEventListener('click', function() {
+        if (window.CO2Map && window.CO2Map.map) {
+          const bounds = window.CO2Map.map.getBounds();
+          const minLat = bounds.getSouth();
+          const maxLat = bounds.getNorth();
+          const minLon = bounds.getWest();
+          const maxLon = bounds.getEast();
+
+          // Set hidden fields
+          document.getElementById('id_min_lat').value = minLat;
+          document.getElementById('id_max_lat').value = maxLat;
+          document.getElementById('id_min_lon').value = minLon;
+          document.getElementById('id_max_lon').value = maxLon;
+
+          // Submit form
+          document.getElementById('co2-advanced-filter').submit();
+        }
+      });
+    }
+  });
+</script>
 {% endblock %}

@@ -320,11 +320,6 @@ User creates job → Status: PENDING
 9. **QA linh hoạt**: Bảng `data_validation_rules` cho configurable checks
 10. **Performance**: Partition `vertical_profiles` theo thời gian
 
-### Lưu ý quan trọng
-- Schema dùng MySQL syntax nhưng GeoNode thường chạy **PostgreSQL/PostGIS** — cần điều chỉnh
-- Ước tính thực tế nên là **~200-225 GB** (bao gồm index overhead)
-- Cần cơ chế sync khi dùng denormalized tables
-
 ---
 
 *Document Version: 1.0*

@@ -2,10 +2,41 @@
 {% load i18n %}
 
 {% block extra_detail %}
+  <!-- Statistics Summary Row -->
+  <div class="row" style="margin-top: 20px;">
+    <div class="col-sm-4">
+      <div class="co2-card" style="text-align: center; border-left: 4px solid var(--accent-color);">
+        <div class="co2-card-body">
+          <div id="stat-avg" style="font-size: 24px; font-weight: bold; color: #0f172a;">-</div>
+          <div style="font-size: 11px; color: #64748b; text-transform: uppercase;">{% trans "XCO2 Trung bình" %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-4">
+      <div class="co2-card" style="text-align: center;">
+        <div class="co2-card-body">
+          <div id="stat-max" style="font-size: 24px; font-weight: bold; color: #e74c3c;">-</div>
+          <div style="font-size: 11px; color: #64748b; text-transform: uppercase;">{% trans "Cao nhất" %}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-4">
+      <div class="co2-card" style="text-align: center;">
+        <div class="co2-card-body">
+          <div id="stat-count" style="font-size: 24px; font-weight: bold; color: #3b82f6;">-</div>
+          <div style="font-size: 11px; color: #64748b; text-transform: uppercase;">{% trans "Tổng số điểm đo" %}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Time Series Chart -->
   <div class="co2-card mt-3">
-    <div class="co2-card-header">
-      <i class="fa fa-line-chart"></i> {% trans "Chuỗi thời gian XCO2" %}
+    <div class="co2-card-header" style="justify-content: space-between;">
+      <span><i class="fa fa-line-chart"></i> {% trans "Chuỗi thời gian XCO2" %}</span>
+      <button id="btn-export-csv" class="btn btn-xs btn-default">
+        <i class="fa fa-download"></i> {% trans "Xuất CSV" %}
+      </button>
     </div>
     <div class="co2-card-body">
       <canvas id="timeSeriesChart" height="300"></canvas>
@@ -18,35 +49,62 @@
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const ctx = document.getElementById('timeSeriesChart').getContext('2d');
-      // Placeholder data
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-          datasets: [{
-            label: 'OCO-2',
-            data: [412, 413.5, 414, 413, 411, 409],
-            borderColor: '#27ae60',
-            backgroundColor: 'rgba(39, 174, 96, 0.1)',
-            fill: true,
-            tension: 0.4
-          }, {
-            label: 'GOSAT-2',
-            data: [411.5, 413, 414.2, 412.5, 411.2, 409.5],
-            borderColor: '#e74c3c',
-            backgroundColor: 'transparent',
-            borderDash: [5, 5],
-            fill: false,
-            tension: 0.4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: { title: { display: true, text: 'XCO2 (ppm)' } }
-          }
-        }
+      
+      // Fetch Statistics
+      fetch("{{ statistics_api_url }}")
+        .then(res => res.json())
+        .then(stats => {
+           document.getElementById('stat-avg').innerText = stats.avg_xco2 ? stats.avg_xco2.toFixed(2) + ' ppm' : '-';
+           document.getElementById('stat-max').innerText = stats.max_xco2 ? stats.max_xco2.toFixed(2) + ' ppm' : '-';
+           document.getElementById('stat-count').innerText = stats.total_count || '0';
+        });
+
+      // Fetch Time Series
+      fetch("{{ timeseries_api_url }}")
+        .then(response => response.json())
+        .then(data => {
+          // Store data for export
+          window.lastTimeseriesData = data;
+
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              datasets: data.datasets
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                x: {
+                  type: 'time',
+                  time: { unit: 'day' },
+                  title: { display: true, text: '{% trans "Thời gian" %}' }
+                },
+                y: { title: { display: true, text: 'XCO2 (ppm)' } }
+              }
+            }
+          });
+        });
+
+      // Export CSV Logic
+      document.getElementById('btn-export-csv').addEventListener('click', function() {
+        if (!window.lastTimeseriesData) return;
+        
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Date,Source,XCO2_ppm\n";
+        
+        window.lastTimeseriesData.datasets.forEach(dataset => {
+          dataset.data.forEach(point => {
+            csvContent += `${point.x},${dataset.label},${point.y}\n`;
+          });
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `XCO2_Series_{{ object.location_name }}.csv`);
+        document.body.appendChild(link);
+        link.click();
       });
       
       // Center map on location

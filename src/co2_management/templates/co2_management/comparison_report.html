@@ -2,6 +2,18 @@
 {% load i18n %}
 
 {% block co2_content %}
+  {% if current_job %}
+  <div class="co2-card" style="background: var(--accent-light); border-color: var(--accent-color); margin-bottom: 20px;">
+    <div class="co2-card-body" style="padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <strong style="color: var(--accent-color);">{% trans "Đang xem kết quả cho Job:" %}</strong> {{ current_job.job_name }}
+        <span class="text-muted" style="font-size: 12px; margin-left: 10px;">({{ current_job.created_at|date:"d/m/Y H:i" }})</span>
+      </div>
+      <a href="?" class="btn btn-xs btn-default">{% trans "Xem toàn cục" %}</a>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="row">
     <div class="col-sm-3">
       <div class="co2-card" style="text-align: center; padding: 20px 0;">
@@ -44,18 +56,26 @@
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const ctx = document.getElementById('scatterChart').getContext('2d');
-      // Placeholder data
+      const scatterData = JSON.parse('{{ scatter_data_json|escapejs|default:"[]" }}');
+      
+      let minVal = 390, maxVal = 430;
+      if (scatterData.length > 0) {
+          const vals = scatterData.flatMap(p => [p.x, p.y]);
+          minVal = Math.floor(Math.min(...vals)) - 1;
+          maxVal = Math.ceil(Math.max(...vals)) + 1;
+      }
+
       new Chart(ctx, {
         type: 'scatter',
         data: {
           datasets: [{
-            label: 'Matched Pairs',
-            data: [{x: 412, y: 411.5}, {x: 413.5, y: 413}, {x: 414, y: 414.2}, {x: 413, y: 412.5}],
+            label: '{% trans "Cặp điểm đo trùng khớp" %}',
+            data: scatterData,
             backgroundColor: 'rgba(39, 174, 96, 0.5)'
           },
           {
             label: '1:1 Line',
-            data: [{x: 395, y: 395}, {x: 425, y: 425}],
+            data: [{x: minVal, y: minVal}, {x: maxVal, y: maxVal}],
             type: 'line',
             borderColor: '#64748b',
             borderDash: [5, 5],
@@ -67,8 +87,8 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            x: { title: { display: true, text: 'OCO-2 XCO2 (ppm)' }, min: 400, max: 420 },
-            y: { title: { display: true, text: 'GOSAT-2 XCO2 (ppm)' }, min: 400, max: 420 }
+            x: { title: { display: true, text: 'OCO-2 XCO2 (ppm)' }, min: minVal, max: maxVal },
+            y: { title: { display: true, text: 'GOSAT-2 XCO2 (ppm)' }, min: minVal, max: maxVal }
           }
         }
       });

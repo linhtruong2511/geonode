@@ -52,11 +52,16 @@
       <i class="fa fa-cogs"></i> {% trans "Phân tích gần đây" %}
     </div>
     <div class="co2-card-body p-0">
-      <ul class="list-group" style="margin: 0;">
+      <ul class="list-group" id="recent-jobs-list" style="margin: 0;">
         {% for job in recent_jobs %}
-          <li class="list-group-item" style="border: none; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
-            <a href="#">{{ job.job_name }}</a>
-            <span class="label {% if job.status == 'COMPLETED' %}label-success{% elif job.status == 'FAILED' %}label-danger{% else %}label-warning{% endif %}">{{ job.get_status_display }}</span>
+          <li class="list-group-item job-item" data-job-id="{{ job.id }}" data-status="{{ job.status }}" style="border: none; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <a href="{% url 'co2_management:job_detail' pk=job.pk %}">{{ job.job_name }}</a>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="job-progress text-muted" style="font-size: 11px;">{{ job.progress_percent }}%</span>
+              <span class="label job-status-label {% if job.status == 'COMPLETED' %}label-success{% elif job.status == 'FAILED' %}label-danger{% else %}label-warning{% endif %}">
+                {{ job.get_status_display }}
+              </span>
+            </div>
           </li>
         {% empty %}
           <li class="list-group-item text-muted">{% trans "Chưa có job nào." %}</li>
@@ -64,4 +69,47 @@
       </ul>
     </div>
   </div>
+{% endblock %}
+
+{% block co2_scripts %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Polling for Job Status
+      const pollJobs = () => {
+        const jobs = document.querySelectorAll('.job-item');
+        let needsPolling = false;
+        
+        jobs.forEach(item => {
+          const status = item.getAttribute('data-status');
+          if (status === 'PENDING' || status === 'RUNNING') {
+            needsPolling = true;
+            const jobId = item.getAttribute('data-job-id');
+            
+            fetch(`/co2/api/v1/jobs/${jobId}/`)
+              .then(res => res.json())
+              .then(data => {
+                const label = item.querySelector('.job-status-label');
+                const progress = item.querySelector('.job-progress');
+                
+                progress.innerText = data.progress_percent + '%';
+                label.innerText = data.status_display || data.status;
+                item.setAttribute('data-status', data.status);
+                
+                // Update styles
+                if (data.status === 'COMPLETED') {
+                  label.className = 'label job-status-label label-success';
+                } else if (data.status === 'FAILED') {
+                  label.className = 'label job-status-label label-danger';
+                }
+              });
+          }
+        });
+        
+        if (needsPolling) setTimeout(pollJobs, 3000); // Poll every 3s if jobs are running
+      };
+      
+      pollJobs();
+    });
+  </script>
 {% endblock %}

@@ -3,17 +3,62 @@
 
 {% block extra_detail %}
   <!-- XCO2 Highlight Card -->
-  <div class="co2-card" style="margin-top: 20px; text-align: center; border-color: var(--accent-color);">
-    <div class="co2-card-body" style="background: var(--accent-light);">
-      <div style="font-size: 14px; color: #64748b; text-transform: uppercase; font-weight: 600;">{% trans "Nồng độ CO2" %}</div>
-      <div style="font-size: 36px; font-weight: bold; color: var(--accent-color); margin: 5px 0;">
-        {{ object.xco2_ppm|floatformat:2 }} <span style="font-size: 16px; color: #64748b;">ppm</span>
+  <div class="row">
+    <div class="col-sm-8">
+      <div class="co2-card" style="text-align: center; border-color: var(--accent-color); height: 120px; display: flex; align-items: center; justify-content: center;">
+        <div class="co2-card-body" style="background: var(--accent-light); width: 100%;">
+          <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600;">{% trans "Nồng độ CO2" %}</div>
+          <div style="font-size: 32px; font-weight: bold; color: var(--accent-color); margin: 2px 0;">
+            {{ object.xco2_ppm|floatformat:2 }} <span style="font-size: 14px; color: #64748b;">ppm</span>
+          </div>
+          {% if object.xco2_uncertainty_ppm %}
+            <div style="font-size: 12px; color: #64748b;">± {{ object.xco2_uncertainty_ppm|floatformat:2 }} ppm</div>
+          {% endif %}
+        </div>
       </div>
-      {% if object.xco2_uncertainty_ppm %}
-        <div style="font-size: 13px; color: #64748b;">± {{ object.xco2_uncertainty_ppm|floatformat:2 }} ppm</div>
+    </div>
+    <div class="col-sm-4">
+      <div class="co2-card" style="text-align: center; border-color: {% if object.quality.is_valid %}#27ae60{% else %}#e74c3c{% endif %}; height: 120px; display: flex; align-items: center; justify-content: center;">
+        <div class="co2-card-body" style="background: {% if object.quality.is_valid %}#e9f7ef{% else %}#fdeded{% endif %}; width: 100%;">
+          <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600;">{% trans "Độ tin cậy" %}</div>
+          <div style="font-size: 32px; font-weight: bold; color: {% if object.quality.is_valid %}#27ae60{% else %}#e74c3c{% endif %}; margin: 2px 0;">
+            {{ object.quality.quality_score|default:"-" }}%
+          </div>
+          <div style="font-size: 12px; color: #64748b;">
+            {% if object.quality.is_valid %}{% trans "Hợp lệ" %}{% else %}{% trans "Không tin cậy" %}{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quality Flags Section -->
+  {% if object.quality.validation_flags or object.quality.error_messages %}
+  <div class="co2-card mt-3" style="border-left: 4px solid #f39c12;">
+    <div class="co2-card-header" style="color: #d35400;">
+      <i class="fa fa-warning"></i> {% trans "Chi tiết đánh giá kỹ thuật" %}
+    </div>
+    <div class="co2-card-body">
+      {% if object.quality.validation_flags %}
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          {% for flag, val in object.quality.validation_flags.items %}
+            {% if val %}
+              <span class="label label-warning" style="padding: 5px 10px; font-weight: normal; font-size: 11px;">
+                <i class="fa fa-tag"></i> {{ flag|replace:"_, "|title }}
+              </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+      
+      {% if object.quality.error_messages %}
+        <div style="margin-top: 15px; padding: 10px; background: #fff5f5; border-radius: 4px; border: 1px solid #fed7d7; color: #c53030; font-size: 13px;">
+          <strong>{% trans "Thông báo:" %}</strong> {{ object.quality.error_messages }}
+        </div>
       {% endif %}
     </div>
   </div>
+  {% endif %}
 
   <!-- Vertical Profile Chart -->
   <div class="co2-card mt-3">
