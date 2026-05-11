@@ -2,51 +2,68 @@
 {% load i18n %}
 
 {% block co2_content %}
-  <!-- FILTER PANEL -->
-  <div class="co2-card" style="border-left: 4px solid var(--accent-color);">
-    <div class="co2-card-body" style="padding: 15px;">
-      <form id="co2-advanced-filter" method="get">
+  <!-- Advanced Filter Panel -->
+  <div class="co2-card filter-card">
+    <div class="co2-card-body">
+      <form id="co2-advanced-filter" method="get" class="modern-form">
+        <!-- Hidden inputs for spatial filtering -->
         <input type="hidden" name="min_lat" id="id_min_lat" value="{{ request.GET.min_lat }}">
         <input type="hidden" name="max_lat" id="id_max_lat" value="{{ request.GET.max_lat }}">
         <input type="hidden" name="min_lon" id="id_min_lon" value="{{ request.GET.min_lon }}">
         <input type="hidden" name="max_lon" id="id_max_lon" value="{{ request.GET.max_lon }}">
         <input type="hidden" name="geometry" id="id_geometry" value="{{ request.GET.geometry }}">
-        <div class="row">
-          <div class="col-sm-4 form-group">
-            <label style="font-size: 12px; color: #64748b;">{% trans "Nguồn dữ liệu" %}</label>
-            <select name="source" class="form-control input-sm">
-              <option value="">-- {% trans "Tất cả" %} --</option>
-              <option value="OCO2" {% if request.GET.source == 'OCO2' %}selected{% endif %}>OCO-2</option>
-              <option value="GOSAT2" {% if request.GET.source == 'GOSAT2' %}selected{% endif %}>GOSAT-2</option>
-            </select>
+        
+        <div class="form-header">
+          <h3><i class="fa fa-sliders"></i> {% trans "Bộ lọc nâng cao" %}</h3>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group-custom">
+            <label>{% trans "Nguồn dữ liệu" %}</label>
+            <div class="input-with-icon">
+              <i class="fa fa-globe"></i>
+              <select name="source" class="custom-select">
+                <option value="">-- {% trans "Tất cả" %} --</option>
+                <option value="OCO2" {% if request.GET.source == 'OCO2' %}selected{% endif %}>OCO-2</option>
+                <option value="GOSAT2" {% if request.GET.source == 'GOSAT2' %}selected{% endif %}>GOSAT-2</option>
+              </select>
+            </div>
           </div>
-          <div class="col-sm-4 form-group">
-            <label style="font-size: 12px; color: #64748b;">{% trans "Chất lượng" %}</label>
-            <select name="quality" class="form-control input-sm">
-              <option value="">-- {% trans "Tất cả" %} --</option>
-              <option value="0" {% if request.GET.quality == '0' %}selected{% endif %}>{% trans "Tốt (Flag=0)" %}</option>
-            </select>
+
+          <div class="form-group-custom">
+            <label>{% trans "Chất lượng" %}</label>
+            <div class="input-with-icon">
+              <i class="fa fa-check-circle"></i>
+              <select name="quality" class="custom-select">
+                <option value="">-- {% trans "Tất cả" %} --</option>
+                <option value="0" {% if request.GET.quality == '0' %}selected{% endif %}>{% trans "Tốt (Flag=0)" %}</option>
+              </select>
+            </div>
           </div>
-          <div class="col-sm-4 form-group">
-            <label style="font-size: 12px; color: #64748b;">{% trans "Phạm vi XCO2 (ppm)" %}</label>
-            <div style="display: flex; gap: 5px;">
-              <input type="number" step="0.1" name="min_xco2" class="form-control input-sm" placeholder="Min" value="{{ request.GET.min_xco2 }}">
-              <input type="number" step="0.1" name="max_xco2" class="form-control input-sm" placeholder="Max" value="{{ request.GET.max_xco2 }}">
+
+          <div class="form-group-custom">
+            <label>{% trans "Phạm vi XCO2 (ppm)" %}</label>
+            <div class="range-inputs">
+              <input type="number" step="0.1" name="min_xco2" class="custom-input" placeholder="Min" value="{{ request.GET.min_xco2 }}">
+              <span class="range-separator">→</span>
+              <input type="number" step="0.1" name="max_xco2" class="custom-input" placeholder="Max" value="{{ request.GET.max_xco2 }}">
             </div>
           </div>
         </div>
-        <div class="row mt-2">
-          <div class="col-sm-8 form-group" style="margin-bottom: 0;">
-             <label style="font-size: 12px; color: #64748b;">{% trans "Thời gian" %}</label>
-             <div style="display: flex; gap: 5px;">
-                <input type="date" name="date_from" class="form-control input-sm" value="{{ request.GET.date_from }}">
-                <span style="align-self: center;">→</span>
-                <input type="date" name="date_to" class="form-control input-sm" value="{{ request.GET.date_to }}">
-             </div>
+
+        <div class="form-grid mt-3">
+          <div class="form-group-custom span-2">
+            <label>{% trans "Thời gian" %}</label>
+            <div class="range-inputs">
+              <input type="date" name="date_from" class="custom-input" value="{{ request.GET.date_from }}">
+              <span class="range-separator">→</span>
+              <input type="date" name="date_to" class="custom-input" value="{{ request.GET.date_to }}">
+            </div>
           </div>
-          <div class="col-sm-4 form-group" style="margin-bottom: 0; align-self: flex-end;">
-            <button type="submit" class="btn btn-sm btn-accent btn-block">
-               <i class="fa fa-search"></i> {% trans "Tìm kiếm" %}
+
+          <div class="form-group-custom align-self-end">
+            <button type="submit" class="btn-gradient btn-block">
+              <i class="fa fa-search"></i> {% trans "Tìm kiếm" %}
             </button>
           </div>
         </div>
@@ -54,68 +71,105 @@
     </div>
   </div>
 
-  <!-- RESULTS -->
-  <div class="co2-card">
-    <div class="co2-card-header" style="justify-content: space-between;">
-      <span><i class="fa fa-list"></i> {% trans "Kết quả tìm kiếm" %} <span class="badge">{{ page_obj.paginator.count }}</span></span>
+  <!-- Results List -->
+  <div class="co2-card results-card mt-4">
+    <div class="co2-card-header">
+      <div class="header-title">
+        <i class="fa fa-list-ul"></i>
+        <span>{% trans "Kết quả tìm kiếm" %}</span>
+        <span class="result-count">{{ page_obj.paginator.count }}</span>
+      </div>
       {% if request.GET %}
-        <a href="?" class="btn btn-link btn-xs" style="padding: 0;">{% trans "Xóa bộ lọc" %}</a>
+        <a href="?" class="btn-clear-filter"><i class="fa fa-times"></i> {% trans "Xóa bộ lọc" %}</a>
       {% endif %}
     </div>
     <div class="co2-card-body p-0">
       {% if object_list %}
-        <div class="table-responsive">
-          <table class="table co2-table table-hover">
+        <div class="table-container">
+          <table class="premium-table">
             <thead>
               <tr>
                 <th>ID</th>
                 <th>XCO2 (ppm)</th>
-                <th>Src</th>
+                <th>{% trans "Nguồn" %}</th>
                 <th>{% trans "Ngày" %}</th>
-                <th></th>
+                <th>{% trans "Hành động" %}</th>
               </tr>
             </thead>
             <tbody>
               {% for obj in object_list %}
                 <tr class="measurement-row" 
                     data-lat="{{ obj.latitude|stringformat:".7f" }}" 
-                    data-lon="{{ obj.longitude|stringformat:".7f" }}"
-                    style="cursor: pointer;">
-                  <td>{{ obj.pk }}</td>
-                  <td style="font-weight: bold; color: {% if obj.xco2_ppm > 425 %}#e74c3c{% else %}#27ae60{% endif %};">{{ obj.xco2_ppm|floatformat:2 }}</td>
-                  <td><span class="label label-default">{{ obj.data_source }}</span></td>
-                  <td>{{ obj.measurement_time|date:"d/m/y" }}</td>
-                  <td><a href="{% url 'co2_management:measurement_detail' pk=obj.pk %}" title="{% trans 'Chi tiết' %}"><i class="fa fa-chevron-right text-muted"></i></a></td>
+                    data-lon="{{ obj.longitude|stringformat:".7f" }}">
+                  <td><span class="id-badge">{{ obj.pk }}</span></td>
+                  <td>
+                    <div class="xco2-value-container">
+                      <span class="status-dot {% if obj.xco2_ppm > 425 %}high{% else %}normal{% endif %}"></span>
+                      <span class="xco2-val {% if obj.xco2_ppm > 425 %}text-high{% else %}text-normal{% endif %}">
+                        {{ obj.xco2_ppm|floatformat:2 }}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="source-badge {{ obj.data_source|lower }}">
+                      {{ obj.data_source }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="date-cell">
+                      <i class="fa fa-calendar-o"></i>
+                      {{ obj.measurement_time|date:"d/m/Y" }}
+                    </div>
+                  </td>
+                  <td>
+                    <div class="action-buttons">
+                      <a href="{% url 'co2_management:measurement_detail' pk=obj.pk %}" class="btn-icon" title="{% trans 'Chi tiết' %}">
+                        <i class="fa fa-eye"></i>
+                      </a>
+                    </div>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       {% else %}
-        <div style="padding: 40px; text-align: center; color: #64748b;">
-          {% trans "Không tìm thấy dữ liệu phù hợp." %}
+        <div class="empty-state">
+          <i class="fa fa-folder-open-o"></i>
+          <p>{% trans "Không tìm thấy dữ liệu phù hợp." %}</p>
         </div>
       {% endif %}
 
+      <!-- Pagination -->
       {% if is_paginated %}
-        <div class="text-center" style="padding: 10px;">
-          <ul class="pagination pagination-sm" style="margin: 0;">
+        <div class="pagination-container">
+          <ul class="premium-pagination">
             {% if page_obj.has_previous %}
-              <li><a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo;</a></li>
+              <li>
+                <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="page-link prev">
+                  <i class="fa fa-chevron-left"></i>
+                </a>
+              </li>
             {% endif %}
 
             {% for num in paginator.page_range %}
               {% if num == 1 or num == paginator.num_pages or num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
                 <li class="{% if num == page_obj.number %}active{% endif %}">
-                  <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                  <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="page-link">
+                    {{ num }}
+                  </a>
                 </li>
               {% elif num == page_obj.number|add:-3 or num == page_obj.number|add:3 %}
-                <li class="disabled"><span>...</span></li>
+                <li class="disabled"><span class="page-link dots">...</span></li>
               {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
-              <li><a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&raquo;</a></li>
+              <li>
+                <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="page-link next">
+                  <i class="fa fa-chevron-right"></i>
+                </a>
+              </li>
             {% endif %}
           </ul>
         </div>
@@ -125,25 +179,423 @@
 {% endblock %}
 
 {% block co2_map_actions %}
-  <button id="btn-search-viewport" class="btn btn-sm btn-default" title="{% trans 'Tìm trong vùng hiển thị' %}">
+  <button id="btn-search-viewport" class="btn-floating" title="{% trans 'Tìm trong vùng hiển thị' %}">
     <i class="fa fa-expand"></i>
+    <span>{% trans "Tìm theo vùng nhìn" %}</span>
   </button>
-  <div id="draw-info-overlay" style="display: none; align-items: center; background: white; padding: 2px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 11px;">
+  
+  <div id="draw-info-overlay" class="glass-pill" style="display: none;">
     <span class="text-success"><i class="fa fa-check-circle"></i> {% trans "Đã chọn vùng" %}</span>
-    <button type="button" id="btn-clear-draw" class="btn btn-link btn-xs text-danger" style="margin-left: 5px; text-decoration: none;">{% trans "Xóa" %}</button>
+    <button type="button" id="btn-clear-draw" class="btn-text-danger">{% trans "Xóa" %}</button>
   </div>
 {% endblock %}
 
 {% block co2_scripts %}
 <style>
-  .measurement-row:hover {
-    background-color: rgba(39, 174, 96, 0.05) !important;
+  /* Custom scoped styles for premium look */
+  :root {
+    --co2-primary-gradient: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+    --co2-danger-gradient: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    --co2-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    --co2-hover-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    --co2-border-radius: 12px;
+  }
+
+  /* Filter Card */
+  .filter-card {
+    border-radius: var(--co2-border-radius);
+    box-shadow: var(--co2-card-shadow);
+    background: #fff;
+    border: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .form-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+
+  .form-grid.mt-3 {
+    grid-template-columns: 2fr 1fr;
+  }
+
+  .form-group-custom label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #7f8c8d;
+    margin-bottom: 5px;
+    display: block;
+  }
+
+  .input-with-icon {
+    position: relative;
+  }
+
+  .input-with-icon i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #bdc3c7;
+  }
+
+  .input-with-icon .custom-select {
+    padding-left: 35px;
+  }
+
+  .custom-select, .custom-input {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #2c3e50;
+    background-color: #f9f9f9;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+  }
+
+  .custom-select:focus, .custom-input:focus {
+    border-color: #2ecc71;
+    background-color: #fff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+  }
+
+  .range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .range-separator {
+    color: #bdc3c7;
+    font-weight: bold;
+  }
+
+  .btn-gradient {
+    background: var(--co2-primary-gradient);
+    color: white;
+    border: none;
+    height: 40px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .btn-gradient:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+  }
+
+  /* Results Card */
+  .results-card {
+    border-radius: var(--co2-border-radius);
+    box-shadow: var(--co2-card-shadow);
+    background: #fff;
+    border: none;
+    overflow: hidden;
+  }
+
+  .co2-card-header {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+  }
+
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+
+  .result-count {
+    background: #e0e0e0;
+    color: #616161;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .btn-clear-filter {
+    color: #e74c3c;
+    font-size: 13px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .btn-clear-filter:hover {
+    color: #c0392b;
+    text-decoration: underline;
+  }
+
+  /* Premium Table */
+  .table-container {
+    overflow-x: auto;
+  }
+
+  .premium-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .premium-table th {
+    background: #f8f9fa;
+    color: #7f8c8d;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+  }
+
+  .premium-table td {
+    padding: 15px 20px;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 14px;
+    color: #34495e;
+    vertical-align: middle;
+  }
+
+  .premium-table tr {
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+  }
+
+  .premium-table tr:hover {
+    background-color: #f9fffb !important;
+  }
+
+  .id-badge {
+    background: #f0f0f0;
+    color: #7f8c8d;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .xco2-value-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .status-dot.high {
+    background-color: #e74c3c;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.2);
+  }
+
+  .status-dot.normal {
+    background-color: #2ecc71;
+    box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.2);
+  }
+
+  .xco2-val {
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  .text-high { color: #e74c3c; }
+  .text-normal { color: #2ecc71; }
+
+  .source-badge {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .source-badge.oco2 {
+    background-color: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+  }
+
+  .source-badge.gosat2 {
+    background-color: rgba(155, 89, 182, 0.1);
+    color: #9b59b6;
+  }
+
+  .date-cell {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #7f8c8d;
+    font-size: 13px;
+  }
+
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    color: #7f8c8d;
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .btn-icon:hover {
+    background: #e0e0e0;
+    color: #2c3e50;
+  }
+
+  /* Empty State */
+  .empty-state {
+    padding: 40px;
+    text-align: center;
+    color: #95a5a6;
+  }
+
+  .empty-state i {
+    font-size: 40px;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  /* Pagination */
+  .pagination-container {
+    padding: 15px;
+    display: flex;
+    justify-content: center;
+    border-top: 1px solid #eee;
+  }
+
+  .premium-pagination {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    gap: 5px;
+  }
+
+  .page-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: #f5f5f5;
+    color: #7f8c8d;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .page-link:hover {
+    background: #e0e0e0;
+    color: #2c3e50;
+  }
+
+  li.active .page-link {
+    background: var(--co2-primary-gradient);
+    color: white;
+  }
+
+  .page-link.dots {
+    background: transparent;
+    cursor: default;
+  }
+
+  /* Floating UI */
+  .btn-floating {
+    background: white;
+    border: 1px solid #e0e0e0;
+    padding: 8px 15px;
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    font-weight: 600;
+    font-size: 12px;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .btn-floating:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  }
+
+  .glass-pill {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    padding: 5px 15px;
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  .btn-text-danger {
+    background: none;
+    border: none;
+    color: #e74c3c;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 5px;
+  }
+
+  .btn-text-danger:hover {
+    text-decoration: underline;
   }
 </style>
+
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // ─── Map Drawing Integration ─────────────────────────────────────
+    // ─── TÍCH HỢP BẢN ĐỒ VÀ VẼ VÙNG (LEAFLET DRAW) ───────────────────
+    // Đoạn code này xử lý việc tích hợp công cụ vẽ lên bản đồ Leaflet
+    // và chuyển đổi vùng vẽ thành định dạng WKT để gửi lên server.
+    
     setTimeout(() => {
+      // Truy xuất đối tượng bản đồ toàn cục được khởi tạo từ co2_base.html
       const mapObj = window.CO2Map && window.CO2Map.map;
       if (!mapObj) return;
 
@@ -162,12 +614,12 @@
       const drawInfo = document.getElementById('draw-info-overlay');
       const btnClearDraw = document.getElementById('btn-clear-draw');
 
-      // Function to convert LatLngs to WKT Polygon
+      // Hàm chuyển đổi tọa độ từ Leaflet sang định dạng WKT Polygon
       const toWKT = (layer) => {
         let coords;
         if (layer instanceof L.Rectangle || layer instanceof L.Polygon) {
           coords = layer.getLatLngs()[0];
-          // Ensure polygon is closed for WKT
+          // Đóng vòng polygon (điểm cuối trùng điểm đầu)
           const points = coords.map(c => `${c.lng.toFixed(7)} ${c.lat.toFixed(7)}`);
           points.push(points[0]);
           return `POLYGON((${points.join(', ')}))`;
@@ -175,12 +627,13 @@
         return null;
       };
 
-      // Handle existing geometry from search
+      // Kiểm tra nếu đã có dữ liệu hình học từ trước (khi reload trang hoặc từ bộ lọc)
       const existingGeom = geomInput.value;
       if (existingGeom && existingGeom.startsWith('POLYGON')) {
           drawInfo.style.display = 'flex';
       }
 
+      // Sự kiện khi người dùng vẽ xong một vùng
       mapObj.on(L.Draw.Event.CREATED, function (e) {
         drawnItems.clearLayers();
         const layer = e.layer;
@@ -191,7 +644,7 @@
           geomInput.value = wkt;
           drawInfo.style.display = 'flex';
           
-          // Clear viewport bounds as geometry takes precedence
+          // Xóa các giới hạn viewport cũ vì vùng vẽ (geometry) có độ ưu tiên cao hơn
           document.getElementById('id_min_lat').value = '';
           document.getElementById('id_max_lat').value = '';
           document.getElementById('id_min_lon').value = '';
@@ -199,18 +652,21 @@
         }
       });
 
+      // Sự kiện khi xóa vùng vẽ
       mapObj.on(L.Draw.Event.DELETED, function () {
         geomInput.value = '';
         drawInfo.style.display = 'none';
       });
 
+      // Xử lý nút xóa nhanh vùng vẽ
       btnClearDraw.onclick = () => {
         drawnItems.clearLayers();
         geomInput.value = '';
         drawInfo.style.display = 'none';
       };
 
-      // Handle Viewport Search
+      // ─── TÌM KIẾM THEO VÙNG NHÌN (VIEWPORT) ─────────────────────────
+      // Lấy tọa độ 4 góc của bản đồ hiện tại và điền vào form để tìm kiếm
       const btnSearchViewport = document.getElementById('btn-search-viewport');
       if (btnSearchViewport) {
         btnSearchViewport.addEventListener('click', function() {
@@ -220,25 +676,27 @@
           document.getElementById('id_min_lon').value = bounds.getWest();
           document.getElementById('id_max_lon').value = bounds.getEast();
           
-          // Clear custom geometry when searching by viewport
+          // Xóa vùng vẽ tùy chỉnh khi tìm theo viewport
           geomInput.value = '';
           
           document.getElementById('co2-advanced-filter').submit();
         });
       }
-    }, 500);
+    }, 500); // Chờ bản đồ được khởi tạo hoàn toàn
 
-    // Handle row click to zoom
+    // ─── TƯƠNG TÁC KHI CLICK VÀO DÒNG DỮ LIỆU ───────────────────────
+    // Khi click vào một dòng trong bảng, bản đồ sẽ di chuyển đến điểm đó
     const rows = document.querySelectorAll('.measurement-row');
     rows.forEach(row => {
       row.addEventListener('click', function(e) {
-        if (e.target.tagName === 'A' || e.target.parentElement.tagName === 'A') return;
+        // Không xử lý nếu click trúng vào thẻ link hoặc icon chi tiết
+        if (e.target.tagName === 'A' || e.target.parentElement.tagName === 'A' || e.target.tagName === 'I') return;
         
         const lat = parseFloat(this.getAttribute('data-lat'));
         const lon = parseFloat(this.getAttribute('data-lon'));
         
         if (window.CO2Map && window.CO2Map.focusPoint) {
-          window.CO2Map.focusPoint(lat, lon, 18);
+          window.CO2Map.focusPoint(lat, lon, 18); // Zoom sâu vào điểm
         }
       });
     });
