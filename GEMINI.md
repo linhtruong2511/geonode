@@ -80,6 +80,37 @@ Long-running tasks (e.g., AI analysis, remote data polling, large GeoNode upload
 - **Satellite Data:** Storage and profile management in `src/carbon_tracker/models.py`.
 - **GeoServer:** Automatic publishing via GeoNode's signal-based or explicit API interactions.
 
+## 🎨 Frontend Architecture: React-Django Hybrid
+
+The project uses a hybrid approach to modernize the UI while maintaining GeoNode's robust backend.
+
+### 1. How it works
+- **Django** handles Routing, Auth, and the main Layout.
+- **React** is embedded into specific pages (e.g., Dashboards, List Views) for high interactivity.
+- **Vite** builds React code into static bundles loaded by Django templates.
+
+### 2. Project Structure
+- `frontend/`: Centralized React source code (TypeScript, Vite) at the project root.
+  - `src/common/`: Shared logic and components (e.g., `DataTable`, `useFetchData`).
+  - `src/modules/`: Module-specific code (e.g., `co2_management/`).
+- `src/<module>/static/<module>/react/`: Build output directory for each module.
+
+### 3. Development Workflow
+
+#### Phase A: React Development
+To start developing React components with auto-rebuild:
+1. Open a terminal in the `frontend` directory.
+2. Run: `npx vite build --watch`
+   *(This will rebuild all module bundles every time you save a file).*
+
+#### Phase B: Syncing with Docker
+Since Nginx serves files from a shared volume, you must sync the built files:
+1. Run: `docker-compose exec django python manage.py collectstatic --noinput`
+
+### 4. Key Integration Points
+- **Mount Point:** Django templates use `<div id="react-root-..."></div>`.
+- **API Communication:** React uses `axios` to fetch data from Django REST Framework endpoints (e.g., `/co2/api/v1/...`).
+
 ## 🔄 Development Workflow
 
 To maintain high code quality and architectural consistency, all changes must follow this standardized workflow:

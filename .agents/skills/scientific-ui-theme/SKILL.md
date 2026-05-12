@@ -1,5 +1,7 @@
+---
 name: scientific-ui-theme
 description: Guidelines and specifications for implementing a professional Scientific UI/UX theme (Light and Dark modes) for GIS and environmental monitoring dashboards. Use this skill when Gemini CLI needs to design or refactor UI components like KPI cards, advanced map filters, or data-dense scientific tables.
+---
 
 # Scientific UI Theme Skill
 

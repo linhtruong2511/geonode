@@ -59,11 +59,10 @@ class MeasurementSerializer(GeoFeatureModelSerializer):
         geo_field = 'geom' # Trường chứa dữ liệu không gian
         fields = '__all__'
 
-class MeasurementListSerializer(GeoFeatureModelSerializer):
+class MeasurementListSerializer(serializers.ModelSerializer):
     """Serializer rút gọn cho điểm đo để hiển thị nhanh trên danh sách hoặc bản đồ"""
     class Meta:
         model = Measurement
-        geo_field = 'geom'
         fields = (
             'id', 'source', 'latitude', 'longitude', 'xco2_ppm', 
             'xco2_quality_flag', 'data_source', 'measurement_time'

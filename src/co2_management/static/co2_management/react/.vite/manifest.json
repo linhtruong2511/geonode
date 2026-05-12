@@ -1,0 +1,23 @@
+{
+  "src/co2_management/apps/CO2ManagementApp.tsx": {
+    "file": "chunks/CO2ManagementApp-C6MOa1pR.js",
+    "name": "CO2ManagementApp",
+    "src": "src/co2_management/apps/CO2ManagementApp.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/loader.tsx"
+    ],
+    "css": [
+      "assets/CO2ManagementApp-SGCzjS5i.css"
+    ]
+  },
+  "src/loader.tsx": {
+    "file": "bundle.js",
+    "name": "main",
+    "src": "src/loader.tsx",
+    "isEntry": true,
+    "dynamicImports": [
+      "src/co2_management/apps/CO2ManagementApp.tsx"
+    ]
+  }
+}

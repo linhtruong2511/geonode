@@ -1,0 +1,36 @@
+{% extends 'page.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block extra_style %}
+  {{ block.super }}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <style>
+    /* Basic styles to ensure the app takes full height */
+    #co2-management-root {
+      height: calc(100vh - 72px - 40px); /* Adjust based on GeoNode header/footer height */
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+{% endblock %}
+
+{% block container %}
+  <div id="co2-management-root" data-react-app="CO2ManagementApp">
+    <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8fafc;">
+      <div style="text-align: center;">
+        <i class="fa fa-spinner fa-spin fa-3x" style="color: #397aab; margin-bottom: 20px;"></i>
+        <p>{% trans "Đang tải ứng dụng CO2 Management..." %}</p>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script type="module" src="{% static 'co2_management/react/bundle.js' %}"></script>
+{% endblock %}

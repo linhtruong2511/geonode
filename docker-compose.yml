@@ -33,6 +33,8 @@ services:
       interval: 60s
       timeout: 10s
       retries: 2
+    ports:
+      - "8000:8000"
     environment:
       - IS_CELERY=False
     entrypoint: ["/usr/src/project/entrypoint.sh"]
