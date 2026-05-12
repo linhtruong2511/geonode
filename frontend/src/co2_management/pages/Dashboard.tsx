@@ -123,7 +123,7 @@ const Dashboard: React.FC = () => {
         <div style={cardStyle}>
           <h3 style={cardTitleStyle}>Xu hướng XCO2 theo tháng</h3>
           <div style={{ height: '300px' }}>
-            <Line data={lineData} options={{ maintainAspectRatio: false, scales: { y: { min: 380, max: 430 } } }} />
+            <Line data={lineData} options={{ maintainAspectRatio: false, scales: { y: { min: 400, max: 450 } } }} />
           </div>
         </div>
 
@@ -147,16 +147,16 @@ const Dashboard: React.FC = () => {
             <thead>
               <tr style={{ background: '#f8fafc' }}>
                 <th style={thStyle}>Tên tệp</th>
-                <th style={thStyle}>Nguồn</th>
-                <th style={thStyle}>Trạng thái</th>
+                <th style={thStyle}>Định dạng</th>
+                <th style={thStyle}>Kiểm định</th>
               </tr>
             </thead>
             <tbody>
               {data.recent_sources.map((s: any) => (
                 <tr key={s.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={tdStyle}>{s.name}</td>
-                  <td style={tdStyle}>{s.source_type}</td>
-                  <td style={tdStyle}>{s.status}</td>
+                  <td style={tdStyle}>{s.file_name}</td>
+                  <td style={tdStyle}>{s.file_format}</td>
+                  <td style={tdStyle}>{s.quality_checked ? '✅ Đã xong' : '⏳ Đang chờ'}</td>
                 </tr>
               ))}
             </tbody>

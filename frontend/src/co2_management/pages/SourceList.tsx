@@ -6,13 +6,12 @@ import axios from 'axios';
 
 interface MeasurementSource {
   id: number;
-  name: string;
-  source_type: string;
-  upload_date: string;
-  processed: boolean;
-  file_size?: number;
-  original_filename?: string;
-  status?: string;
+  file_name: string;
+  file_format: string;
+  measurement_date: string;
+  quality_checked: boolean;
+  file_size_mb?: number;
+  processing_level?: string;
 }
 
 const columnHelper = createColumnHelper<MeasurementSource>();
@@ -52,31 +51,38 @@ const SourceList: React.FC = () => {
 
   const columns = useMemo(
     () => [
-      columnHelper.accessor('name', {
-        header: 'Tên nguồn / Tệp',
-        cell: info => <span style={{ fontWeight: 600 }}>{info.getValue() || info.row.original.original_filename}</span>,
+      columnHelper.accessor('file_name', {
+        header: 'Tên tệp',
+        cell: info => <span style={{ fontWeight: 600 }}>{info.getValue()}</span>,
       }),
-      columnHelper.accessor('source_type', {
-        header: 'Loại dữ liệu',
+      columnHelper.accessor('file_format', {
+        header: 'Định dạng',
         cell: info => info.getValue(),
       }),
-      columnHelper.accessor('upload_date', {
-        header: 'Ngày tải lên',
-        cell: info => info.getValue() ? new Date(info.getValue()).toLocaleString('vi-VN') : 'N/A',
+      columnHelper.accessor('file_size_mb', {
+        header: 'Dung lượng (MB)',
+        cell: info => {
+          const val = info.getValue();
+          return val ? val.toLocaleString() : '0';
+        },
       }),
-      columnHelper.accessor('processed', {
-        header: 'Đã xử lý',
+      columnHelper.accessor('measurement_date', {
+        header: 'Ngày đo',
+        cell: info => info.getValue() ? new Date(info.getValue()).toLocaleDateString('vi-VN') : 'N/A',
+      }),
+      columnHelper.accessor('quality_checked', {
+        header: 'Kiểm định',
         cell: info => {
           const isProcessed = info.getValue();
           return isProcessed ? (
-            <span style={{ color: '#059669' }}><i className="fa fa-check-circle"></i> Rồi</span>
+            <span style={{ color: '#059669' }}><i className="fa fa-check-circle"></i> Đã xong</span>
           ) : (
             <span style={{ color: '#d97706' }}><i className="fa fa-clock-o"></i> Chờ xử lý</span>
           );
         },
       }),
-      columnHelper.accessor('status', {
-        header: 'Trạng thái (Chi tiết)',
+      columnHelper.accessor('processing_level', {
+        header: 'Cấp độ',
         cell: info => info.getValue() || 'N/A',
       }),
       columnHelper.display({

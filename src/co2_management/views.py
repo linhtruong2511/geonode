@@ -4,15 +4,10 @@ from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
 from django.db.models import Count, Avg, Max, Min, StdDev, Q
 from django.db.models.functions import TruncMonth, TruncYear
-import json
-
-class StandardLimitOffsetPagination(LimitOffsetPagination):
-    """
-    Phân trang mặc định cho các API CO2 Management.
-    Sử dụng Limit/Offset để phù hợp với frontend React.
-    """
-    default_limit = 10
-    max_limit = 100
+from django.contrib.gis.measure import D
+from django.db.models import Avg, Max, Min, Count
+import numpy as np
+import logging
 from django.contrib.gis.geos import Polygon
 from .models import (
     Satellite, MeasurementSource, Measurement, MonitoringLocation,
@@ -23,6 +18,16 @@ from .serializers import (
     MeasurementListSerializer, MonitoringLocationSerializer,
     DataComparisonSerializer, AnalysisJobSerializer
 )
+from .tasks import import_data_file_task
+
+logger = logging.getLogger(__name__)
+class StandardLimitOffsetPagination(LimitOffsetPagination):
+    """
+    Phân trang mặc định cho các API CO2 Management.
+    Sử dụng Limit/Offset để phù hợp với frontend React.
+    """
+    default_limit = 10
+    max_limit = 100
 
 class SatelliteViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -50,7 +55,6 @@ class MeasurementSourceViewSet(viewsets.ReadOnlyModelViewSet):
     def import_file(self, request, pk=None):
         """Action kích hoạt tác vụ import dữ liệu từ file thô"""
         instance = self.get_object()
-        from .tasks import import_data_file_task
         import_data_file_task.delay(instance.pk)
         return Response({
             "status": "success", 
@@ -164,9 +168,6 @@ class MonitoringLocationViewSet(viewsets.ModelViewSet):
         Sử dụng bảng TemporalSeries đã được tổng hợp trước để tối ưu tốc độ.
         """
         location = self.get_object()
-        from .models import TemporalSeries
-        from django.db.models import Avg
-        
         # Lấy dữ liệu từ bảng TemporalSeries (đã được ImportService populate)
         qs = location.series.values('measurement_date', 'data_source').annotate(
             avg_xco2=Avg('xco2_ppm')
@@ -195,9 +196,6 @@ class MonitoringLocationViewSet(viewsets.ModelViewSet):
     def statistics(self, request, pk=None):
         """Lấy thống kê tổng hợp (Min, Max, Mean) cho vị trí này."""
         location = self.get_object()
-        from django.contrib.gis.measure import D
-        from django.db.models import Avg, Max, Min, Count
-        
         stats = Measurement.objects.filter(
             geom__distance_lte=(location.geom, D(km=location.radius_km)),
             deleted_at__isnull=True
@@ -236,11 +234,6 @@ class DataComparisonViewSet(viewsets.ReadOnlyModelViewSet):
         count = qs.count()
         if count == 0:
             return Response({"no_data": True, "total_pairs": 0})
-
-        try:
-            import numpy as np
-        except ImportError:
-            return Response({"error": "Numpy is required for report generation"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         rows = list(qs.values(
             'xco2_difference_ppm',
@@ -344,7 +337,6 @@ class AnalysisJobViewSet(viewsets.ModelViewSet):
     def cancel(self, request, pk=None):
         """Action để hủy bỏ một công việc đang chạy (Sẽ được triển khai)"""
         return Response({"status": "Cancel endpoint to be implemented"})
-
 
 class DashboardViewSet(viewsets.ViewSet):
     """

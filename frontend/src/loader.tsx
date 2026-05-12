@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client';
  * Use React.lazy for code splitting - code is only loaded when needed.
  */
 const Apps: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
-  CO2ManagementApp: React.lazy(() => import('./co2_management/apps/CO2ManagementApp')),
+  CO2ManagementApp: React.lazy(() => import('./co2_management/CO2ManagementApp')),
 };
 
 /**

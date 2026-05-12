@@ -5,10 +5,10 @@ import { ReactTable } from '@common/components/ReactTable';
 
 interface Satellite {
   id: number;
-  name: string;
-  agency: string;
+  satellite_name: string;
+  operator: string;
   launch_date: string;
-  status: string;
+  is_active: string;
   description: string;
 }
 
@@ -35,11 +35,11 @@ const SatelliteList: React.FC = () => {
 
   const columns = useMemo(
     () => [
-      columnHelper.accessor('name', {
+      columnHelper.accessor('satellite_name', {
         header: 'Tên vệ tinh',
         cell: info => <span style={{ fontWeight: 600 }}>{info.getValue()}</span>,
       }),
-      columnHelper.accessor('agency', {
+      columnHelper.accessor('operator', {
         header: 'Tổ chức',
         cell: info => info.getValue(),
       }),
@@ -47,16 +47,16 @@ const SatelliteList: React.FC = () => {
         header: 'Ngày phóng',
         cell: info => info.getValue() ? new Date(info.getValue()).toLocaleDateString('vi-VN') : 'N/A',
       }),
-      columnHelper.accessor('status', {
+      columnHelper.accessor('is_active', {
         header: 'Trạng thái',
         cell: info => {
           const status = info.getValue();
           let color = '#64748b';
           let bg = '#f1f5f9';
-          if (status === 'Active') {
+          if (status  == 'true') {
             color = '#059669';
             bg = '#d1fae5';
-          } else if (status === 'Inactive' || status === 'Retired') {
+          } else {
             color = '#dc2626';
             bg = '#fee2e2';
           }

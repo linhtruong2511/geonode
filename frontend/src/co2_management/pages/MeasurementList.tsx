@@ -17,7 +17,7 @@ interface Measurement {
 const columnHelper = createColumnHelper<Measurement>();
 
 const MeasurementList: React.FC = () => {
-  const { setShowMap, setMapData, setMapCenter, setMapZoom } = useMapStore();
+  const { setShowMap, setMapData, setMapCenter, setMapZoom, mapBounds, isSpatialSearchEnabled } = useMapStore();
   
   const [filters, setFilters] = useState({
     source: '',
@@ -30,7 +30,7 @@ const MeasurementList: React.FC = () => {
 
   const [{ pageIndex, pageSize }, setPagination] = useState({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 500,
   });
 
   const pagination = useMemo(
@@ -63,8 +63,17 @@ const MeasurementList: React.FC = () => {
     if (filters.max_xco2) params.max_xco2 = filters.max_xco2;
     if (filters.date_from) params.date_from = filters.date_from;
     if (filters.date_to) params.date_to = filters.date_to;
+
+    // Spatial filter
+    if (isSpatialSearchEnabled && mapBounds) {
+      params.min_lat = mapBounds.south;
+      params.max_lat = mapBounds.north;
+      params.min_lon = mapBounds.west;
+      params.max_lon = mapBounds.east;
+    }
+
     return params;
-  }, [pageIndex, pageSize, filters]);
+  }, [pageIndex, pageSize, filters, isSpatialSearchEnabled, mapBounds]);
 
   const { data, totalCount, loading } = useFetchData<Measurement>('/co2/api/v1/measurements/', fetchParams);
 
@@ -102,7 +111,7 @@ const MeasurementList: React.FC = () => {
         cell: info => {
           const flag = info.getValue();
           if (flag === 0) return <span style={{ color: '#059669', fontSize: '12px', fontWeight: 600, backgroundColor: '#d1fae5', padding: '4px 8px', borderRadius: '4px' }}>Tốt</span>;
-          return <span style={{ color: '#d97706', fontSize: '12px', fontWeight: 600, backgroundColor: '#fef3c7', padding: '4px 8px', borderRadius: '4px' }}>Kém/Cảnh báo</span>;
+          return <span style={{ color: '#d97706', fontSize: '12px', fontWeight: 600, backgroundColor: '#fef3c7', padding: '4px 8px', borderRadius: '4px' }}>Kém</span>;
         },
       }),
       columnHelper.accessor('data_source', {
