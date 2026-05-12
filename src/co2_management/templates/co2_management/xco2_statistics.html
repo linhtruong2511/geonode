@@ -4,20 +4,20 @@
 {% block co2_content %}
 
   {# ── Bộ lọc ── #}
-  <div class="co2-card" style="border-left: 4px solid var(--accent-color); margin-bottom: 16px;">
-    <div class="co2-card-body" style="padding: 10px 16px;">
-      <form method="get" id="stats-filter-form" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-        <div>
-          <label style="font-size: 11px; color: #64748b; display: block; margin-bottom: 3px;">{% trans "Nguồn vệ tinh" %}</label>
-          <select name="source" class="form-control input-sm" style="width: 130px;">
+  <div class="co2-card filter-card" style="border-left: 4px solid var(--color-accent-primary); margin-bottom: 16px;">
+    <div class="co2-card-body" style="padding: 16px 20px;">
+      <form method="get" id="stats-filter-form" class="filter-row">
+        <div class="filter-item">
+          <label>{% trans "Nguồn vệ tinh" %}</label>
+          <select name="source" class="custom-select">
             <option value="" {% if not filter_source %}selected{% endif %}>{% trans "Tất cả" %}</option>
             <option value="OCO2"   {% if filter_source == 'OCO2' %}selected{% endif %}>OCO-2</option>
             <option value="GOSAT2" {% if filter_source == 'GOSAT2' %}selected{% endif %}>GOSAT-2</option>
           </select>
         </div>
-        <div>
-          <label style="font-size: 11px; color: #64748b; display: block; margin-bottom: 3px;">{% trans "Năm" %}</label>
-          <select name="year" class="form-control input-sm" style="width: 100px;">
+        <div class="filter-item">
+          <label>{% trans "Năm" %}</label>
+          <select name="year" class="custom-select">
             <option value="">{% trans "Tất cả" %}</option>
             {% for yr in available_years %}
               {% if yr %}
@@ -26,20 +26,24 @@
             {% endfor %}
           </select>
         </div>
-        <div>
-          <label style="font-size: 11px; color: #64748b; display: block; margin-bottom: 3px;">{% trans "Chất lượng" %}</label>
-          <select name="quality" class="form-control input-sm" style="width: 140px;">
+        <div class="filter-item">
+          <label>{% trans "Chất lượng" %}</label>
+          <select name="quality" class="custom-select">
             <option value="1" {% if filter_quality_only %}selected{% endif %}>{% trans "Chỉ tốt (flag=0)" %}</option>
             <option value="0" {% if not filter_quality_only %}selected{% endif %}>{% trans "Tất cả" %}</option>
           </select>
         </div>
-        <button type="submit" class="btn btn-sm btn-accent">
-          <i class="fa fa-filter"></i> {% trans "Áp dụng" %}
-        </button>
-        {% if filter_source or filter_year or not filter_quality_only %}
-          <a href="?" class="btn btn-sm btn-default">{% trans "Đặt lại" %}</a>
-        {% endif %}
-        <span style="margin-left: auto; font-size: 12px; color: #64748b; align-self: center;">
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-md btn-primary" style="height: 38px; padding: 0 20px;">
+              <i class="fa fa-filter"></i> {% trans "Áp dụng" %}
+            </button>
+            {% if filter_source or filter_year or not filter_quality_only %}
+              <a href="?" class="btn btn-link text-danger" style="font-weight: 600; font-size: 13px; margin-left: 10px;">
+                  <i class="fa fa-times"></i> {% trans "Đặt lại" %}
+              </a>
+            {% endif %}
+        </div>
+        <span style="margin-left: auto; font-size: 12px; color: var(--color-text-secondary); align-self: center;">
           {% blocktrans with n=total_filtered %}{{ n }} điểm đo{% endblocktrans %}
         </span>
       </form>
@@ -125,85 +129,83 @@
       </div>
     </div>
 
-    {# ── Hàng 3: Bảng theo nguồn + Top tháng ── #}
-    <div class="row">
-      <div class="col-sm-5">
-        <div class="co2-card">
-          <div class="co2-card-header">
-            <i class="fa fa-table" style="color:#f59e0b;"></i>
-            {% trans "Thống kê theo nguồn vệ tinh" %}
-          </div>
-          <div class="co2-card-body p-0">
-            <table class="table co2-table" style="margin:0;">
-              <thead>
-                <tr>
-                  <th>{% trans "Nguồn" %}</th>
-                  <th>{% trans "Số điểm" %}</th>
-                  <th>{% trans "TB (ppm)" %}</th>
-                  <th>{% trans "Min" %}</th>
-                  <th>{% trans "Max" %}</th>
-                  <th>{% trans "Std" %}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for s in by_source %}
-                <tr>
-                  <td>
-                    <span class="label" style="background:{% if s.source == 'OCO2' %}#27ae60{% else %}#e74c3c{% endif %};">
-                      {{ s.source }}
-                    </span>
-                  </td>
-                  <td>{{ s.count|default:0 }}</td>
-                  <td><strong>{{ s.avg }}</strong></td>
-                  <td>{{ s.min }}</td>
-                  <td>{{ s.max }}</td>
-                  <td>{{ s.std }}</td>
-                </tr>
-                {% empty %}
-                  <tr><td colspan="6" class="text-center text-muted" style="padding:20px;">{% trans "Không có dữ liệu" %}</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
+    {# ── Hàng 3: Bảng theo nguồn vệ tinh ── #}
+    <div class="co2-card">
+      <div class="co2-card-header">
+        <i class="fa fa-table" style="color:#f59e0b;"></i>
+        {% trans "Thống kê theo nguồn vệ tinh" %}
       </div>
-      <div class="col-sm-7">
-        <div class="co2-card">
-          <div class="co2-card-header">
-            <i class="fa fa-trophy" style="color:#ec4899;"></i>
-            {% trans "Top 10 tháng XCO2 cao nhất" %}
-          </div>
-          <div class="co2-card-body p-0">
-            <table class="table co2-table" style="margin:0;">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>{% trans "Tháng" %}</th>
-                  <th>{% trans "Nguồn" %}</th>
-                  <th>{% trans "XCO2 TB (ppm)" %}</th>
-                  <th>{% trans "Số điểm" %}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for m in top_months %}
-                <tr>
-                  <td style="color:#64748b;">{{ forloop.counter }}</td>
-                  <td><strong>{{ m.month }}</strong></td>
-                  <td>
-                    <span class="label" style="background:{% if m.source == 'OCO2' %}#27ae60{% else %}#e74c3c{% endif %};">
-                      {{ m.source }}
-                    </span>
-                  </td>
-                  <td style="color:#ef4444; font-weight:600;">{{ m.avg }}</td>
-                  <td>{{ m.count }}</td>
-                </tr>
-                {% empty %}
-                  <tr><td colspan="5" class="text-center text-muted" style="padding:20px;">{% trans "Không có dữ liệu" %}</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div class="co2-card-body p-0">
+        <table class="co2-table">
+          <thead>
+            <tr>
+              <th>{% trans "Nguồn" %}</th>
+              <th>{% trans "Số điểm" %}</th>
+              <th>{% trans "TB (ppm)" %}</th>
+              <th>{% trans "Min" %}</th>
+              <th>{% trans "Max" %}</th>
+              <th>{% trans "Std" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in by_source %}
+            <tr>
+              <td>
+                <span class="source-badge {{ s.source|lower }}">
+                  {{ s.source }}
+                </span>
+              </td>
+              <td class="font-mono">{{ s.count|default:0 }}</td>
+              <td><strong class="font-mono" style="color: var(--color-text-primary);">{{ s.avg }}</strong></td>
+              <td class="font-mono">{{ s.min }}</td>
+              <td class="font-mono">{{ s.max }}</td>
+              <td class="font-mono" style="color: var(--color-text-secondary); font-size: 12px;">{{ s.std }}</td>
+            </tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-center text-muted" style="padding:40px;">{% trans "Không có dữ liệu" %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# ── Hàng 4: Top tháng ── #}
+    <div class="co2-card">
+      <div class="co2-card-header">
+        <i class="fa fa-trophy" style="color:#ec4899;"></i>
+        {% trans "Top 10 tháng XCO2 cao nhất" %}
+      </div>
+      <div class="co2-card-body p-0">
+        <table class="co2-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>{% trans "Tháng" %}</th>
+              <th>{% trans "Nguồn" %}</th>
+              <th>{% trans "XCO2 TB (ppm)" %}</th>
+              <th>{% trans "Số điểm" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in top_months %}
+            <tr>
+              <td class="font-mono" style="color: var(--color-text-secondary);">{{ forloop.counter }}</td>
+              <td><strong>{{ m.month }}</strong></td>
+              <td>
+                <span class="source-badge {{ m.source|lower }}">
+                  {{ m.source }}
+                </span>
+              </td>
+              <td>
+                <span class="font-mono" style="color: var(--color-accent-red); font-weight: 700; font-size: 15px;">{{ m.avg }}</span>
+              </td>
+              <td class="font-mono">{{ m.count }}</td>
+            </tr>
+            {% empty %}
+              <tr><td colspan="5" class="text-center text-muted" style="padding:40px;">{% trans "Không có dữ liệu" %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -212,6 +214,62 @@
 
 {% block co2_scripts %}
   {{ block.super }}
+  <style>
+    .source-badge { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .source-badge.oco2 { background: rgba(52, 152, 219, 0.1); color: #2980b9; border: 1px solid rgba(52, 152, 219, 0.2); }
+    .source-badge.gosat2 { background: rgba(155, 89, 182, 0.1); color: #8e44ad; border: 1px solid rgba(155, 89, 182, 0.2); }
+
+    /* ─── Horizontal Filter styles ─── */
+    .filter-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 0 1 180px; /* Do not grow too much, base width 180px */
+    }
+    
+    .filter-item label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--color-text-secondary);
+      letter-spacing: 0.5px;
+      margin-bottom: 0;
+    }
+
+    .custom-select {
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      color: var(--color-text-primary);
+      height: 38px;
+      padding: 0 12px;
+      font-size: 14px;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    .custom-select:focus {
+      border-color: var(--color-accent-primary);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(57, 122, 171, 0.2);
+    }
+    
+    .filter-actions {
+      flex: 0 0 auto;
+    }
+
+    @media (max-width: 767px) {
+      .filter-row { flex-direction: column; align-items: stretch; }
+      .filter-item { flex: 1 1 auto; }
+      .filter-actions { margin-top: 10px; }
+      .filter-actions button { width: 100%; }
+    }
+  </style>
   <script>
   document.addEventListener('DOMContentLoaded', function() {
     {% if not no_data %}

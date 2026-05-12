@@ -111,7 +111,6 @@ To maintain high code quality and architectural consistency, all changes must fo
 
 ## User note: 
 - Nhớ comment code ở những đoạn code phức tạp
-- 
 
 ---
 *This file is maintained for AI agent context. Update it when significant architectural changes occur.*

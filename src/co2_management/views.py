@@ -147,7 +147,7 @@ class MonitoringLocationViewSet(viewsets.ModelViewSet):
 
         # Định dạng lại dữ liệu cho Chart.js
         datasets = {
-            'OCO2': {'label': 'OCO-2', 'data': [], 'borderColor': '#27ae60', 'backgroundColor': 'rgba(39, 174, 96, 0.1)'},
+            'OCO2': {'label': 'OCO-2', 'data': [], 'borderColor': '#397aab', 'backgroundColor': 'rgba(57, 122, 171, 0.1)'},
             'GOSAT2': {'label': 'GOSAT-2', 'data': [], 'borderColor': '#e74c3c', 'backgroundColor': 'transparent'}
         }
         

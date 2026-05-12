@@ -4,11 +4,11 @@
 {% block co2_content %}
 
   {# ── Bộ lọc theo Job ── #}
-  <div class="co2-card" style="margin-bottom: 16px; border-left: 4px solid var(--accent-color);">
+  <div class="co2-card filter-card" style="margin-bottom: 16px; border-left: 4px solid var(--color-accent-primary);">
     <div class="co2-card-body" style="padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-      <span style="font-size: 13px; font-weight: 600; color: #334155;">{% trans "Lọc theo Job:" %}</span>
+      <span style="font-size: 13px; font-weight: 600; color: var(--color-text-primary);">{% trans "Lọc theo Job:" %}</span>
       <form method="get" style="display: flex; gap: 8px; align-items: center; flex: 1; flex-wrap: wrap;">
-        <select name="job_id" class="form-control input-sm" style="width: auto; min-width: 220px;" onchange="this.form.submit()">
+        <select name="job_id" class="custom-select" style="width: auto; min-width: 220px;" onchange="this.form.submit()">
           <option value="">-- {% trans "Tất cả kết quả so sánh" %} --</option>
           {% for job in comparison_jobs %}
             <option value="{{ job.id }}" {% if selected_job_id == job.id|stringformat:"s" %}selected{% endif %}>
@@ -17,10 +17,10 @@
           {% endfor %}
         </select>
         {% if selected_job_id %}
-          <a href="?" class="btn btn-xs btn-default">{% trans "Xóa bộ lọc" %}</a>
+          <a href="?" class="btn btn-xs btn-link text-danger">{% trans "Xóa bộ lọc" %}</a>
         {% endif %}
       </form>
-      <a href="{% url 'co2_management:job_create' %}?type=COMPARISON" class="btn btn-sm btn-accent">
+      <a href="{% url 'co2_management:job_create' %}?type=COMPARISON" class="btn btn-md btn-primary">
         <i class="fa fa-plus"></i> {% trans "Tạo Job so sánh" %}
       </a>
     </div>
@@ -28,11 +28,11 @@
 
   {% if no_data %}
     <div class="co2-card">
-      <div class="co2-card-body text-center" style="padding: 40px; color: #64748b;">
-        <i class="fa fa-info-circle fa-3x" style="margin-bottom: 15px; color: #cbd5e1;"></i>
+      <div class="co2-card-body text-center" style="padding: 40px; color: var(--color-text-secondary);">
+        <i class="fa fa-info-circle fa-3x" style="margin-bottom: 15px; color: var(--color-border);"></i>
         <h4>{% trans "Chưa có dữ liệu so sánh" %}</h4>
         <p>{% trans "Hãy tạo một Job phân tích kiểu COMPARISON để sinh ra các cặp điểm đối chiếu." %}</p>
-        <a href="{% url 'co2_management:job_create' %}" class="btn btn-accent">
+        <a href="{% url 'co2_management:job_create' %}" class="btn btn-md btn-primary">
           <i class="fa fa-plus"></i> {% trans "Tạo Job so sánh" %}
         </a>
       </div>
@@ -44,43 +44,43 @@
       <div class="col-sm-2">
         <div class="co2-card" style="text-align:center; padding: 14px 8px; border-top: 3px solid #e74c3c; margin-bottom: 12px;">
           <div style="font-size:20px; font-weight:700; color:#e74c3c;">{{ bias|floatformat:4 }}</div>
-          <div style="font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:.5px;">Mean Bias (ppm)</div>
-          <div style="font-size:10px; color:#94a3b8; margin-top:2px;">OCO-2 − GOSAT-2</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px;">Mean Bias (ppm)</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); margin-top:2px;">OCO-2 − GOSAT-2</div>
         </div>
       </div>
       <div class="col-sm-2">
         <div class="co2-card" style="text-align:center; padding: 14px 8px; border-top: 3px solid #f59e0b; margin-bottom: 12px;">
           <div style="font-size:20px; font-weight:700; color:#f59e0b;">{{ rmse|floatformat:4 }}</div>
-          <div style="font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:.5px;">RMSE (ppm)</div>
-          <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Root Mean Square Error</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px;">RMSE (ppm)</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); margin-top:2px;">Root Mean Square Error</div>
         </div>
       </div>
       <div class="col-sm-2">
         <div class="co2-card" style="text-align:center; padding: 14px 8px; border-top: 3px solid #8b5cf6; margin-bottom: 12px;">
           <div style="font-size:20px; font-weight:700; color:#8b5cf6;">{{ std|floatformat:4 }}</div>
-          <div style="font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:.5px;">Std Dev (ppm)</div>
-          <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Standard Deviation</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px;">Std Dev (ppm)</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); margin-top:2px;">Standard Deviation</div>
         </div>
       </div>
       <div class="col-sm-2">
-        <div class="co2-card" style="text-align:center; padding: 14px 8px; border-top: 3px solid #27ae60; margin-bottom: 12px;">
-          <div style="font-size:20px; font-weight:700; color:#27ae60;">{{ corr|floatformat:4 }}</div>
-          <div style="font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:.5px;">Pearson r</div>
-          <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Correlation</div>
+        <div class="co2-card" style="text-align:center; padding: 14px 8px; border-top: 3px solid var(--color-accent-primary); margin-bottom: 12px;">
+          <div style="font-size:20px; font-weight:700; color:var(--color-accent-primary);">{{ corr|floatformat:4 }}</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px;">Pearson r</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); margin-top:2px;">Correlation</div>
         </div>
       </div>
       <div class="col-sm-2">
         <div class="co2-card" style="text-align:center; padding: 14px 8px; border-top: 3px solid #3b82f6; margin-bottom: 12px;">
           <div style="font-size:20px; font-weight:700; color:#3b82f6;">{{ mae|floatformat:4 }}</div>
-          <div style="font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:.5px;">MAE (ppm)</div>
-          <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Mean Abs Error</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px;">MAE (ppm)</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); margin-top:2px;">Mean Abs Error</div>
         </div>
       </div>
       <div class="col-sm-2">
         <div class="co2-card" style="text-align:center; padding: 14px 8px; border-top: 3px solid #ec4899; margin-bottom: 12px;">
           <div style="font-size:20px; font-weight:700; color:#ec4899;">{{ total_pairs|default:0 }}</div>
-          <div style="font-size:10px; color:#64748b; text-transform:uppercase; letter-spacing:.5px;">Tổng cặp</div>
-          <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Outliers: {{ outlier_pct }}%</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px;">Tổng cặp</div>
+          <div style="font-size:10px; color:var(--color-text-secondary); margin-top:2px;">Outliers: {{ outlier_pct }}%</div>
         </div>
       </div>
     </div>
@@ -90,9 +90,9 @@
       <div class="col-sm-6">
         <div class="co2-card">
           <div class="co2-card-header">
-            <i class="fa fa-dot-circle-o" style="color:var(--accent-color);"></i>
+            <i class="fa fa-dot-circle-o" style="color:var(--color-accent-primary);"></i>
             {% trans "Scatter Plot: OCO-2 vs GOSAT-2" %}
-            <span style="margin-left:auto; font-size:11px; font-weight:400; color:#94a3b8;">{% trans "Đường 1:1 = lý tưởng" %}</span>
+            <span style="margin-left:auto; font-size:11px; font-weight:400; color:var(--color-text-secondary);">{% trans "Đường 1:1 = lý tưởng" %}</span>
           </div>
           <div class="co2-card-body">
             <canvas id="scatterChart" height="280"></canvas>
@@ -104,7 +104,7 @@
           <div class="co2-card-header">
             <i class="fa fa-bar-chart" style="color:#8b5cf6;"></i>
             {% trans "Phân phối chênh lệch XCO2 (Bias)" %}
-            <span style="margin-left:auto; font-size:11px; font-weight:400; color:#94a3b8;">OCO-2 − GOSAT-2</span>
+            <span style="margin-left:auto; font-size:11px; font-weight:400; color:var(--color-text-secondary);">OCO-2 − GOSAT-2</span>
           </div>
           <div class="co2-card-body">
             <canvas id="biasHistChart" height="280"></canvas>
@@ -142,26 +142,26 @@
     {# ── Bảng diễn giải kết quả ── #}
     <div class="co2-card">
       <div class="co2-card-header">
-        <i class="fa fa-info-circle" style="color:#64748b;"></i>
+        <i class="fa fa-info-circle" style="color:var(--color-text-secondary);"></i>
         {% trans "Diễn giải kết quả" %}
       </div>
       <div class="co2-card-body">
         <div class="row">
           <div class="col-sm-4">
-            <div style="background:#f8fafc; border-radius:6px; padding:12px; border-left:3px solid #27ae60;">
-              <div style="font-weight:600; font-size:12px; color:#334155; margin-bottom:6px;">{% trans "Độ chính xác" %}</div>
-              <div style="font-size:12px; color:#475569;">
-                {% trans "Bias" %} = <strong style="color:{% if bias|floatformat:1 == '0.0' %}#27ae60{% elif bias < 1 and bias > -1 %}#f59e0b{% else %}#ef4444{% endif %};">{{ bias|floatformat:4 }} ppm</strong><br>
+            <div style="background:var(--color-bg-primary); border-radius:6px; padding:12px; border-left:3px solid var(--color-accent-primary);">
+              <div style="font-weight:600; font-size:12px; color:var(--color-text-primary); margin-bottom:6px;">{% trans "Độ chính xác" %}</div>
+              <div style="font-size:12px; color:var(--color-text-secondary);">
+                {% trans "Bias" %} = <strong style="color:{% if bias|floatformat:1 == '0.0' %}var(--color-accent-primary){% elif bias < 1 and bias > -1 %}#f59e0b{% else %}#ef4444{% endif %};">{{ bias|floatformat:4 }} ppm</strong><br>
                 {% trans "RMSE" %} = <strong>{{ rmse|floatformat:4 }} ppm</strong><br>
                 {% trans "MAE" %} = <strong>{{ mae|floatformat:4 }} ppm</strong>
               </div>
             </div>
           </div>
           <div class="col-sm-4">
-            <div style="background:#f8fafc; border-radius:6px; padding:12px; border-left:3px solid #3b82f6;">
-              <div style="font-weight:600; font-size:12px; color:#334155; margin-bottom:6px;">{% trans "Tương quan" %}</div>
-              <div style="font-size:12px; color:#475569;">
-                r = <strong style="color:{% if corr > 0.9 %}#27ae60{% elif corr > 0.7 %}#f59e0b{% else %}#ef4444{% endif %};">{{ corr|floatformat:4 }}</strong><br>
+            <div style="background:var(--color-bg-primary); border-radius:6px; padding:12px; border-left:3px solid #3b82f6;">
+              <div style="font-weight:600; font-size:12px; color:var(--color-text-primary); margin-bottom:6px;">{% trans "Tương quan" %}</div>
+              <div style="font-size:12px; color:var(--color-text-secondary);">
+                r = <strong style="color:{% if corr > 0.9 %}var(--color-accent-primary){% elif corr > 0.7 %}#f59e0b{% else %}#ef4444{% endif %};">{{ corr|floatformat:4 }}</strong><br>
                 {% if corr > 0.9 %}✅ {% trans "Tương quan rất tốt (r > 0.9)" %}
                 {% elif corr > 0.7 %}⚠️ {% trans "Tương quan khá (r > 0.7)" %}
                 {% else %}❌ {% trans "Tương quan kém" %}{% endif %}
@@ -169,9 +169,9 @@
             </div>
           </div>
           <div class="col-sm-4">
-            <div style="background:#f8fafc; border-radius:6px; padding:12px; border-left:3px solid #f59e0b;">
-              <div style="font-weight:600; font-size:12px; color:#334155; margin-bottom:6px;">{% trans "Dữ liệu ngoại lệ" %}</div>
-              <div style="font-size:12px; color:#475569;">
+            <div style="background:var(--color-bg-primary); border-radius:6px; padding:12px; border-left:3px solid #f59e0b;">
+              <div style="font-weight:600; font-size:12px; color:var(--color-text-primary); margin-bottom:6px;">{% trans "Dữ liệu ngoại lệ" %}</div>
+              <div style="font-size:12px; color:var(--color-text-secondary);">
                 {{ outlier_pct }}% {% trans "điểm ngoại lệ" %} (|bias| > 3σ)<br>
                 {% trans "Khoảng cách TB" %}: <strong>{{ avg_dist }} km</strong><br>
                 {% trans "Tổng cặp điểm" %}: <strong>{{ total_pairs }}</strong>
@@ -208,7 +208,7 @@
           {
             label: '{% trans "Cặp điểm ghép" %}',
             data: scatterData,
-            backgroundColor: 'rgba(39,174,96,0.35)',
+            backgroundColor: 'rgba(57, 122, 171, 0.35)',
             pointRadius: 2,
           },
           {
@@ -301,7 +301,7 @@
 
     // ── 4. Bias theo khoảng cách ─────────────────────────────────────────
     const distColors = (distAnalysis.bias || []).map(b =>
-      b > 0 ? 'rgba(239,68,68,0.7)' : 'rgba(39,174,96,0.7)'
+      b > 0 ? 'rgba(239,68,68,0.7)' : 'rgba(57, 122, 171, 0.7)'
     );
     new Chart(document.getElementById('distAnalysisChart'), {
       type: 'bar',

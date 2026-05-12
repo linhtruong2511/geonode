@@ -2,46 +2,87 @@
 {% load i18n %}
 
 {% block co2_content %}
-  <div class="co2-card">
-    <div class="co2-card-body">
-      <form id="co2-filter-form" method="get" class="form-inline" style="margin-bottom: 20px;">
-        <div class="form-group" style="margin-right: 10px;">
-          <input
-            id="co2-filter-query"
-            type="text"
-            name="q"
-            value="{{ search_query|default:'' }}"
-            class="form-control"
-            placeholder="{% trans 'Tìm kiếm...' %}"
-          />
+  <!-- Unified Filter Bar -->
+  <div class="co2-card filter-card">
+    <div class="co2-card-body" style="padding: 16px 20px;">
+      <form id="co2-filter-form" method="get" class="filter-row">
+        <div class="filter-item flex-grow-2">
+          <label>{% trans "Tìm kiếm" %}</label>
+          <div style="position: relative; display: flex; gap: 10px;">
+            <input
+              id="co2-filter-query"
+              type="text"
+              name="q"
+              value="{{ search_query|default:'' }}"
+              class="custom-input"
+              placeholder="{% trans 'Nhập từ khóa...' %}"
+              style="flex: 1;"
+            />
+            <button class="btn btn-md btn-primary" type="submit" style="height: 38px; padding: 0 20px;">
+              <i class="fa fa-search"></i> {% trans "Tìm" %}
+            </button>
+          </div>
         </div>
-        <button class="btn btn-default" type="submit"><i class="fa fa-search"></i> {% trans "Lọc" %}</button>
+        
         {% if search_query %}
-          <a href="?" class="btn btn-link">{% trans "Xóa bộ lọc" %}</a>
+        <div class="filter-actions" style="align-self: flex-end; padding-bottom: 2px;">
+            <a href="?" class="btn btn-link text-danger" style="font-weight: 600; font-size: 13px;">
+                <i class="fa fa-times"></i> {% trans "Xóa bộ lọc" %}
+            </a>
+        </div>
         {% endif %}
       </form>
+    </div>
+  </div>
 
+  <!-- Results Card -->
+  <div class="co2-card results-card">
+    <div class="co2-card-header">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <i class="fa fa-list-ul" style="color: var(--color-accent-primary);"></i>
+        <span>{{ page_title }}</span>
+      </div>
+    </div>
+    <div class="co2-card-body" style="padding: 0;">
       {% if table_rows %}
         <div class="table-responsive">
-          <table class="table co2-table">
+          <table class="co2-table">
             <thead>
               <tr>
                 {% for header in table_headers %}
                   <th>{{ header }}</th>
                 {% endfor %}
-                <th class="text-right">{% trans "Thao tác" %}</th>
+                <th style="text-align: right;">{% trans "Hành động" %}</th>
               </tr>
             </thead>
             <tbody>
               {% for row in table_rows %}
                 <tr>
                   {% for cell in row.cells %}
-                    <td>{{ cell.value }}</td>
+                    <td>
+                        {% if forloop.first %}
+                            <strong style="color: var(--color-text-primary);">{{ cell.value }}</strong>
+                        {% else %}
+                            <span style="color: var(--color-text-secondary); font-size: 13px;">{{ cell.value }}</span>
+                        {% endif %}
+                    </td>
                   {% endfor %}
-                  <td class="text-right">
-                    <div style="display: flex; justify-content: flex-end; gap: 5px;">
+                  <td style="text-align: right;">
+                    <div style="display: flex; justify-content: flex-end; gap: 8px;">
                       {% for action in row.actions %}
-                        <a href="{{ action.url }}" class="btn btn-xs {% if action.style == 'danger' %}btn-danger{% else %}btn-default{% endif %}">{{ action.label }}</a>
+                        <a href="{{ action.url }}" 
+                           class="{% if action.style == 'danger' %}btn btn-xs btn-outline-danger{% else %}btn-icon{% endif %}"
+                           title="{{ action.label }}">
+                          {% if action.label == _("Chi tiết") %}
+                            <i class="fa fa-chevron-right"></i>
+                          {% elif action.label == _("Sửa") %}
+                            <i class="fa fa-edit"></i>
+                          {% elif action.label == _("Xóa") %}
+                            <i class="fa fa-trash"></i>
+                          {% else %}
+                            {{ action.label }}
+                          {% endif %}
+                        </a>
                       {% endfor %}
                     </div>
                   </td>
@@ -51,22 +92,30 @@
           </table>
         </div>
       {% else %}
-        <div style="padding: 40px; text-align: center; color: #64748b;">
-          {{ empty_message|default:"Không tìm thấy bản ghi nào." }}
+        <div class="empty-state">
+          <i class="fa fa-folder-open-o" style="font-size: 40px; color: var(--color-border); margin-bottom: 16px;"></i>
+          <p>{{ empty_message|default:"Không tìm thấy bản ghi nào." }}</p>
         </div>
       {% endif %}
 
+      <!-- Unified Pagination -->
       {% if is_paginated %}
-        <div class="text-center" style="margin-top: 20px;">
-          <ul class="pagination">
+        <div class="pagination-footer">
+          <ul class="co2-pagination">
             {% if page_obj.has_previous %}
-              <li><a href="?page={{ page_obj.previous_page_number }}&q={{ search_query|default:'' }}">&laquo;</a></li>
+              <li>
+                <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                  <i class="fa fa-angle-left"></i>
+                </a>
+              </li>
             {% endif %}
 
             {% for num in paginator.page_range %}
               {% if num == 1 or num == paginator.num_pages or num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
                 <li class="{% if num == page_obj.number %}active{% endif %}">
-                  <a href="?page={{ num }}&q={{ search_query|default:'' }}">{{ num }}</a>
+                  <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                    {{ num }}
+                  </a>
                 </li>
               {% elif num == page_obj.number|add:-3 or num == page_obj.number|add:3 %}
                 <li class="disabled"><span>...</span></li>
@@ -74,11 +123,83 @@
             {% endfor %}
 
             {% if page_obj.has_next %}
-              <li><a href="?page={{ page_obj.next_page_number }}&q={{ search_query|default:'' }}">&raquo;</a></li>
+              <li>
+                <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                  <i class="fa fa-angle-right"></i>
+                </a>
+              </li>
             {% endif %}
           </ul>
         </div>
       {% endif %}
     </div>
   </div>
+
+  <style>
+    /* Local styles to ensure consistency if not in base.html */
+    .filter-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1 1 200px;
+    }
+    .flex-grow-2 { flex: 2 1 300px; }
+    
+    .filter-item label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--color-text-secondary);
+      letter-spacing: 0.5px;
+      margin-bottom: 0;
+    }
+    
+    .custom-input {
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      color: var(--color-text-primary);
+      height: 38px;
+      padding: 0 12px;
+      font-size: 14px;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    
+    .custom-input:focus {
+      border-color: var(--color-accent-primary);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(57, 122, 171, 0.2);
+    }
+    
+    .filter-actions {
+      flex: 0 0 auto;
+    }
+
+    @media (max-width: 767px) {
+      .filter-row { flex-direction: column; align-items: stretch; }
+      .filter-item { flex: 1 1 auto; }
+      .filter-actions { margin-top: 10px; }
+      .filter-actions button { width: 100%; }
+      .filter-actions .btn-link { display: block; text-align: center; margin-top: 10px; }
+    }
+
+    .btn-icon:hover { background: var(--color-bg-primary); color: var(--color-accent-primary); }
+    
+    .pagination-footer { padding: 20px; border-top: 1px solid var(--color-border); display: flex; justify-content: center; }
+    .co2-pagination { list-style: none; display: flex; gap: 6px; padding: 0; }
+    .co2-pagination li a, .co2-pagination li span { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-secondary); text-decoration: none; font-weight: 600; transition: all 0.2s; }
+    .co2-pagination li.active a { background: var(--color-accent-primary); border-color: var(--color-accent-primary); color: #fff; }
+    .co2-pagination li a:hover:not(.active) { border-color: var(--color-accent-primary); color: var(--color-accent-primary); }
+    
+    .empty-state { padding: 60px 20px; text-align: center; color: var(--color-text-secondary); }
+    .btn-outline-danger { border: 1px solid var(--color-accent-red); color: var(--color-accent-red); background: transparent; }
+    .btn-outline-danger:hover { background: var(--color-accent-red); color: #fff; }
+  </style>
 {% endblock %}

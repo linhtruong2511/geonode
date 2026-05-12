@@ -476,6 +476,22 @@ class MeasurementDetailView(CO2GenericDetailView):
         context = super().get_context_data(**kwargs)
         # Lấy hồ sơ thẳng đứng của điểm đo này, sắp xếp theo áp suất
         context["profiles"] = self.object.profiles.order_by('pressure_hpa')
+        
+        # Logic điều hướng: Tìm điểm đo trước và sau dựa trên thời gian đo (giảm dần)
+        base_qs = Measurement.objects.filter(deleted_at__isnull=True)
+        
+        # Điểm kế tiếp (Tiếp theo trong danh sách -> Cũ hơn)
+        context["next_obj"] = base_qs.filter(
+            Q(measurement_time__lt=self.object.measurement_time) | 
+            Q(measurement_time=self.object.measurement_time, id__lt=self.object.id)
+        ).order_by("-measurement_time", "-id").first()
+
+        # Điểm trước đó (Trước đó trong danh sách -> Mới hơn)
+        context["prev_obj"] = base_qs.filter(
+            Q(measurement_time__gt=self.object.measurement_time) | 
+            Q(measurement_time=self.object.measurement_time, id__gt=self.object.id)
+        ).order_by("measurement_time", "id").first()
+        
         return context
 
     def get_map_config(self):

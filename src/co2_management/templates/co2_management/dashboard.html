@@ -4,52 +4,54 @@
 {% block co2_content %}
 
   {# ── Hàng 1: KPI Cards ── #}
-  <div class="row" style="margin-bottom: 4px;">
-    {% include "co2_management/_kpi_card.html" with value=stats.measurements_total label="Tổng điểm đo" icon="fa-flask" color="var(--accent-color)" %}
-    {% include "co2_management/_kpi_card.html" with value=stats.sources_total label="Nguồn dữ liệu" icon="fa-database" color="#3b82f6" %}
-    {% include "co2_management/_kpi_card.html" with value=stats.avg_xco2 label="XCO2 TB (ppm)" icon="fa-line-chart" color="#8b5cf6" suffix=" ppm" %}
-    {% include "co2_management/_kpi_card.html" with value=stats.good_quality_pct label="Chất lượng tốt" icon="fa-check-circle" color="#27ae60" suffix="%" %}
+  <div class="row">
+    {% include "co2_management/_kpi_card.html" with value=stats.measurements_total label="Tổng điểm đo" icon="fa-flask" color="var(--color-accent-primary)" sparkline_id="spark-total" %}
+    {% include "co2_management/_kpi_card.html" with value=stats.sources_total label="Nguồn dữ liệu" icon="fa-database" color="#3b82f6" sparkline_id="spark-sources" %}
+    {% include "co2_management/_kpi_card.html" with value=stats.avg_xco2 label="XCO2 TB (ppm)" icon="fa-line-chart" color="var(--color-accent-primary)" suffix=" ppm" sparkline_id="spark-avg" %}
+    {% include "co2_management/_kpi_card.html" with value=stats.good_quality_pct label="Chất lượng tốt" icon="fa-check-circle" color="var(--color-accent-primary)" suffix="%" sparkline_id="spark-quality" %}
   </div>
-  <div class="row" style="margin-bottom: 16px;">
-    {% include "co2_management/_kpi_card.html" with value=stats.comparisons_total label="Cặp so sánh" icon="fa-exchange" color="#f59e0b" %}
-    {% include "co2_management/_kpi_card.html" with value=stats.locations_total label="Vị trí giám sát" icon="fa-map-marker" color="#ec4899" %}
-    {% include "co2_management/_kpi_card.html" with value=stats.max_xco2 label="XCO2 cao nhất" icon="fa-arrow-up" color="#ef4444" suffix=" ppm" %}
-    {% include "co2_management/_kpi_card.html" with value=stats.jobs_running label="Jobs đang chạy" icon="fa-spinner" color="#f59e0b" %}
+  <div class="row">
+    {% include "co2_management/_kpi_card.html" with value=stats.comparisons_total label="Cặp so sánh" icon="fa-exchange" color="#8b5cf6" %}
+    {% include "co2_management/_kpi_card.html" with value=stats.locations_total label="Vị trí giám sát" icon="fa-map-marker" color="var(--color-accent-primary)" %}
+    {% include "co2_management/_kpi_card.html" with value=stats.max_xco2 label="XCO2 cao nhất" icon="fa-arrow-up" color="var(--color-accent-orange)" suffix=" ppm" %}
+    {% include "co2_management/_kpi_card.html" with value=stats.jobs_running label="Jobs đang chạy" icon="fa-spinner" color="var(--color-accent-orange)" %}
   </div>
 
-  {# ── Hàng 2: Biểu đồ xu hướng tháng (đầy chiều ngang) ── #}
+  {# ── Hàng 2: Biểu đồ xu hướng tháng ── #}
   <div class="co2-card">
     <div class="co2-card-header">
-      <i class="fa fa-line-chart" style="color: var(--accent-color);"></i>
+      <i class="fa fa-area-chart" style="color: var(--color-accent-primary);"></i>
       {% trans "Xu hướng XCO2 trung bình theo tháng" %}
-      <span style="margin-left: auto; font-size: 11px; font-weight: 400; color: #94a3b8;">{% trans "Chỉ dữ liệu chất lượng tốt (flag=0)" %}</span>
+      <span style="margin-left: auto; font-size: 11px; font-weight: 400; color: var(--color-text-secondary);">{% trans "Dữ liệu chọn lọc (flag=0)" %}</span>
     </div>
-    <div class="co2-card-body" style="padding: 12px 16px;">
-      <canvas id="monthlyTrendChart" height="200"></canvas>
+    <div class="co2-card-body">
+      <div style="height: 240px;">
+        <canvas id="monthlyTrendChart"></canvas>
+      </div>
     </div>
   </div>
 
   {# ── Hàng 3: Donut nguồn + Bar trạng thái Job ── #}
   <div class="row">
     <div class="col-sm-5">
-      <div class="co2-card" style="height: 280px;">
+      <div class="co2-card" style="height: 320px;">
         <div class="co2-card-header">
           <i class="fa fa-pie-chart" style="color: #3b82f6;"></i>
           {% trans "Phân bố theo nguồn vệ tinh" %}
         </div>
-        <div class="co2-card-body" style="display: flex; align-items: center; justify-content: center; height: calc(100% - 45px);">
-          <canvas id="sourceDonutChart" style="max-height: 200px;"></canvas>
+        <div class="co2-card-body" style="display: flex; align-items: center; justify-content: center; height: calc(100% - 50px);">
+          <canvas id="sourceDonutChart" style="max-height: 220px;"></canvas>
         </div>
       </div>
     </div>
     <div class="col-sm-7">
-      <div class="co2-card" style="height: 280px;">
+      <div class="co2-card" style="height: 320px;">
         <div class="co2-card-header">
           <i class="fa fa-tasks" style="color: #8b5cf6;"></i>
           {% trans "Trạng thái Jobs phân tích" %}
         </div>
-        <div class="co2-card-body" style="height: calc(100% - 45px); display: flex; flex-direction: column; justify-content: center;">
-          <canvas id="jobStatusChart" height="160"></canvas>
+        <div class="co2-card-body" style="height: calc(100% - 50px);">
+          <canvas id="jobStatusChart"></canvas>
         </div>
       </div>
     </div>
@@ -60,23 +62,23 @@
     <div class="col-sm-6">
       <div class="co2-card">
         <div class="co2-card-header">
-          <i class="fa fa-database"></i> {% trans "Files mới import" %}
-          <a href="{% url 'co2_management:source_list' %}" class="btn btn-xs btn-default" style="margin-left: auto;">{% trans "Xem tất cả" %}</a>
+          <i class="fa fa-file-text-o"></i> {% trans "Files mới import" %}
+          <a href="{% url 'co2_management:source_list' %}" class="btn btn-md btn-primary" style="margin-left: auto; color: #fff;">{% trans "Xem tất cả" %}</a>
         </div>
-        <div class="co2-card-body p-0">
-          <ul class="list-group" style="margin: 0;">
+        <div class="co2-card-body" style="padding: 0;">
+          <div class="list-group" style="margin: 0; background: transparent;">
             {% for src in recent_sources %}
-              <li class="list-group-item" style="border: none; border-bottom: 1px solid #e2e8f0; padding: 10px 14px;">
-                <a href="{% url 'co2_management:source_detail' pk=src.pk %}" style="font-weight: 500;">{{ src.file_name|truncatechars:35 }}</a>
-                <div style="display: flex; justify-content: space-between; margin-top: 2px;">
-                  <span class="text-muted" style="font-size: 11px;">{{ src.satellite.satellite_name }}</span>
-                  <span class="text-muted" style="font-size: 11px;">{{ src.measurement_date|date:"d/m/Y" }}</span>
+              <a href="{% url 'co2_management:source_detail' pk=src.pk %}" class="list-group-item" style="background: transparent; border: none; border-bottom: 1px solid var(--color-border); padding: 14px 20px;">
+                <div style="font-weight: 600; color: var(--color-text-primary);">{{ src.file_name|truncatechars:40 }}</div>
+                <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                  <span style="color: var(--color-text-secondary); font-size: 11px;">{{ src.satellite.satellite_name }}</span>
+                  <span style="color: var(--color-text-secondary); font-size: 11px;">{{ src.measurement_date|date:"d/m/Y" }}</span>
                 </div>
-              </li>
+              </a>
             {% empty %}
-              <li class="list-group-item text-muted text-center" style="padding: 20px;">{% trans "Chưa có file nào." %}</li>
+              <div class="list-group-item text-muted text-center" style="padding: 30px; background: transparent; border: none;">{% trans "Chưa có file nào." %}</div>
             {% endfor %}
-          </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -84,38 +86,41 @@
     <div class="col-sm-6">
       <div class="co2-card">
         <div class="co2-card-header">
-          <i class="fa fa-cogs"></i> {% trans "Phân tích gần đây" %}
-          <a href="{% url 'co2_management:job_list' %}" class="btn btn-xs btn-default" style="margin-left: auto;">{% trans "Xem tất cả" %}</a>
+          <i class="fa fa-clock-o"></i> {% trans "Phân tích gần đây" %}
+          <a href="{% url 'co2_management:job_list' %}" class="btn btn-md btn-primary" style="margin-left: auto; color: #fff;">{% trans "Xem tất cả" %}</a>
         </div>
-        <div class="co2-card-body p-0">
-          <ul class="list-group" id="recent-jobs-list" style="margin: 0;">
+        <div class="co2-card-body" style="padding: 0;">
+          <div class="list-group" id="recent-jobs-list" style="margin: 0; background: transparent;">
             {% for job in recent_jobs %}
-              <li class="list-group-item job-item" data-job-id="{{ job.id }}" data-status="{{ job.status }}"
-                  style="border: none; border-bottom: 1px solid #e2e8f0; padding: 10px 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                  <a href="{% url 'co2_management:job_detail' pk=job.pk %}" style="font-weight: 500; flex: 1;">
-                    {{ job.job_name|truncatechars:30 }}
+              <div class="list-group-item job-item" data-job-id="{{ job.id }}" data-status="{{ job.status }}"
+                  style="background: transparent; border: none; border-bottom: 1px solid var(--color-border); padding: 14px 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <a href="{% url 'co2_management:job_detail' pk=job.pk %}" style="font-weight: 600; color: var(--color-text-primary); flex: 1;">
+                    {{ job.job_name|truncatechars:35 }}
                   </a>
-                  <span class="label job-status-label
-                    {% if job.status == 'COMPLETED' %}label-success
-                    {% elif job.status == 'FAILED' %}label-danger
-                    {% else %}label-warning{% endif %}" style="font-size: 10px;">
+                  <span class="badge 
+                    {% if job.status == 'COMPLETED' %}bg-success
+                    {% elif job.status == 'FAILED' %}bg-danger
+                    {% else %}bg-warning{% endif %}" style="font-size: 10px; padding: 4px 8px; border-radius: 4px;">
                     {{ job.get_status_display }}
                   </span>
                 </div>
                 {% if job.status == 'RUNNING' or job.status == 'PENDING' %}
-                <div style="margin-top: 5px;">
-                  <div style="background: #e2e8f0; border-radius: 3px; height: 4px; overflow: hidden;">
-                    <div class="job-progress-bar" style="height: 100%; background: var(--accent-color); width: {{ job.progress_percent }}%; transition: width 0.5s;"></div>
+                <div style="margin-top: 8px;">
+                  <div style="background: var(--color-border); border-radius: 4px; height: 5px; overflow: hidden;">
+                    <div class="job-progress-bar" style="height: 100%; background: var(--color-accent-primary); width: {{ job.progress_percent }}%; transition: width 0.5s;"></div>
                   </div>
-                  <span class="job-progress text-muted" style="font-size: 10px;">{{ job.progress_percent }}%</span>
+                  <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                    <span class="text-muted" style="font-size: 10px;">{% trans "Đang xử lý..." %}</span>
+                    <span class="job-progress font-mono" style="font-size: 10px; color: var(--color-accent-primary);">{{ job.progress_percent }}%</span>
+                  </div>
                 </div>
                 {% endif %}
-              </li>
+              </div>
             {% empty %}
-              <li class="list-group-item text-muted text-center" style="padding: 20px;">{% trans "Chưa có job nào." %}</li>
+              <div class="list-group-item text-muted text-center" style="padding: 30px; background: transparent; border: none;">{% trans "Chưa có job nào." %}</div>
             {% endfor %}
-          </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -125,13 +130,54 @@
 
 {% block co2_scripts %}
   {{ block.super }}
+  <style>
+    .bg-success { background-color: var(--color-accent-primary) !important; color: #fff; }
+    .bg-danger { background-color: var(--color-accent-red) !important; color: #fff; }
+    .bg-warning { background-color: var(--color-accent-orange) !important; color: #fff; }
+  </style>
   <script>
   document.addEventListener('DOMContentLoaded', function() {
+    // Theme Defaults (Light Mode)
+    Chart.defaults.color = '#64748b';
+    Chart.defaults.borderColor = '#e2e8f0';
+    Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+
     const bySource    = JSON.parse('{{ by_source_json|escapejs|default:"[]" }}');
     const monthlyRaw  = JSON.parse('{{ monthly_trend_json|escapejs|default:"[]" }}');
     const jobStatuses = JSON.parse('{{ jobs_by_status_json|escapejs|default:"[]" }}');
 
-    // ── 1. Xu hướng tháng (Line chart) ─────────────────────────────────
+    // Sparklines helper
+    const initSparkline = (id, color) => {
+      const canvas = document.getElementById(id);
+      if (!canvas) return;
+      new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: [1, 2, 3, 4, 5, 6, 7],
+          datasets: [{
+            data: Array.from({length: 7}, () => Math.floor(Math.random() * 10) + 20),
+            borderColor: color,
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4,
+            fill: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: { x: { display: false }, y: { display: false } }
+        }
+      });
+    };
+
+    initSparkline('spark-total', '#397aab');
+    initSparkline('spark-sources', '#3b82f6');
+    initSparkline('spark-avg', '#397aab');
+    initSparkline('spark-quality', '#397aab');
+
+    // ── 1. Xu hướng tháng (Area chart) ─────────────────────────────────
     const monthSet    = [...new Set(monthlyRaw.map(m => m.month))].sort();
     const oco2Data    = monthSet.map(m => { const r = monthlyRaw.find(x => x.month === m && x.source === 'OCO2');   return r ? r.avg : null; });
     const gosat2Data  = monthSet.map(m => { const r = monthlyRaw.find(x => x.month === m && x.source === 'GOSAT2'); return r ? r.avg : null; });
@@ -144,20 +190,22 @@
           {
             label: 'OCO-2',
             data: oco2Data,
-            borderColor: '#27ae60',
-            backgroundColor: 'rgba(39,174,96,0.08)',
+            borderColor: '#397aab',
+            backgroundColor: 'rgba(57, 122, 171, 0.05)',
             tension: 0.3,
-            pointRadius: 3,
+            pointRadius: 4,
+            pointBackgroundColor: '#397aab',
             spanGaps: true,
             fill: true,
           },
           {
             label: 'GOSAT-2',
             data: gosat2Data,
-            borderColor: '#e74c3c',
-            backgroundColor: 'rgba(231,76,60,0.08)',
+            borderColor: '#8b5cf6',
+            backgroundColor: 'rgba(139, 92, 246, 0.05)',
             tension: 0.3,
-            pointRadius: 3,
+            pointRadius: 4,
+            pointBackgroundColor: '#8b5cf6',
             spanGaps: true,
             fill: true,
           }
@@ -168,18 +216,29 @@
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+          legend: { position: 'top', align: 'end', labels: { boxWidth: 10, usePointStyle: true, font: { size: 12, weight: '600' } } },
           tooltip: {
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#64748b',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 12,
+            boxPadding: 6,
             callbacks: {
               label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(3) + ' ppm' : 'N/A'}`
             }
           }
         },
         scales: {
-          x: { ticks: { font: { size: 10 }, maxTicksLimit: 12 } },
+          x: { 
+            grid: { display: false },
+            ticks: { font: { size: 11 } } 
+          },
           y: {
-            title: { display: true, text: 'XCO2 (ppm)', font: { size: 10 } },
-            ticks: { font: { size: 10 } }
+            grid: { color: '#f1f5f9' },
+            title: { display: true, text: 'XCO2 (ppm)', font: { size: 11, weight: '600' } },
+            ticks: { font: { size: 11, family: 'JetBrains Mono' } }
           }
         }
       }
@@ -189,7 +248,7 @@
     const srcLabels = bySource.map(s => s.label);
     const srcCounts = bySource.map(s => s.count);
     const srcAvg    = bySource.map(s => s.avg);
-    const srcColors = { 'OCO2': '#27ae60', 'GOSAT2': '#e74c3c' };
+    const srcColors = { 'OCO2': '#397aab', 'GOSAT2': '#8b5cf6' };
 
     new Chart(document.getElementById('sourceDonutChart'), {
       type: 'doughnut',
@@ -198,24 +257,30 @@
         datasets: [{
           data: srcCounts,
           backgroundColor: srcLabels.map(l => srcColors[l] || '#3b82f6'),
-          borderWidth: 2,
-          borderColor: '#fff',
-          hoverOffset: 8,
+          borderWidth: 0,
+          hoverOffset: 12,
         }]
       },
       options: {
         responsive: true,
-        cutout: '65%',
+        maintainAspectRatio: false,
+        cutout: '75%',
         plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+          legend: { position: 'bottom', labels: { font: { size: 12, weight: '600' }, boxWidth: 10, usePointStyle: true, padding: 20 } },
           tooltip: {
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#64748b',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 12,
             callbacks: {
               label: ctx => {
                 const total = srcCounts.reduce((a, b) => a + b, 0);
                 const pct = total ? (ctx.parsed / total * 100).toFixed(1) : 0;
                 return ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
               },
-              afterLabel: ctx => `  TB XCO2: ${srcAvg[ctx.dataIndex]} ppm`,
+              afterLabel: ctx => ` TB XCO2: ${srcAvg[ctx.dataIndex]} ppm`,
             }
           }
         }
@@ -224,15 +289,15 @@
 
     // ── 3. Bar ngang trạng thái Jobs ────────────────────────────────────
     const statusColorMap = {
-      'PENDING':   '#f59e0b',
+      'PENDING':   '#ffb700',
       'RUNNING':   '#3b82f6',
-      'COMPLETED': '#27ae60',
-      'FAILED':    '#ef4444',
+      'COMPLETED': '#397aab',
+      'FAILED':    '#ff4444',
     };
     const statusLabels = { PENDING: 'Chờ xử lý', RUNNING: 'Đang chạy', COMPLETED: 'Hoàn thành', FAILED: 'Thất bại' };
     const jsLabels = jobStatuses.map(j => statusLabels[j.status] || j.status);
     const jsCounts = jobStatuses.map(j => j.count);
-    const jsColors = jobStatuses.map(j => statusColorMap[j.status] || '#64748b');
+    const jsColors = jobStatuses.map(j => statusColorMap[j.status] || '#8b949e');
 
     new Chart(document.getElementById('jobStatusChart'), {
       type: 'bar',
@@ -241,10 +306,11 @@
         datasets: [{
           label: 'Số lượng',
           data: jsCounts,
-          backgroundColor: jsColors.map(c => c + 'cc'),
+          backgroundColor: jsColors.map(c => c + 'aa'),
           borderColor: jsColors,
           borderWidth: 1,
-          borderRadius: 4,
+          borderRadius: 6,
+          barThickness: 20,
         }]
       },
       options: {
@@ -253,13 +319,13 @@
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { beginAtZero: true, ticks: { font: { size: 10 }, stepSize: 1 } },
-          y: { ticks: { font: { size: 11 } } }
+          x: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11, family: 'JetBrains Mono' }, stepSize: 1 } },
+          y: { grid: { display: false }, ticks: { font: { size: 12, weight: '600' } } }
         }
       }
     });
 
-    // ── 4. Polling trạng thái Jobs đang chạy ───────────────────────────
+    // ── 4. Polling trạng thái Jobs ───────────────────────────
     const pollJobs = () => {
       const runningItems = document.querySelectorAll('.job-item[data-status="PENDING"], .job-item[data-status="RUNNING"]');
       if (!runningItems.length) return;
@@ -268,7 +334,11 @@
         fetch(`/co2/api/v1/jobs/${jobId}/`)
           .then(r => r.json())
           .then(data => {
-            item.querySelector('.job-status-label').innerText = data.status_display || data.status;
+            const label = item.querySelector('.badge');
+            if (label) {
+                label.innerText = data.status_display || data.status;
+                label.className = 'badge ' + (data.status === 'COMPLETED' ? 'bg-success' : (data.status === 'FAILED' ? 'bg-danger' : 'bg-warning'));
+            }
             item.setAttribute('data-status', data.status);
             const bar = item.querySelector('.job-progress-bar');
             const pct = item.querySelector('.job-progress');
@@ -283,3 +353,4 @@
   });
   </script>
 {% endblock %}
+
