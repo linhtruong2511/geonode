@@ -182,16 +182,28 @@ LANGUAGES = (
     ('it-it', 'Italiano'),
 )
 
+# Cấu hình danh sách ngôn ngữ hợp lệ cho User Profile
+# Để tránh lỗi khi đăng nhập không thể chuyển sang tiếng Việt (do middleware kiểm tra giá trị này)
+PROFILE_LANGUAGE_CHOICES = (
+    ('vi', 'Tiếng Việt'),
+    ('en', 'English'),
+    ('it', 'Italiano'),
+)
+
+
 MAPSTORE_TRANSLATIONS_PATH = [
     '/static/mapstore/ms-translations',
     '/static/mapstore/gn-translations',
     '/static/mapstore/project-translations'
 ]
 
-from celery.schedules import crontab
-CELERY_BEAT_SCHEDULE = {
-    'my-task-every-night': {
-        'task': 'myapp.tasks.my_task',
-        'schedule': crontab(hour=2, minute=0),  # 2:00 AM mỗi ngày
-    },
-}
+
+# CSRF_TRUSTED_ORIGINS = [
+#     'http://localhost:8081',
+#     'http://127.0.0.1:8081',
+# ]
+
+# CORS_ALLOWED_ORIGINS = [
+#     'http://localhost:8081',
+#     'http://127.0.0.1:8081',
+# ]

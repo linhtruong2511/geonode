@@ -5,7 +5,7 @@ from rest_framework.pagination import LimitOffsetPagination
 from django.db.models import Count, Avg, Max, Min, StdDev, Q
 from django.db.models.functions import TruncMonth, TruncYear
 from django.contrib.gis.measure import D
-from django.db.models import Avg, Max, Min, Count
+from django.db.models import Avg, Max, Min, Count, Case, When, Value, CharField, F, FloatField
 import numpy as np
 import logging
 from django.contrib.gis.geos import Polygon
@@ -25,9 +25,10 @@ class StandardLimitOffsetPagination(LimitOffsetPagination):
     """
     Phân trang mặc định cho các API CO2 Management.
     Sử dụng Limit/Offset để phù hợp với frontend React.
+    Tăng max_limit lên 1000 để hỗ trợ hiển thị đồng bộ 500 và 1000 bản ghi trên bản đồ/bảng.
     """
     default_limit = 10
-    max_limit = 100
+    max_limit = 1000
 
 class SatelliteViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -38,13 +39,52 @@ class SatelliteViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = SatelliteSerializer
     pagination_class = StandardLimitOffsetPagination
 
-class MeasurementSourceViewSet(viewsets.ReadOnlyModelViewSet):
+class MeasurementSourceViewSet(viewsets.ModelViewSet):
     """
     API ViewSet để quản lý các tệp nguồn dữ liệu.
+    Hỗ trợ đầy đủ thêm, sửa, xóa tệp nguồn và bulk delete.
     """
     queryset = MeasurementSource.objects.all()
     serializer_class = MeasurementSourceSerializer
     pagination_class = StandardLimitOffsetPagination
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        """Xử lý bộ lọc tham số tìm kiếm từ frontend"""
+        qs = super().get_queryset().select_related("satellite")
+        
+        # Lọc theo loại vệ tinh (Satellite Name/Type)
+        satellite_name = self.request.query_params.get("satellite")
+        if satellite_name:
+            if satellite_name == 'OCO2':
+                qs = qs.filter(satellite__satellite_name__icontains="OCO")
+            elif satellite_name == 'GOSAT2':
+                qs = qs.filter(satellite__satellite_name__icontains="GOSAT")
+            else:
+                qs = qs.filter(satellite__satellite_name__icontains=satellite_name)
+                
+        # Lọc theo định dạng tệp (NETCDF4/HDF5)
+        file_format = self.request.query_params.get("format")
+        if file_format:
+            qs = qs.filter(file_format=file_format)
+            
+        # Lọc theo trạng thái kiểm định chất lượng (0: Chờ xử lý, 1: Đã xong)
+        quality_checked = self.request.query_params.get("quality_checked")
+        if quality_checked == '1':
+            qs = qs.filter(quality_checked=True)
+        elif quality_checked == '0':
+            qs = qs.filter(quality_checked=False)
+            
+        # Lọc theo khoảng thời gian thực hiện phép đo (Từ ngày / Đến ngày)
+        date_from = self.request.query_params.get("date_from")
+        if date_from:
+            qs = qs.filter(measurement_date__gte=date_from)
+            
+        date_to = self.request.query_params.get("date_to")
+        if date_to:
+            qs = qs.filter(measurement_date__lte=date_to)
+            
+        return qs.order_by("-id")
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def upload(self, request):
@@ -61,13 +101,69 @@ class MeasurementSourceViewSet(viewsets.ReadOnlyModelViewSet):
             "message": f"Đã bắt đầu quy trình nhập dữ liệu cho tệp {instance.file_name}. Vui lòng chờ vài phút."
         })
 
-class MeasurementViewSet(viewsets.ReadOnlyModelViewSet):
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def bulk_delete(self, request):
+        """
+        Xóa hàng loạt tệp nguồn dữ liệu được chọn.
+        Do cấu hình CASCADE ở models, toàn bộ điểm đo thuộc các file này cũng sẽ bị xóa ở DB.
+        """
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({"error": "Không có ID nào được chọn"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Thực hiện xóa các nguồn (cascade tự động xóa measurements)
+        deleted_count = MeasurementSource.objects.filter(id__in=ids).delete()[0]
+        return Response({
+            "status": "success", 
+            "message": f"Đã xóa thành công {deleted_count} tệp nguồn dữ liệu và toàn bộ điểm đo liên quan."
+        })
+
+class MeasurementViewSet(viewsets.ModelViewSet):
     """
     API ViewSet cho dữ liệu đo đạc chi tiết.
-    Hỗ trợ bộ lọc nâng cao và truy vấn theo không gian.
+    Hỗ trợ bộ lọc nâng cao, truy vấn không gian, xóa mềm và cập nhật hàng loạt.
     """
     queryset = Measurement.objects.filter(deleted_at__isnull=True)
     pagination_class = StandardLimitOffsetPagination
+    
+    def destroy(self, request, *args, **kwargs):
+        """
+        Thực hiện xóa mềm một điểm đo bằng cách cập nhật trường deleted_at.
+        """
+        instance = self.get_object()
+        from django.utils import timezone
+        instance.deleted_at = timezone.now()
+        instance.save()
+        return Response({"status": "success", "message": "Đã xóa mềm điểm đo thành công"}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def bulk_delete(self, request):
+        """
+        Xóa mềm hàng loạt điểm đo được chọn bằng cách cập nhật trường deleted_at.
+        """
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({"error": "Không có ID nào được chọn"}, status=status.HTTP_400_BAD_REQUEST)
+        from django.utils import timezone
+        count = Measurement.objects.filter(id__in=ids, deleted_at__isnull=True).update(deleted_at=timezone.now())
+        return Response({"status": "success", "message": f"Đã xóa mềm thành công {count} điểm đo"})
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def bulk_toggle_quality(self, request):
+        """
+        Bật/tắt cờ chất lượng (0: Tốt, 1: Kém) hàng loạt điểm đo.
+        Khi đặt là Kém (1), bản ghi sẽ bị ẩn đi nếu người dùng lọc 'Chỉ dữ liệu tốt'.
+        """
+        ids = request.data.get('ids', [])
+        quality_flag = int(request.data.get('quality_flag', 1))
+        if not ids:
+            return Response({"error": "Không có ID nào được chọn"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        count = Measurement.objects.filter(id__in=ids, deleted_at__isnull=True).update(xco2_quality_flag=quality_flag)
+        return Response({
+            "status": "success", 
+            "message": f"Đã cập nhật trạng thái chất lượng cho {count} điểm đo sang: " + ("Kém" if quality_flag == 1 else "Tốt")
+        })
     
     def get_serializer_class(self):
         """Sử dụng Serializer rút gọn cho danh sách và Serializer đầy đủ cho chi tiết"""
@@ -429,7 +525,6 @@ class DashboardViewSet(viewsets.ViewSet):
             "recent_jobs": recent_jobs,
         })
 
-
 class StatisticsViewSet(viewsets.ViewSet):
     """
     API ViewSet để lấy dữ liệu thống kê chuyên sâu về XCO2.
@@ -555,6 +650,121 @@ class StatisticsViewSet(viewsets.ViewSet):
         )
         available_years = sorted(list(set([y.year if hasattr(y, 'year') else y for y in years if y])), reverse=True)
 
+        # --- Báo cáo 3: Phân bố Không gian ---
+        # 1. Theo dải vĩ độ
+        lat_bands = qs.annotate(
+            band=Case(
+                When(latitude__gte=60, then=Value('Bắc Cực (60°N-90°N)')),
+                When(latitude__gte=30, latitude__lt=60, then=Value('Ôn đới Bắc (30°N-60°N)')),
+                When(latitude__gte=-30, latitude__lt=30, then=Value('Nhiệt đới (30°S-30°N)')),
+                When(latitude__gte=-60, latitude__lt=-30, then=Value('Ôn đới Nam (60°S-30°S)')),
+                When(latitude__lt=-60, then=Value('Nam Cực (90°S-60°S)')),
+                output_field=CharField()
+            )
+        ).values('band').annotate(
+            count=Count('id'),
+            avg_xco2=Avg('xco2_ppm'),
+            max_xco2=Max('xco2_ppm')
+        ).order_by('-count')
+
+        lat_band_stats = [
+            {
+                "band": b['band'],
+                "count": b['count'],
+                "avg": round(b['avg_xco2'], 3) if b['avg_xco2'] else 0,
+                "max": round(b['max_xco2'], 3) if b['max_xco2'] else 0
+            } for b in lat_bands if b['band']
+        ]
+
+        # 2. Tỷ lệ đất/biển
+        land_sea = qs.filter(land_fraction__isnull=False).annotate(
+            surface=Case(
+                When(land_fraction__gte=0.8, then=Value('Đất liền')),
+                When(land_fraction__lt=0.2, then=Value('Đại dương')),
+                default=Value('Hỗn hợp'),
+                output_field=CharField()
+            )
+        ).values('surface').annotate(
+            count=Count('id'),
+            avg_xco2=Avg('xco2_ppm')
+        ).order_by('-count')
+
+        land_sea_stats = [
+            {
+                "surface": s['surface'],
+                "count": s['count'],
+                "avg": round(s['avg_xco2'], 3) if s['avg_xco2'] else 0
+            } for s in land_sea if s['surface']
+        ]
+
+        # 3. Hotspots
+        top_hotspots = list(
+            qs.values('latitude', 'longitude', 'xco2_ppm', 'measurement_time', 'data_source')
+            .order_by('-xco2_ppm')[:10]
+        )
+        for h in top_hotspots:
+            h['xco2_ppm'] = round(h['xco2_ppm'], 3)
+
+        # --- Báo cáo 5: Kiểm soát chất lượng chi tiết ---
+        quality_detail = {
+            "cloudy": qs.filter(cloud_flag=1).count(),
+            "high_zenith": qs.filter(solar_zenith_angle_deg__gte=70).count(),
+            "high_uncertainty": qs.filter(xco2_uncertainty_ppm__gte=2.0).count()
+        }
+
+        # --- Báo cáo 6: Phân tích theo năm ---
+        annual_summary_qs = qs.annotate(yr=TruncYear('measurement_time')).values('yr').annotate(
+            count=Count('id'),
+            avg_xco2=Avg('xco2_ppm'),
+            min_xco2=Min('xco2_ppm'),
+            max_xco2=Max('xco2_ppm'),
+            std_xco2=StdDev('xco2_ppm')
+        ).order_by('-yr')
+        
+        annual_summary = [
+            {
+                "year": a['yr'].year if a['yr'] else 'N/A',
+                "count": a['count'],
+                "avg": round(a['avg_xco2'], 3) if a['avg_xco2'] else 0,
+                "min": round(a['min_xco2'], 3) if a['min_xco2'] else 0,
+                "max": round(a['max_xco2'], 3) if a['max_xco2'] else 0,
+                "std": round(a['std_xco2'], 3) if a['std_xco2'] else 0
+            } for a in annual_summary_qs if a['yr']
+        ]
+
+        # --- Báo cáo 7: Phân bố thống kê ---
+        sample_qs = qs
+        if total > 50000:
+            sample_qs = qs.order_by('?')[:20000]
+        
+        vals = list(sample_qs.values_list('xco2_ppm', 'data_source'))
+        histogram = {"oco2": {"labels": [], "counts": []}, "gosat2": {"labels": [], "counts": []}}
+        percentiles = {}
+        
+        if vals:
+            oco2_vals = [v[0] for v in vals if v[1] == 'OCO2']
+            gosat2_vals = [v[0] for v in vals if v[1] == 'GOSAT2']
+            all_vals = [v[0] for v in vals]
+            
+            if oco2_vals:
+                hist, bins = np.histogram(oco2_vals, bins=40, range=(390, 430))
+                histogram["oco2"]["labels"] = [round(float(b), 1) for b in bins[:-1]]
+                histogram["oco2"]["counts"] = [int(c) for c in hist]
+            if gosat2_vals:
+                hist, bins = np.histogram(gosat2_vals, bins=40, range=(390, 430))
+                histogram["gosat2"]["labels"] = [round(float(b), 1) for b in bins[:-1]]
+                histogram["gosat2"]["counts"] = [int(c) for c in hist]
+
+            if all_vals:
+                p_vals = np.percentile(all_vals, [5, 25, 50, 75, 95])
+                percentiles = {
+                    "p5": round(float(p_vals[0]), 2),
+                    "p25": round(float(p_vals[1]), 2),
+                    "p50": round(float(p_vals[2]), 2),
+                    "p75": round(float(p_vals[3]), 2),
+                    "p95": round(float(p_vals[4]), 2),
+                }
+
         return Response({
             "total_filtered": total,
             "desc_stats": desc_stats,
@@ -563,4 +773,15 @@ class StatisticsViewSet(viewsets.ViewSet):
             "quality_stats": quality_stats,
             "top_months": top_months_data,
             "available_years": available_years,
+            "spatial_stats": {
+                "lat_bands": lat_band_stats,
+                "land_sea": land_sea_stats,
+                "hotspots": top_hotspots
+            },
+            "quality_detail": quality_detail,
+            "annual_summary": annual_summary,
+            "distribution": {
+                "histogram": histogram,
+                "percentiles": percentiles
+            }
         })

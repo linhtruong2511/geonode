@@ -27,8 +27,8 @@ const LocationForm: React.FC = () => {
     name: '',
     description: '',
     location_type: 'Point',
-    latitude: 16.047, 
-    longitude: 108.206,
+    latitude: 21.028511, 
+    longitude: 105.804817,
     radius_km: 10,
     is_active: true,
   });
@@ -54,9 +54,9 @@ const LocationForm: React.FC = () => {
     setIsPickingLocation(true);
     
     if (!isEditing) {
-      setMapCenter([16.047, 108.206]);
-      setMapZoom(6);
-      setPickedLocation([16.047, 108.206]);
+      setMapCenter([21.028511, 105.804817]);
+      setMapZoom(8);
+      setPickedLocation([21.028511, 105.804817]);
     }
 
     return () => {

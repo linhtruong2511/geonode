@@ -87,9 +87,10 @@ const GeomanControl: React.FC = () => {
   return null;
 };
 
-const MapEvents: React.FC = () => {
-  const { setMapBounds, isDrawingMode } = useMapStore();
-  const [mousePos, setMousePos] = useState<{ lat: number; lng: number } | null>(null);
+// Component đồng bộ bounds của bản đồ (ổn định, không bị re-render bởi mousemove)
+const MapBoundsSync: React.FC = () => {
+  const setMapBounds = useMapStore((state) => state.setMapBounds);
+  const isDrawingMode = useMapStore((state) => state.isDrawingMode);
 
   const map = useMapEvents({
     moveend: () => {
@@ -112,12 +113,9 @@ const MapEvents: React.FC = () => {
         west: bounds.getWest(),
       });
     },
-    mousemove: (e) => {
-      setMousePos(e.latlng);
-    },
   });
 
-  // Initial bounds capture
+  // Cập nhật bounds lần đầu
   useEffect(() => {
     if (!isDrawingMode) {
       const bounds = map.getBounds();
@@ -130,31 +128,20 @@ const MapEvents: React.FC = () => {
     }
   }, [map, setMapBounds, isDrawingMode]);
 
-  return mousePos ? (
-    <div
-      style={{
-        position: "absolute",
-        top: "10px",
-        right: "10px",
-        zIndex: 1000,
-        backgroundColor: "rgba(255, 255, 255, 0.9)",
-        padding: "4px 8px",
-        borderRadius: "4px",
-        fontSize: "11px",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-        pointerEvents: "none",
-        color: "#333",
-        fontWeight: 600
-      }}
-    >
-      {mousePos.lat.toFixed(4)}, {mousePos.lng.toFixed(4)}
-    </div>
-  ) : null;
+  return null;
 };
 
-const MapInfoOverlay: React.FC = () => {
-  const { mapData } = useMapStore();
-  
+// Component hiển thị thông số thống kê và tọa độ chuột
+const MapTopOverlay: React.FC = () => {
+  const mapData = useMapStore((state) => state.mapData);
+  const [mousePos, setMousePos] = useState<{ lat: number; lng: number } | null>(null);
+
+  useMapEvents({
+    mousemove: (e) => {
+      setMousePos(e.latlng);
+    },
+  });
+
   const stats = useMemo(() => {
     if (!mapData || mapData.length === 0) return null;
     
@@ -180,54 +167,122 @@ const MapInfoOverlay: React.FC = () => {
     };
   }, [mapData]);
 
-  if (!stats) return null;
-
   return (
     <div
       style={{
         position: "absolute",
-        top: "20px",
+        top: "5px",
         left: "50%",
         transform: "translateX(-50%)",
         zIndex: 1000,
-        backgroundColor: "white",
-        padding: "12px 20px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
+        backgroundColor: "rgba(255, 255, 255, 0.95)",
+        padding: "6px 16px",
+        borderRadius: "8px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
         display: "flex",
-        gap: "24px",
+        gap: "16px",
         alignItems: "center",
         border: "1px solid var(--color-border)",
         backdropFilter: "blur(4px)",
-        background: "rgba(255, 255, 255, 0.95)"
+        whiteSpace: "nowrap"
       }}
     >
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Tổng số điểm</div>
-        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-accent-primary)' }}>{stats.total}</div>
-      </div>
-      <div style={{ width: '1px', height: '30px', backgroundColor: '#eee' }}></div>
-      <div>
-        <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Trung bình XCO2</div>
-        <div style={{ fontSize: '16px', fontWeight: 700 }}>{stats.avg.toFixed(2)} <span style={{ fontSize: '11px', fontWeight: 400 }}>ppm</span></div>
-      </div>
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <div style={{ backgroundColor: '#f8fafc', padding: '4px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>Min:</span>
-          <span style={{ fontSize: '12px', fontWeight: 700, marginLeft: '4px' }}>{stats.min.toFixed(1)}</span>
-        </div>
-        <div style={{ backgroundColor: '#fff1f2', padding: '4px 10px', borderRadius: '6px', border: '1px solid #fecdd3' }}>
-          <span style={{ fontSize: '10px', color: '#e11d48', fontWeight: 600 }}>Max:</span>
-          <span style={{ fontSize: '12px', fontWeight: 700, marginLeft: '4px' }}>{stats.max.toFixed(1)}</span>
+      {stats && (
+        <>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Tổng điểm</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-accent-primary)' }}>{stats.total}</div>
+          </div>
+          <div style={{ width: '1px', height: '24px', backgroundColor: '#eee' }}></div>
+          <div>
+            <div style={{ fontSize: '9px', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>TB XCO2</div>
+            <div style={{ fontSize: '13px', fontWeight: 700 }}>{stats.avg.toFixed(2)} <span style={{ fontSize: '10px', fontWeight: 400 }}>ppm</span></div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ backgroundColor: '#f8fafc', padding: '2px 8px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 600 }}>Min:</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, marginLeft: '4px' }}>{stats.min.toFixed(1)}</span>
+            </div>
+            <div style={{ backgroundColor: '#fff1f2', padding: '2px 8px', borderRadius: '4px', border: '1px solid #fecdd3' }}>
+              <span style={{ fontSize: '9px', color: '#e11d48', fontWeight: 600 }}>Max:</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, marginLeft: '4px' }}>{stats.max.toFixed(1)}</span>
+            </div>
+          </div>
+          <div style={{ width: '1px', height: '24px', backgroundColor: '#eee' }}></div>
+        </>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <i className="fa fa-crosshairs" style={{ color: 'var(--color-text-secondary)', fontSize: '11px' }}></i>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#333', minWidth: '110px' }}>
+          {mousePos ? `${mousePos.lat.toFixed(4)}, ${mousePos.lng.toFixed(4)}` : 'Đang tải...'}
         </div>
       </div>
     </div>
   );
 };
 
+// Component đồng bộ hóa tọa độ và mức zoom của Bản đồ với MapStore
+const MapViewUpdater: React.FC = () => {
+  const map = useMap();
+  const mapCenter = useMapStore((state) => state.mapCenter);
+  const mapZoom = useMapStore((state) => state.mapZoom);
+
+  useEffect(() => {
+    if (mapCenter) {
+      map.setView(mapCenter, mapZoom, { animate: false });
+    }
+  }, [mapCenter, mapZoom, map]);
+
+  return null;
+};
+
+// Component vẽ Marker thông minh hỗ trợ Highlight và Tự động mở Popup chi tiết
+const MeasurementMarker: React.FC<{ item: any; focusedId: number | null }> = ({ item, focusedId }) => {
+  const markerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (markerRef.current && focusedId === item.id) {
+      // Tự động mở popup chi tiết khi điểm này được định vị
+      setTimeout(() => {
+        markerRef.current?.openPopup();
+      }, 100);
+    }
+  }, [focusedId, item.id]);
+
+  const isFocused = focusedId === item.id;
+
+  return (
+    <CircleMarker
+      ref={markerRef}
+      center={[item.latitude, item.longitude]}
+      radius={isFocused ? 10 : 5}
+      pathOptions={{
+        fillColor: getColor(item.xco2_ppm),
+        color: isFocused ? '#ef4444' : getColor(item.xco2_ppm),
+        weight: isFocused ? 3 : 1,
+        opacity: isFocused ? 1.0 : 0.8,
+        fillOpacity: isFocused ? 0.95 : 0.6,
+      }}
+    >
+      <Popup autoPan={false}>
+        <div style={{ fontSize: "11px", minWidth: "140px" }}>
+          <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '3px', marginBottom: '3px', fontWeight: 700, color: 'var(--color-accent-primary)' }}>
+            Điểm đo #{item.id}
+          </div>
+          <strong>XCO2:</strong> {item.xco2_ppm?.toFixed(2)} ppm<br />
+          <strong>Thời gian:</strong> {new Date(item.measurement_time).toLocaleString("vi-VN")}<br />
+          <strong>Tọa độ:</strong> {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}<br />
+          <strong>Nguồn:</strong> {item.data_source}
+        </div>
+      </Popup>
+    </CircleMarker>
+  );
+};
+
 const MapLegend: React.FC = () => {
   const { 
-    isSpatialSearchEnabled, setIsSpatialSearchEnabled, 
+    isSpatialSearchEnabled,
+    setIsSpatialSearchEnabled, 
     isDrawingMode, setIsDrawingMode,
     drawnGeometry, setDrawnGeometry
   } = useMapStore();
@@ -323,7 +378,10 @@ const MapLegend: React.FC = () => {
 };
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { mapData, mapCenter, mapZoom } = useMapStore();
+  const mapData = useMapStore((state) => state.mapData);
+  const mapCenter = useMapStore((state) => state.mapCenter);
+  const mapZoom = useMapStore((state) => state.mapZoom);
+  const focusedId = useMapStore((state) => state.focusedId);
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem("co2-sidebar-collapsed") === "true";
@@ -339,6 +397,25 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const startWidthRef = useRef(0);
 
   const location = useLocation();
+
+  const routeNames: Record<string, string> = {
+    "/": "Tổng quan",
+    "/satellites": "Vệ tinh",
+    "/sources": "Nguồn dữ liệu",
+    "/measurements": "Dữ liệu đo lường",
+    // "/locations": "Vị trí giám sát",
+    "/locations/new": "Thêm vị trí",
+    "/comparisons": "So sánh dữ liệu",
+    "/jobs": "Phiên phân tích",
+    "/statistics": "Thống kê XCO2",
+  };
+
+  const getBreadcrumb = () => {
+    const path = location.pathname;
+    if (routeNames[path]) return routeNames[path];
+    if (path.includes('/locations/') && path.includes('/edit')) return 'Chỉnh sửa vị trí';
+    return 'Tổng quan';
+  };
 
   useEffect(() => {
     localStorage.setItem("co2-sidebar-collapsed", String(isCollapsed));
@@ -390,6 +467,8 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }, [isDragging]);
 
   const isActive = (path: string) => location.pathname === path;
+
+  const isStatisticsPage = location.pathname === "/statistics";
 
   return (
     <div id="co2-shell">
@@ -489,83 +568,88 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <div className="sidebar-footer">CO2 Management v1.0 (React)</div>
       </aside>
 
-      {/* SPLIT CONTAINER */}
-      <div id="co2-split-container">
-        {/* CENTER MAP PANEL */}
-        <div id="co2-map-panel">
-          <MapContainer
-            center={mapCenter}
-            zoom={mapZoom}
-            style={{ height: "100%", width: "100%" }}
-          >
-            <LayersControl position="topright">
-              <LayersControl.BaseLayer checked name="Bản đồ đường phố">
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-              </LayersControl.BaseLayer>
-              <LayersControl.BaseLayer name="Bản đồ vệ tinh">
-                <TileLayer
-                  attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                />
-              </LayersControl.BaseLayer>
-            </LayersControl>
-            <MapEvents />
-            <GeomanControl />
-
-            {mapData.map((item, index) =>
-              item.latitude && item.longitude ? (
-                <CircleMarker
-                  key={index}
-                  center={[item.latitude, item.longitude]}
-                  radius={5}
-                  pathOptions={{
-                    fillColor: getColor(item.xco2_ppm),
-                    color: getColor(item.xco2_ppm),
-                    weight: 1,
-                    opacity: 0.8,
-                    fillOpacity: 0.6,
-                  }}
-                >
-                  <Popup>
-                    <div style={{ fontSize: "12px" }}>
-                      <strong>XCO2:</strong> {item.xco2_ppm?.toFixed(2)} ppm<br />
-                      <strong>Thời gian:</strong> {new Date(item.measurement_time).toLocaleString("vi-VN")}<br />
-                      <strong>Vị trí:</strong> {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}<br />
-                      <strong>Nguồn:</strong> {item.data_source}
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              ) : null,
-            )}
-          </MapContainer>
-          <MapInfoOverlay />
-          <MapLegend />
-        </div>
-
-        <div
-          id="co2-splitter"
-          className={isDragging ? "dragging" : ""}
-          onMouseDown={handleMouseDown}
-        ></div>
-
-        {/* RIGHT CONTENT PANEL */}
+      {/* 
+        Kiểm tra nếu là trang Thống kê XCO2 (/statistics):
+        Hiển thị layout tràn viền (Full-width) không chia cột bản đồ/bộ chia để tối ưu không gian hiển thị biểu đồ/bảng.
+        Ngược lại, hiển thị layout chia đôi (Split pane) chuẩn có bản đồ.
+      */}
+      {isStatisticsPage ? (
         <div
           id="co2-content-panel"
-          ref={contentPanelRef}
-          style={contentWidth > 0 ? { flex: `0 0 ${contentWidth}px` } : {}}
+          style={{ flex: 1, maxWidth: "none", borderLeft: "none" }}
         >
           <div id="co2-topbar">
             <div className="topbar-breadcrumb">
-              CO2 Management / <span>Tổng quan</span>
+              CO2 Management / <span>{getBreadcrumb()}</span>
             </div>
           </div>
 
           <div id="co2-content-body">{children}</div>
         </div>
-      </div>
+      ) : (
+        /* SPLIT CONTAINER */
+        <div id="co2-split-container">
+          {/* CENTER MAP PANEL */}
+          <div id="co2-map-panel">
+            <MapContainer
+              center={mapCenter}
+              zoom={mapZoom}
+              style={{ height: "100%", width: "100%" }}
+            >
+              <MapViewUpdater />
+              <LayersControl position="topright">
+                <LayersControl.BaseLayer checked name="Bản đồ đường phố">
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                </LayersControl.BaseLayer>
+                <LayersControl.BaseLayer name="Bản đồ vệ tinh">
+                  <TileLayer
+                    attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  />
+                </LayersControl.BaseLayer>
+              </LayersControl>
+              <MapBoundsSync />
+              <MapTopOverlay />
+              <GeomanControl />
+
+              {mapData.map((item) =>
+                item.latitude && item.longitude ? (
+                  <MeasurementMarker
+                    key={item.id}
+                    item={item}
+                    focusedId={focusedId}
+                  />
+                ) : null
+              )}
+            </MapContainer>
+            <MapLegend />
+          </div>
+
+          <div
+            id="co2-splitter"
+            className={isDragging ? "dragging" : ""}
+            onMouseDown={handleMouseDown}
+          ></div>
+
+          {/* RIGHT CONTENT PANEL */}
+          <div
+            id="co2-content-panel"
+            ref={contentPanelRef}
+            style={contentWidth > 0 ? { flex: `0 0 ${contentWidth}px` } : {}}
+          >
+            <div id="co2-topbar">
+              <div className="topbar-breadcrumb">
+                CO2 Management / <span>{getBreadcrumb()}</span>
+              </div>
+            </div>
+
+            <div id="co2-content-body">{children}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

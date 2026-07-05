@@ -1,6 +1,6 @@
 {
   "src/co2_management/CO2ManagementApp.tsx": {
-    "file": "chunks/CO2ManagementApp-DJF8hjG-.js",
+    "file": "chunks/CO2ManagementApp-DJHfasb9.js",
     "name": "CO2ManagementApp",
     "src": "src/co2_management/CO2ManagementApp.tsx",
     "isDynamicEntry": true,
@@ -8,7 +8,7 @@
       "src/loader.tsx"
     ],
     "css": [
-      "assets/CO2ManagementApp-BLOsp0g8.css"
+      "assets/CO2ManagementApp-BKs7nV-_.css"
     ]
   },
   "src/loader.tsx": {

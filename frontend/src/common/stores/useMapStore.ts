@@ -19,6 +19,7 @@ interface MapState {
   isDrawingMode: boolean;
   isPickingLocation: boolean;
   pickedLocation: [number, number] | null;
+  focusedId: number | null; // ID của điểm đo đang được định vị/highlight
   setShowMap: (show: boolean) => void;
   setMapData: (data: any[]) => void;
   setMapCenter: (center: [number, number]) => void;
@@ -30,20 +31,22 @@ interface MapState {
   setIsDrawingMode: (enabled: boolean) => void;
   setIsPickingLocation: (enabled: boolean) => void;
   setPickedLocation: (location: [number, number] | null) => void;
+  setFocusedId: (id: number | null) => void;
 }
 
 export const useMapStore = create<MapState>((set) => ({
   showMap: false,
   mapData: [],
-  mapCenter: [16.047079, 108.206230],
-  mapZoom: 5,
+  mapCenter: [21.028511, 105.804817],
+  mapZoom: 8,
   mapBounds: null,
   mousePos: null,
   drawnGeometry: null,
-  isSpatialSearchEnabled: false,
+  isSpatialSearchEnabled: true,
   isDrawingMode: false,
   isPickingLocation: false,
   pickedLocation: null,
+  focusedId: null,
   setShowMap: (show) => set({ showMap: show }),
   setMapData: (data) => set({ mapData: data }),
   setMapCenter: (center) => set({ mapCenter: center }),
@@ -55,4 +58,5 @@ export const useMapStore = create<MapState>((set) => ({
   setIsDrawingMode: (enabled) => set({ isDrawingMode: enabled }),
   setIsPickingLocation: (enabled) => set({ isPickingLocation: enabled }),
   setPickedLocation: (location) => set({ pickedLocation: location }),
+  setFocusedId: (id) => set({ focusedId: id }),
 }));

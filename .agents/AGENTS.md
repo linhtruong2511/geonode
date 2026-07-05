@@ -142,6 +142,6 @@ To maintain high code quality and architectural consistency, all changes must fo
 
 ## User note: 
 - Nhớ comment code ở những đoạn code phức tạp
-
+- Sau mỗi lần cập nhật giao diện frontend, hãy chạy lại lệnh `npm run build` trong thư mục `frontend/` và `docker-compose exec django python manage.py collectstatic --noinput` để cập nhật giao diện trên trình duyệt
 ---
 *This file is maintained for AI agent context. Update it when significant architectural changes occur.*
