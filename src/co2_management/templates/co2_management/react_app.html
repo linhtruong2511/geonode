@@ -32,5 +32,10 @@
 
 {% block scripts %}
   {{ block.super }}
-  <script type="module" src="{% static 'co2_management/react/bundle.js' %}"></script>
+  {% if debug %}
+    <script type="module" src="http://localhost:5173/static/react/bundle.js"></script>
+  {% else %}
+    <link rel="stylesheet" href="{% static 'react/bundle.css' %}" />
+    <script type="module" src="{% static 'react/bundle.js' %}"></script>
+  {% endif %}
 {% endblock %}

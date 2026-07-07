@@ -1,0 +1,11 @@
+{
+  "src/loader.tsx": {
+    "file": "bundle.js",
+    "name": "main",
+    "src": "src/loader.tsx",
+    "isEntry": true,
+    "css": [
+      "bundle.css"
+    ]
+  }
+}

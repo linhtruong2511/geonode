@@ -1,0 +1,26 @@
+import React from 'react';
+import { WMSTileLayer } from 'react-leaflet';
+import { useWindStore } from '../../stores/useWindStore';
+
+export const WMSGridLayer: React.FC = () => {
+  const { activeGridLayers, currentTime } = useWindStore();
+
+  if (activeGridLayers.length === 0) return null;
+
+  return (
+    <>
+      {activeGridLayers.map(layer => (
+        <WMSTileLayer
+          key={`${layer}-${currentTime || 'latest'}`}
+          url="/geoserver/wms" // placeholder, usually read from config
+          layers={`geonode:${layer}`} // assuming geonode namespace
+          format="image/png"
+          transparent={true}
+          opacity={0.7}
+          // If we have time
+          {...(currentTime ? { time: currentTime } : {})}
+        />
+      ))}
+    </>
+  );
+};

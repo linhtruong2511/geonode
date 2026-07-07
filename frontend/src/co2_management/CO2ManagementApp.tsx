@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { HashRouter, Routes, Route, Link, useLocation } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import "./styles/co2_base.css";
 
@@ -11,11 +11,10 @@ import LocationForm from "./pages/LocationForm";
 import MeasurementList from "./pages/MeasurementList";
 import Comparisons from "./pages/Comparisons";
 import Statistics from "./pages/Statistics";
-import { useMapStore } from ".././common/stores/useMapStore";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, useMap, LayersControl } from "react-leaflet";
-import "@geoman-io/leaflet-geoman-free";
-import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
-import "leaflet/dist/leaflet.css";
+
+import { useMapStore } from "@common/stores/useMapStore";
+import { CircleMarker, Popup, useMapEvents } from "react-leaflet";
+import { SharedLayout, type NavLinkDef } from "@common/components/SharedLayout";
 
 const getColor = (xco2: number) => {
   if (xco2 >= 430) return "#7f0000";
@@ -24,111 +23,6 @@ const getColor = (xco2: number) => {
   if (xco2 >= 415) return "#fdae61";
   if (xco2 >= 410) return "#fee08b";
   return "#d9ef8b";
-};
-
-const GeomanControl: React.FC = () => {
-  const map = useMap();
-  const { setMapBounds, setDrawnGeometry, isDrawingMode } = useMapStore();
-
-  useEffect(() => {
-    if (!isDrawingMode) {
-      map.pm.removeControls();
-      return;
-    }
-
-    map.pm.addControls({
-      position: "topleft",
-      drawMarker: false,
-      drawCircleMarker: false,
-      drawPolyline: false,
-      drawRectangle: true,
-      drawPolygon: true,
-      drawCircle: false,
-      editMode: true,
-      dragMode: true,
-      cutPolygon: false,
-      removalMode: true,
-    });
-
-    map.on("pm:create", (e: any) => {
-      const { layer } = e;
-      const bounds = layer.getBounds();
-      setDrawnGeometry(layer.toGeoJSON());
-      setMapBounds({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      });
-      
-      layer.on("pm:edit", (event: any) => {
-        const b = event.layer.getBounds();
-        setDrawnGeometry(event.layer.toGeoJSON());
-        setMapBounds({
-          north: b.getNorth(),
-          south: b.getSouth(),
-          east: b.getEast(),
-          west: b.getWest(),
-        });
-      });
-    });
-
-    map.on("pm:remove", () => {
-      setDrawnGeometry(null);
-    });
-
-    return () => {
-      map.pm.removeControls();
-      map.off("pm:create");
-      map.off("pm:remove");
-    };
-  }, [map, isDrawingMode, setMapBounds, setDrawnGeometry]);
-
-  return null;
-};
-
-// Component đồng bộ bounds của bản đồ (ổn định, không bị re-render bởi mousemove)
-const MapBoundsSync: React.FC = () => {
-  const setMapBounds = useMapStore((state) => state.setMapBounds);
-  const isDrawingMode = useMapStore((state) => state.isDrawingMode);
-
-  const map = useMapEvents({
-    moveend: () => {
-      if (isDrawingMode) return;
-      const bounds = map.getBounds();
-      setMapBounds({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      });
-    },
-    zoomend: () => {
-      if (isDrawingMode) return;
-      const bounds = map.getBounds();
-      setMapBounds({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      });
-    },
-  });
-
-  // Cập nhật bounds lần đầu
-  useEffect(() => {
-    if (!isDrawingMode) {
-      const bounds = map.getBounds();
-      setMapBounds({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      });
-    }
-  }, [map, setMapBounds, isDrawingMode]);
-
-  return null;
 };
 
 // Component hiển thị thông số thống kê và tọa độ chuột
@@ -219,21 +113,6 @@ const MapTopOverlay: React.FC = () => {
       </div>
     </div>
   );
-};
-
-// Component đồng bộ hóa tọa độ và mức zoom của Bản đồ với MapStore
-const MapViewUpdater: React.FC = () => {
-  const map = useMap();
-  const mapCenter = useMapStore((state) => state.mapCenter);
-  const mapZoom = useMapStore((state) => state.mapZoom);
-
-  useEffect(() => {
-    if (mapCenter) {
-      map.setView(mapCenter, mapZoom, { animate: false });
-    }
-  }, [mapCenter, mapZoom, map]);
-
-  return null;
 };
 
 // Component vẽ Marker thông minh hỗ trợ Highlight và Tự động mở Popup chi tiết
@@ -377,287 +256,55 @@ const MapLegend: React.FC = () => {
   );
 };
 
-const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const CO2MapMarkers: React.FC = () => {
   const mapData = useMapStore((state) => state.mapData);
-  const mapCenter = useMapStore((state) => state.mapCenter);
-  const mapZoom = useMapStore((state) => state.mapZoom);
   const focusedId = useMapStore((state) => state.focusedId);
 
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    return localStorage.getItem("co2-sidebar-collapsed") === "true";
-  });
-  const [contentWidth, setContentWidth] = useState(() => {
-    const saved = localStorage.getItem("co2-content-width");
-    return saved ? parseInt(saved, 10) : 0; // 0 means use flex basis 45%
-  });
-  const [isDragging, setIsDragging] = useState(false);
-
-  const contentPanelRef = useRef<HTMLDivElement>(null);
-  const startXRef = useRef(0);
-  const startWidthRef = useRef(0);
-
-  const location = useLocation();
-
-  const routeNames: Record<string, string> = {
-    "/": "Tổng quan",
-    "/satellites": "Vệ tinh",
-    "/sources": "Nguồn dữ liệu",
-    "/measurements": "Dữ liệu đo lường",
-    // "/locations": "Vị trí giám sát",
-    "/locations/new": "Thêm vị trí",
-    "/comparisons": "So sánh dữ liệu",
-    "/jobs": "Phiên phân tích",
-    "/statistics": "Thống kê XCO2",
-  };
-
-  const getBreadcrumb = () => {
-    const path = location.pathname;
-    if (routeNames[path]) return routeNames[path];
-    if (path.includes('/locations/') && path.includes('/edit')) return 'Chỉnh sửa vị trí';
-    return 'Tổng quan';
-  };
-
-  useEffect(() => {
-    localStorage.setItem("co2-sidebar-collapsed", String(isCollapsed));
-  }, [isCollapsed]);
-
-  useEffect(() => {
-    if (contentWidth > 0) {
-      localStorage.setItem("co2-content-width", String(contentWidth));
-    }
-  }, [contentWidth]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    startXRef.current = e.clientX;
-    startWidthRef.current =
-      contentPanelRef.current?.getBoundingClientRect().width || 0;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      const dx = e.clientX - startXRef.current;
-      const newWidth = startWidthRef.current - dx; // Giảm chiều rộng khi kéo sang phải (vì panel ở bên phải)
-      if (newWidth > 300 && newWidth < 1200) {
-        setContentWidth(newWidth);
-      }
-    };
-
-    const handleMouseUp = () => {
-      if (isDragging) {
-        setIsDragging(false);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-        window.dispatchEvent(new Event("resize")); // Cập nhật lại kích thước cho Leaflet
-      }
-    };
-
-    if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isDragging]);
-
-  const isActive = (path: string) => location.pathname === path;
-
-  const isStatisticsPage = location.pathname === "/statistics";
-
   return (
-    <div id="co2-shell">
-      {/* SIDEBAR */}
-      <aside id="co2-sidebar" className={isCollapsed ? "collapsed" : ""}>
-        <div className="sidebar-toggle-wrap">
-          <button
-            id="sidebar-toggle"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            aria-label="Toggle sidebar"
-          >
-            <i className="fa fa-bars"></i>
-          </button>
-        </div>
-        <nav className="sidebar-nav">
-          <Link
-            to="/"
-            className={`sidebar-nav-item ${isActive("/") ? "active" : ""}`}
-            data-tooltip="Bảng điều khiển"
-          >
-            <span className="nav-icon">
-              <i className="fa fa-dashboard"></i>
-            </span>
-            <span className="nav-label">Bảng điều khiển</span>
-          </Link>
-          <Link
-            to="/satellites"
-            className={`sidebar-nav-item ${isActive("/satellites") ? "active" : ""}`}
-            data-tooltip="Vệ tinh"
-          >
-            <span className="nav-icon">
-              <i className="fa fa-rocket"></i>
-            </span>
-            <span className="nav-label">Vệ tinh</span>
-          </Link>
-          <Link
-            to="/sources"
-            className={`sidebar-nav-item ${isActive("/sources") ? "active" : ""}`}
-            data-tooltip="Nguồn dữ liệu"
-          >
-            <span className="nav-icon">
-              <i className="fa fa-database"></i>
-            </span>
-            <span className="nav-label">Nguồn dữ liệu</span>
-          </Link>
-          <Link
-            to="/measurements"
-            className={`sidebar-nav-item ${isActive("/measurements") ? "active" : ""}`}
-            data-tooltip="Dữ liệu đo lường"
-          >
-            <span className="nav-icon">
-              <i className="fa fa-flask"></i>
-            </span>
-            <span className="nav-label">Dữ liệu đo lường</span>
-          </Link>
-          <Link
-            to="/locations"
-            className={`sidebar-nav-item ${isActive("/locations") ? "active" : ""}`}
-            data-tooltip="Vị trí giám sát"
-          >
-            <span className="nav-icon">
-              <i className="fa fa-map-marker"></i>
-            </span>
-            <span className="nav-label">Vị trí giám sát</span>
-          </Link>
-          <Link
-            to="/comparisons"
-            className={`sidebar-nav-item ${isActive("/comparisons") ? "active" : ""}`}
-            data-tooltip="So sánh dữ liệu"
-          >
-            <span className="nav-icon">
-              <i className="fa fa-exchange"></i>
-            </span>
-            <span className="nav-label">So sánh dữ liệu</span>
-          </Link>
-          <Link
-            to="/jobs"
-            className={`sidebar-nav-item ${isActive("/jobs") ? "active" : ""}`}
-            data-tooltip="Phiên phân tích"
-          >
-            <span className="nav-icon">
-              <i className="fa fa-cogs"></i>
-            </span>
-            <span className="nav-label">Phiên phân tích</span>
-          </Link>
-          <Link
-            to="/statistics"
-            className={`sidebar-nav-item ${isActive("/statistics") ? "active" : ""}`}
-            data-tooltip="Thống kê XCO2"
-          >
-            <span className="nav-icon">
-              <i className="fa fa-bar-chart"></i>
-            </span>
-            <span className="nav-label">Thống kê XCO2</span>
-          </Link>
-        </nav>
-        <div className="sidebar-footer">CO2 Management v1.0 (React)</div>
-      </aside>
-
-      {/* 
-        Kiểm tra nếu là trang Thống kê XCO2 (/statistics):
-        Hiển thị layout tràn viền (Full-width) không chia cột bản đồ/bộ chia để tối ưu không gian hiển thị biểu đồ/bảng.
-        Ngược lại, hiển thị layout chia đôi (Split pane) chuẩn có bản đồ.
-      */}
-      {isStatisticsPage ? (
-        <div
-          id="co2-content-panel"
-          style={{ flex: 1, maxWidth: "none", borderLeft: "none" }}
-        >
-          <div id="co2-topbar">
-            <div className="topbar-breadcrumb">
-              CO2 Management / <span>{getBreadcrumb()}</span>
-            </div>
-          </div>
-
-          <div id="co2-content-body">{children}</div>
-        </div>
-      ) : (
-        /* SPLIT CONTAINER */
-        <div id="co2-split-container">
-          {/* CENTER MAP PANEL */}
-          <div id="co2-map-panel">
-            <MapContainer
-              center={mapCenter}
-              zoom={mapZoom}
-              style={{ height: "100%", width: "100%" }}
-            >
-              <MapViewUpdater />
-              <LayersControl position="topright">
-                <LayersControl.BaseLayer checked name="Bản đồ đường phố">
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                </LayersControl.BaseLayer>
-                <LayersControl.BaseLayer name="Bản đồ vệ tinh">
-                  <TileLayer
-                    attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
-                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                  />
-                </LayersControl.BaseLayer>
-              </LayersControl>
-              <MapBoundsSync />
-              <MapTopOverlay />
-              <GeomanControl />
-
-              {mapData.map((item) =>
-                item.latitude && item.longitude ? (
-                  <MeasurementMarker
-                    key={item.id}
-                    item={item}
-                    focusedId={focusedId}
-                  />
-                ) : null
-              )}
-            </MapContainer>
-            <MapLegend />
-          </div>
-
-          <div
-            id="co2-splitter"
-            className={isDragging ? "dragging" : ""}
-            onMouseDown={handleMouseDown}
-          ></div>
-
-          {/* RIGHT CONTENT PANEL */}
-          <div
-            id="co2-content-panel"
-            ref={contentPanelRef}
-            style={contentWidth > 0 ? { flex: `0 0 ${contentWidth}px` } : {}}
-          >
-            <div id="co2-topbar">
-              <div className="topbar-breadcrumb">
-                CO2 Management / <span>{getBreadcrumb()}</span>
-              </div>
-            </div>
-
-            <div id="co2-content-body">{children}</div>
-          </div>
-        </div>
+    <>
+      {mapData.map((item) =>
+        item.latitude && item.longitude ? (
+          <MeasurementMarker key={item.id} item={item} focusedId={focusedId} />
+        ) : null
       )}
-    </div>
+    </>
   );
+};
+
+const navLinks: NavLinkDef[] = [
+  { to: "/", icon: "fa-dashboard", label: "Bảng điều khiển" },
+  { to: "/satellites", icon: "fa-rocket", label: "Vệ tinh" },
+  { to: "/sources", icon: "fa-database", label: "Nguồn dữ liệu" },
+  { to: "/measurements", icon: "fa-flask", label: "Dữ liệu đo lường" },
+  { to: "/locations", icon: "fa-map-marker", label: "Vị trí giám sát" },
+  { to: "/comparisons", icon: "fa-exchange", label: "So sánh dữ liệu" },
+  { to: "/jobs", icon: "fa-cogs", label: "Phiên phân tích" },
+  { to: "/statistics", icon: "fa-bar-chart", label: "Thống kê XCO2" },
+];
+
+const routeNames: Record<string, string> = {
+  "/": "Tổng quan",
+  "/satellites": "Vệ tinh",
+  "/sources": "Nguồn dữ liệu",
+  "/measurements": "Dữ liệu đo lường",
+  "/locations/new": "Thêm vị trí",
+  "/comparisons": "So sánh dữ liệu",
+  "/jobs": "Phiên phân tích",
+  "/statistics": "Thống kê XCO2",
 };
 
 const CO2ManagementApp: React.FC = () => {
   return (
     <HashRouter>
-      <MainLayout>
+      <SharedLayout
+        appName="CO2 Management"
+        navLinks={navLinks}
+        routeNames={routeNames}
+        mapOverlay={<MapTopOverlay />}
+        mapLegend={<MapLegend />}
+        mapMarkers={<CO2MapMarkers />}
+        isFullWidthPage={(path) => path === "/statistics"}
+      >
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/satellites" element={<SatelliteList />} />
@@ -670,7 +317,7 @@ const CO2ManagementApp: React.FC = () => {
           <Route path="/jobs" element={<JobList />} />
           <Route path="/statistics" element={<Statistics />} />
         </Routes>
-      </MainLayout>
+      </SharedLayout>
     </HashRouter>
   );
 };

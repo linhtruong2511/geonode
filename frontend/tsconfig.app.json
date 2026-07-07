@@ -16,7 +16,8 @@
     "jsx": "react-jsx",
     "paths": {
       "@common/*": ["./src/common/*"],
-      "@co2/*": ["./src/co2_management/*"]
+      "@co2/*": ["./src/co2_management/*"],
+      "@wind/*": ["./src/wind_management/*"]
     },
 
     /* Linting */
