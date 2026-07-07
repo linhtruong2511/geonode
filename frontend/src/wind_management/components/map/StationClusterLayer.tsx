@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { CircleMarker, Popup } from 'react-leaflet';
 import { useMapStore } from '@common/stores/useMapStore';
 import { useWindStore } from '../../stores/useWindStore';
+import axios from 'axios';
 
 // A function to get color based on variable and value
 const getColor = (variable: string, value: number) => {
@@ -70,11 +71,40 @@ const WindStationMarker: React.FC<{ item: any; focusedId: number | null; activeV
 };
 
 export const StationClusterLayer: React.FC = () => {
+  const setMapData = useMapStore((state) => state.setMapData);
   const mapData = useMapStore((state) => state.mapData);
   const focusedId = useMapStore((state) => state.focusedId);
-  const { selectedVariables } = useWindStore();
+  const { selectedVariables, showStations } = useWindStore();
   
   const activeVar = selectedVariables.length > 0 ? selectedVariables[0] : 'wind_speed';
+
+  useEffect(() => {
+    if (showStations) {
+      axios.get('/wind/api/v1/stations/')
+        .then(res => {
+          // serializer trả về GeoJSON dạng FeatureCollection
+          const features = res.data.features || [];
+          const parsedStations = features.map((f: any) => ({
+            id: f.id,
+            name: f.properties.name,
+            station_code: f.properties.station_code,
+            elevation: f.properties.elevation,
+            station_type: f.properties.station_type,
+            // GeoJSON geometry coords: [lng, lat]
+            lat: f.geometry.coordinates[1],
+            lon: f.geometry.coordinates[0],
+            wind_speed: 12, // mock value vì endpoint list trạm không kèm obs_speed realtime
+            wind_dir: 180
+          }));
+          setMapData(parsedStations);
+        })
+        .catch(err => console.error("Error fetching stations", err));
+    } else {
+      setMapData([]);
+    }
+  }, [showStations, setMapData]);
+
+  if (!showStations) return null;
 
   return (
     <>
