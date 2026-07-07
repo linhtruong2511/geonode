@@ -15,6 +15,7 @@ import { StationClusterLayer } from "./components/map/StationClusterLayer";
 import { TimeSliderControl } from "./components/controls/TimeSliderControl";
 import { QuerySidebar } from "./components/controls/QuerySidebar";
 import { EventSelector } from "./components/controls/EventSelector";
+import { LayerControlPanel } from "./components/controls/LayerControlPanel";
 
 // New Display & Charts
 import { StationTimeSeriesChart } from "./components/display/StationTimeSeriesChart";
@@ -103,6 +104,7 @@ const WindMapOverlay: React.FC = () => {
           </div>
         </div>
       </div>
+      <LayerControlPanel />
       <PointGridChart />
     </>
   );
