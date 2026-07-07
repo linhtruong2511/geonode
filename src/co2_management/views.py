@@ -88,17 +88,118 @@ class MeasurementSourceViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def upload(self, request):
-        """Action phục vụ việc tải lên tệp dữ liệu mới (Sẽ được triển khai)"""
-        return Response({"status": "Upload endpoint to be implemented"})
+        """Action phục vụ việc tải lên tệp dữ liệu mới"""
+        from django.conf import settings
+        from rest_framework.parsers import MultiPartParser, FormParser
+        import hashlib
+        import os
+
+        # Sử dụng parser upload file
+        uploaded_file = request.FILES.get('file')
+        satellite_id = request.data.get('satellite_id')
+
+        if not uploaded_file:
+            return Response({"error": "Không có tệp nào được gửi lên"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Tính hash SHA-256
+        sha = hashlib.sha256()
+        for chunk in uploaded_file.chunks():
+            sha.update(chunk)
+        file_hash = sha.hexdigest()
+
+        # 2. Kiểm tra xem file đã được import chưa
+        if MeasurementSource.objects.filter(file_hash=file_hash).exists():
+            existing = MeasurementSource.objects.get(file_hash=file_hash)
+            return Response({
+                "status": "exists",
+                "message": "Tệp tin này đã tồn tại trong hệ thống.",
+                "data": MeasurementSourceSerializer(existing).data
+            }, status=status.HTTP_200_OK)
+
+        # 3. Xác định format
+        filename = uploaded_file.name
+        ext = os.path.splitext(filename)[1].lower()
+        if ext == '.nc4':
+            file_format = 'NETCDF4'
+        elif ext in ['.h5', '.hdf5']:
+            file_format = 'HDF5'
+        else:
+            return Response({"error": "Định dạng tệp không được hỗ trợ (chỉ hỗ trợ .nc4 hoặc .h5)"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 4. Xác định vệ tinh
+        satellite = None
+        if satellite_id:
+            try:
+                satellite = Satellite.objects.get(id=satellite_id)
+            except Satellite.DoesNotExist:
+                return Response({"error": f"Không tìm thấy Vệ tinh với ID={satellite_id}"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # Tự động phát hiện dựa trên định dạng
+            sat_name = "OCO-2" if file_format == 'NETCDF4' else "GOSAT-2"
+            satellite, _ = Satellite.objects.get_or_create(
+                satellite_name=sat_name,
+                defaults={"operator": "NASA" if sat_name == "OCO-2" else "JAXA", "is_active": True}
+            )
+
+        # 5. Lưu file vào đĩa
+        media_dir = os.path.join(settings.MEDIA_ROOT, 'co2_sources')
+        os.makedirs(media_dir, exist_ok=True)
+        file_path = os.path.join(media_dir, filename)
+        
+        # Tránh ghi đè file có cùng tên
+        counter = 1
+        base_name, extension = os.path.splitext(filename)
+        while os.path.exists(file_path):
+            filename = f"{base_name}_{counter}{extension}"
+            file_path = os.path.join(media_dir, filename)
+            counter += 1
+
+        with open(file_path, 'wb+') as destination:
+            for chunk in uploaded_file.chunks():
+                destination.write(chunk)
+
+        # 6. Tạo MeasurementSource
+        file_size_mb = round(os.path.getsize(file_path) / (1024 * 1024), 2)
+        
+        # Trích xuất phiên bản thuật toán từ tên file
+        alg_version = "N/A"
+        try:
+            if file_format == 'HDF5':
+                alg_version = filename.split("_")[1][:9]
+            elif file_format == 'NETCDF4':
+                alg_version = filename.split("_")[1]
+        except Exception:
+            pass
+
+        source = MeasurementSource.objects.create(
+            satellite=satellite,
+            file_name=file_path,
+            file_format=file_format,
+            file_size_mb=file_size_mb,
+            quality_checked=False,
+            processing_level="L2",
+            algorithm_version=alg_version,
+            file_hash=file_hash
+        )
+
+        return Response({
+            "status": "created",
+            "message": "Tải lên tệp thành công.",
+            "data": MeasurementSourceSerializer(source).data
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def import_file(self, request, pk=None):
         """Action kích hoạt tác vụ import dữ liệu từ file thô"""
+        import os
         instance = self.get_object()
-        import_data_file_task.delay(instance.pk)
+        quality_only = request.data.get('quality_only', True)
+        bbox = request.data.get('bbox', None) # ví dụ: [8, 102, 24, 110]
+        
+        import_data_file_task.delay(instance.pk, quality_only=quality_only, bbox=bbox)
         return Response({
             "status": "success", 
-            "message": f"Đã bắt đầu quy trình nhập dữ liệu cho tệp {instance.file_name}. Vui lòng chờ vài phút."
+            "message": f"Đã bắt đầu quy trình nhập dữ liệu cho tệp {os.path.basename(instance.file_name)}. Vui lòng chờ vài phút."
         })
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])

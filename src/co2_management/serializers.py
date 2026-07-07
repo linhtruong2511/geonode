@@ -29,10 +29,15 @@ class MeasurementMetadataSerializer(serializers.ModelSerializer):
 class MeasurementSourceSerializer(serializers.ModelSerializer):
     """Serializer cho nguồn dữ liệu (tệp), bao gồm thông tin metadata đi kèm"""
     metadata = MeasurementMetadataSerializer(read_only=True)
+    display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = MeasurementSource
         fields = '__all__'
+
+    def get_display_name(self, obj):
+        import os
+        return os.path.basename(obj.file_name)
 
 class VerticalProfileSerializer(serializers.ModelSerializer):
     """Serializer cho dữ liệu hồ sơ thẳng đứng (CO2 theo tầng khí quyển)"""

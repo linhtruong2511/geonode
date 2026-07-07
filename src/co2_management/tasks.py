@@ -4,14 +4,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 @shared_task(bind=True)
-def import_data_file_task(self, source_id):
+def import_data_file_task(self, source_id, quality_only=True, bbox=None):
     """
     Tác vụ bất đồng bộ (Celery) để nhập dữ liệu từ tệp .nc4 (OCO-2) hoặc .h5 (GOSAT-2).
     """
     logger.info(f"Starting import for source {source_id}")
     from .services.import_service import ImportService
     service = ImportService()
-    service.import_file(source_id)
+    service.import_file(source_id, quality_only=quality_only, bbox=bbox)
 
 @shared_task(bind=True)
 def run_comparison_task(self, job_id):

@@ -17,6 +17,7 @@ interface MeasurementMetadata {
 interface MeasurementSource {
   id: number;
   file_name: string;
+  display_name?: string;
   file_format: string;
   measurement_date: string;
   quality_checked: boolean;
@@ -55,6 +56,17 @@ const SourceList: React.FC = () => {
 
   // State hiển thị chi tiết của một bản ghi (Modal)
   const [activeDetail, setActiveDetail] = useState<MeasurementSource | null>(null);
+
+  // State phục vụ việc Import Tệp
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [qualityOnly, setQualityOnly] = useState(true);
+  const [useBBox, setUseBBox] = useState(true);
+  const [bboxPreset, setBboxPreset] = useState('vietnam');
+  const [customBBox, setCustomBBox] = useState('8,102,24,110');
+  const [detectedSatellite, setDetectedSatellite] = useState('OCO2');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
 
   // Thiết lập các tham số gửi lên API dựa trên các bộ lọc
   const fetchParams = useMemo(() => {
@@ -228,6 +240,92 @@ const SourceList: React.FC = () => {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (extension === 'nc4') {
+      setDetectedSatellite('OCO2');
+    } else if (extension === 'h5' || extension === 'hdf5') {
+      setDetectedSatellite('GOSAT2');
+    }
+  };
+
+  const handleImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) {
+      alert("Vui lòng chọn một tệp tin dữ liệu nguồn.");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadStatus("Đang tải tệp tin lên máy chủ...");
+
+    try {
+      const csrfToken = getCookie('csrftoken');
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      
+      const uploadRes = await axios.post('/co2/api/v1/sources/upload/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'X-CSRFToken': csrfToken,
+        }
+      });
+
+      const sourceData = uploadRes.data.data || uploadRes.data;
+      const sourceId = sourceData.id;
+
+      setUploadStatus("Tải tệp thành công! Đang kích hoạt tiến trình xử lý dữ liệu...");
+
+      let parsedBBox: number[] | null = null;
+      if (useBBox) {
+        if (bboxPreset === 'vietnam') {
+          parsedBBox = [8, 102, 24, 110];
+        } else {
+          parsedBBox = customBBox.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+          if (parsedBBox.length !== 4) {
+            alert("BBox không hợp lệ. Sử dụng định dạng: lat_min,lon_min,lat_max,lon_max");
+            setIsUploading(false);
+            setUploadStatus("");
+            return;
+          }
+        }
+      }
+
+      const importRes = await axios.post(`/co2/api/v1/sources/${sourceId}/import_file/`, {
+        quality_only: qualityOnly,
+        bbox: parsedBBox
+      }, {
+        headers: {
+          'X-CSRFToken': csrfToken,
+        }
+      });
+
+      alert(importRes.data.message || "Đã kích hoạt tiến trình import dữ liệu thành công!");
+      
+      setShowImportModal(false);
+      setSelectedFile(null);
+      setUploadStatus("");
+      setIsUploading(false);
+      setRefetchKey(prev => prev + 1);
+
+    } catch (err: any) {
+      console.error(err);
+      const errMsg = err.response?.data?.error || err.response?.data?.message || "Có lỗi xảy ra trong quá trình tải lên hoặc xử lý tệp.";
+      setUploadStatus(`Lỗi: ${errMsg}`);
+      setIsUploading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (bboxPreset === 'vietnam') {
+      setCustomBBox('8,102,24,110');
+    }
+  }, [bboxPreset]);
+
   // Phân tích trạng thái nồng độ XCO2 trung bình để trả về màu sắc phù hợp
   const getCO2LevelBadge = (meanVal: number) => {
     if (meanVal < 410) {
@@ -273,11 +371,29 @@ const SourceList: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="co2-page-title" style={{ marginBottom: '10px' }}>
+      <div className="co2-page-title" style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h3 style={{ fontSize: '16px', margin: 0 }}>Quản lý tệp dữ liệu nguồn</h3>
           <p style={{ fontSize: '11px', margin: 0 }}>Danh sách các file vệ tinh đã tải lên hệ thống</p>
         </div>
+        <button 
+          onClick={() => setShowImportModal(true)}
+          style={{
+            padding: '6px 12px',
+            background: 'var(--color-accent-primary)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <i className="fa fa-plus"></i> Import Tệp mới
+        </button>
       </div>
 
       {/* Bộ lọc Dữ liệu Tệp nguồn */}
@@ -419,7 +535,7 @@ const SourceList: React.FC = () => {
                 ></i>
                 <i 
                   className="fa fa-trash" 
-                  onClick={() => handleSingleDelete(item.id, item.file_name)}
+                  onClick={() => handleSingleDelete(item.id, item.display_name || item.file_name)}
                   style={{ cursor: 'pointer', color: '#ef4444', fontSize: '12px' }} 
                   title="Xóa tệp tin nguồn này"
                 ></i>
@@ -434,7 +550,7 @@ const SourceList: React.FC = () => {
                   title={item.file_name}
                   style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-text-primary)' }}
                 >
-                  {formatFileName(item.file_name)}
+                  {formatFileName(item.display_name || item.file_name)}
                 </div>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   {item.quality_checked ? (
@@ -445,7 +561,7 @@ const SourceList: React.FC = () => {
                   
                   {/* NÚT BẢN ĐỒ (THAY CHO NÚT IMPORT): CLICK ĐỂ SHOW CÁC ĐIỂM ĐO LÊN BẢN ĐỒ */}
                   <button 
-                    onClick={() => handleShowPointsOnMap(item.id, item.file_name)}
+                    onClick={() => handleShowPointsOnMap(item.id, item.display_name || item.file_name)}
                     style={{ 
                       padding: '2px 6px', 
                       fontSize: '10px', 
@@ -734,6 +850,300 @@ const SourceList: React.FC = () => {
                 Đóng
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ─── MODAL IMPORT TỆP DỮ LIỆU NGUỒN (IMPORT FILE DIALOG) ───────────────── */}
+      {showImportModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.4)',
+          backdropFilter: 'blur(2px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            width: '95%',
+            maxWidth: '520px',
+            overflow: 'hidden',
+            border: '1px solid var(--color-border)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '12px 16px',
+              borderBottom: '1px solid var(--color-border)',
+              background: '#f8fafc'
+            }}>
+              <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                Import Tệp Dữ Liệu Nguồn CO2
+              </h4>
+              <button 
+                onClick={() => {
+                  if (!isUploading) {
+                    setShowImportModal(false);
+                    setSelectedFile(null);
+                    setUploadStatus("");
+                  }
+                }}
+                disabled={isUploading}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  fontSize: '18px',
+                  cursor: isUploading ? 'not-allowed' : 'pointer',
+                  color: 'var(--color-text-secondary)',
+                  padding: 0,
+                  lineHeight: 1
+                }}
+              >
+                &times;
+              </button>
+            </div>
+            
+            <form onSubmit={handleImportSubmit}>
+              <div style={{ padding: '16px', fontSize: '13px', maxHeight: '70vh', overflowY: 'auto' }}>
+                
+                {/* 1. Chọn file */}
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text-primary)' }}>
+                    Chọn tệp dữ liệu nguồn (.nc4 hoặc .h5)
+                  </label>
+                  <input 
+                    type="file" 
+                    accept=".nc4,.h5,.hdf5" 
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px dashed var(--color-border)',
+                      borderRadius: '6px',
+                      cursor: isUploading ? 'not-allowed' : 'pointer',
+                      fontSize: '12px'
+                    }}
+                  />
+                </div>
+
+                {/* 2. Preview File & Cấu hình */}
+                {selectedFile && (
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    marginBottom: '15px'
+                  }}>
+                    <h5 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 700, color: 'var(--color-accent-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="fa fa-file-text-o"></i> Preview & Cấu hình
+                    </h5>
+                    
+                    {/* Thông tin tệp thô */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '4px 10px', fontSize: '11px', marginBottom: '12px', wordBreak: 'break-all' }}>
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Tên tệp:</span>
+                      <strong>{selectedFile.name}</strong>
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Dung lượng:</span>
+                      <span>{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</span>
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Vệ tinh phát hiện:</span>
+                      <span style={{ fontWeight: 600, color: '#0369a1' }}>
+                        {detectedSatellite === 'OCO2' ? 'OCO-2 (NASA, .nc4)' : 'GOSAT-2 (JAXA, .h5)'}
+                      </span>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
+                      {/* Lựa chọn Vệ tinh thủ công (nếu muốn override) */}
+                      <div style={{ marginBottom: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>
+                          Vệ tinh sử dụng
+                        </label>
+                        <select 
+                          value={detectedSatellite} 
+                          onChange={(e) => setDetectedSatellite(e.target.value)}
+                          disabled={isUploading}
+                          style={{ width: '100%', padding: '4px', fontSize: '12px', borderRadius: '4px', border: '1px solid var(--color-border)', background: '#fff' }}
+                        >
+                          <option value="OCO2">OCO-2 (NASA)</option>
+                          <option value="GOSAT2">GOSAT-2 (JAXA)</option>
+                        </select>
+                      </div>
+
+                      {/* Lọc chất lượng */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        <input 
+                          type="checkbox" 
+                          id="qualityOnly" 
+                          checked={qualityOnly}
+                          onChange={(e) => setQualityOnly(e.target.checked)}
+                          disabled={isUploading}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <label htmlFor="qualityOnly" style={{ fontSize: '11px', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}>
+                          Chỉ import điểm đo chất lượng cao (Quality Flag = 0)
+                        </label>
+                      </div>
+
+                      {/* Giới hạn không gian (Bounding Box) */}
+                      <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '8px', marginTop: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                          <input 
+                            type="checkbox" 
+                            id="useBBox" 
+                            checked={useBBox}
+                            onChange={(e) => setUseBBox(e.target.checked)}
+                            disabled={isUploading}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <label htmlFor="useBBox" style={{ fontSize: '11px', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}>
+                            Giới hạn không gian (Bounding Box)
+                          </label>
+                        </div>
+
+                        {useBBox && (
+                          <div style={{ paddingLeft: '20px' }}>
+                            <div style={{ display: 'flex', gap: '10px', marginBottom: '6px' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                <input 
+                                  type="radio" 
+                                  name="bboxPreset" 
+                                  value="vietnam"
+                                  checked={bboxPreset === 'vietnam'}
+                                  onChange={() => setBboxPreset('vietnam')}
+                                  disabled={isUploading}
+                                />
+                                Việt Nam (8,102,24,110)
+                              </label>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                <input 
+                                  type="radio" 
+                                  name="bboxPreset" 
+                                  value="custom"
+                                  checked={bboxPreset === 'custom'}
+                                  onChange={() => setBboxPreset('custom')}
+                                  disabled={isUploading}
+                                />
+                                Tùy chọn tọa độ
+                              </label>
+                            </div>
+
+                            {bboxPreset === 'custom' && (
+                              <div>
+                                <input 
+                                  type="text" 
+                                  value={customBBox}
+                                  onChange={(e) => setCustomBBox(e.target.value)}
+                                  placeholder="lat_min,lon_min,lat_max,lon_max"
+                                  disabled={isUploading}
+                                  style={{
+                                    width: '100%',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    borderRadius: '4px',
+                                    border: '1px solid var(--color-border)',
+                                    fontFamily: 'monospace'
+                                  }}
+                                />
+                                <span style={{ fontSize: '9px', color: 'var(--color-text-secondary)', display: 'block', marginTop: '2px' }}>
+                                  Ví dụ: 8,102,24,110 (Thứ tự: lat_min, lon_min, lat_max, lon_max)
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+
+                {/* Trạng thái Tiến trình */}
+                {uploadStatus && (
+                  <div style={{
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: uploadStatus.startsWith('Lỗi') ? '#fee2e2' : '#f0f9ff',
+                    border: `1px solid ${uploadStatus.startsWith('Lỗi') ? '#fca5a5' : '#bae6fd'}`,
+                    color: uploadStatus.startsWith('Lỗi') ? '#ef4444' : '#0369a1',
+                    fontSize: '11px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginBottom: '10px'
+                  }}>
+                    <i className={uploadStatus.startsWith('Lỗi') ? "fa fa-exclamation-circle" : "fa fa-spinner fa-spin"}></i>
+                    <span>{uploadStatus}</span>
+                  </div>
+                )}
+
+              </div>
+              
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                padding: '12px 16px',
+                borderTop: '1px solid var(--color-border)',
+                background: '#f8fafc'
+              }}>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setSelectedFile(null);
+                    setUploadStatus("");
+                  }}
+                  disabled={isUploading}
+                  style={{
+                    padding: '6px 14px',
+                    background: '#fff',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '6px',
+                    cursor: isUploading ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    fontSize: '12px'
+                  }}
+                >
+                  Hủy
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isUploading || !selectedFile}
+                  style={{
+                    padding: '6px 16px',
+                    background: isUploading || !selectedFile ? '#cbd5e1' : 'var(--color-accent-primary)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: isUploading || !selectedFile ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {isUploading ? (
+                    <>
+                      <i className="fa fa-spinner fa-spin"></i> Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa fa-upload"></i> Bắt đầu Import
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
