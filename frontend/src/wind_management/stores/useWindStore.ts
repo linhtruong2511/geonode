@@ -21,6 +21,10 @@ interface WindState {
   selectedStationId: number | null;
   selectedGridPoint: { lat: number, lng: number } | null;
 
+  // Map settings
+  showStations: boolean;
+  gridOpacity: number;
+
   // Actions
   setCurrentTime: (time: string | null) => void;
   setTimeRange: (range: [string, string] | null) => void;
@@ -34,6 +38,8 @@ interface WindState {
   setSearchQuery: (query: string) => void;
   setSelectedStationId: (id: number | null) => void;
   setSelectedGridPoint: (point: { lat: number, lng: number } | null) => void;
+  setShowStations: (show: boolean) => void;
+  setGridOpacity: (opacity: number) => void;
 }
 
 export const useWindStore = create<WindState>((set) => ({
@@ -49,6 +55,8 @@ export const useWindStore = create<WindState>((set) => ({
   searchQuery: '',
   selectedStationId: null,
   selectedGridPoint: null,
+  showStations: true,
+  gridOpacity: 0.8,
 
   setCurrentTime: (time) => set({ currentTime: time }),
   setTimeRange: (range) => set({ timeRange: range }),
@@ -66,4 +74,6 @@ export const useWindStore = create<WindState>((set) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSelectedStationId: (id) => set({ selectedStationId: id }),
   setSelectedGridPoint: (point) => set({ selectedGridPoint: point }),
+  setShowStations: (show) => set({ showStations: show }),
+  setGridOpacity: (opacity) => set({ gridOpacity: opacity }),
 }));
