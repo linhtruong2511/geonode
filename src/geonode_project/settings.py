@@ -55,6 +55,7 @@ if PROJECT_NAME not in INSTALLED_APPS:
         'mining_detection',
         'carbon_tracker',
         'co2_management',
+        'wind_management',
     )
 
 # Location of url mappings

@@ -14,6 +14,7 @@ x-common-django:
     - tmp:/tmp
     - 'D:/Work/Truong_Teacher/DATA:/data/oco2_storage'
     - 'D:/Work/Truong_Teacher/DATA2/GEOSAT2/GOSAT2_Data:/data/gosat2_storage'
+    - 'D:/Data/Winds:/data/winds'
   depends_on:
     db:
       condition: service_healthy
