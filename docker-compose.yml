@@ -129,6 +129,7 @@ services:
       - backup-restore:/backup_restore
       - data:/data
       - tmp:/tmp
+      - 'D:/Data/Winds:/data/winds'
     restart: unless-stopped
     depends_on:
       data-dir-conf:

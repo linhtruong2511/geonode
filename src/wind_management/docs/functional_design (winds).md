@@ -30,7 +30,7 @@
   4. Người dùng chọn thời điểm cụ thể (qua thanh trượt thời gian, xem mục A6) để xem dữ liệu đúng thời điểm đó.
 - **Đầu ra**: Hình ảnh bản đồ trực quan (dạng mũi tên gió, bản đồ màu nhiệt...).
 
-### A2. Xem lớp trạm quan trắc trên bản đồ
+### A2. Xem lớp trạm quan trắc trên bản đồ (Done)
 - **Mục đích**: Cho biết vị trí các trạm đo và giá trị đo đạc gần nhất/tại thời điểm được chọn.
 - **Hoạt động**:
   1. Các điểm trạm hiển thị dưới dạng ký hiệu trên bản đồ.
@@ -54,7 +54,7 @@
   3. Người dùng cuộn/di chuyển một bên, bên còn lại tự động đồng bộ theo để dễ so sánh vị trí.
 - **Đầu ra**: Hai bản đồ đồng bộ, sẵn sàng để đối chiếu bằng mắt.
 
-### A5. Xem biểu đồ chuỗi thời gian tại một điểm/trạm
+### A5. Xem biểu đồ chuỗi thời gian tại một điểm/trạm (Done)
 - **Mục đích**: Xem diễn biến của một biến (nhiệt độ, mưa, gió...) theo thời gian tại một vị trí cụ thể, thay vì chỉ xem một thời điểm.
 - **Hoạt động**:
   1. Người dùng chọn một trạm (hoặc click một điểm bất kỳ trên lớp dữ liệu lưới).

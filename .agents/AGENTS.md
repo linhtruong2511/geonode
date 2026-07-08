@@ -10,6 +10,7 @@ This project is a comprehensive GeoNode-based GIS platform extended with special
   - `mining_detection`: AI-driven analysis of raster datasets to identify mining activities.
   - `carbon_tracker`: Deep integration with OCO-2 and GOSAT-2 satellite data, handling soundings, retrieval results, and profiles.
   - `co2_management`: High-level management of CO2 datasets, satellite/instrument metadata, and comparison analysis.
+  - `wind_management`: Management & analysis of meteorological, wind, and oceanographic datasets (WRF 3km, ERA5, CMEMS, station observations).
 
 ## 🏗️ Architecture & Tech Stack
 
@@ -21,7 +22,7 @@ The system follows a distributed architecture orchestrated via Docker Compose:
 - **Task Queue:** Celery with Redis as the message broker for asynchronous processing (AI jobs, data imports).
 - **Cache:** Memcached and Redis.
 - **AI Integration:** Communication with an external AI service (typically at `http://ai_api:8001`) for specialized inference.
-- **Frontend:** Server-rendered Django templates, Leaflet for maps, Chart.js for analytics.
+- **Frontend:** React SPA mounted inside Django templates (hybrid architecture), Leaflet for maps, Chart.js for analytics.
 
 ## 📂 Repository Structure
 
@@ -30,6 +31,8 @@ The system follows a distributed architecture orchestrated via Docker Compose:
   - `mining_detection/`: Mining analysis workflow, AI service integration, and custom UI.
   - `carbon_tracker/`: Satellite data models (OCO-2, GOSAT-2) and ingestion logic.
   - `co2_management/`: Management of CO2 measurement sources and comparison jobs.
+  - `wind_management/`: Wind and oceanographic data integration, gridded data index, and stations.
+
 - `docker/`: Custom Dockerfiles for GeoServer, PostgreSQL, Nginx, etc.
 - `docker-compose.yml`: Main orchestration file for development and production.
 - `Dockerfile`: Main application image for the Django/Celery services.
@@ -111,37 +114,28 @@ Since Nginx serves files from a shared volume, you must sync the built files:
 - **Mount Point:** Django templates use `<div id="react-root-..."></div>`.
 - **API Communication:** React uses `axios` to fetch data from Django REST Framework endpoints (e.g., `/co2/api/v1/...`).
 
-## 🔄 Development Workflow
+## 🔄 Core Agent Rules & Workflow
 
-To maintain high code quality and architectural consistency, all changes must follow this standardized workflow:
+Every AI Coding Agent working on this repository MUST strictly follow the rules below without exception:
 
-### 1. Research & Planning
-- **Analyze:** Use `grep_search` and `glob` to map dependencies and existing patterns.
-- **Design:** For complex features or architectural changes, use `enter_plan_mode` to draft a design document (e.g., `functional_design_v2.md`).
-- **Reproduce:** For bug fixes, create a reproduction script or a failing test case before implementing the fix.
+### 🛡️ Rule 1: Codebase Navigation & Discovery
+- **Action Required:** Before writing or editing code, if the user request does not explicitly specify which files to modify, the agent **MUST** read the `codebase_map.md` file located inside the target app's `docs/` folder (e.g., [wind_management docs](file:///D:/Research/Geonode/geonode-project/src/wind_management/docs/codebase_map.md) or [co2_management docs](file:///D:/Research/Geonode/geonode-project/src/co2_management/docs/codebase_map.md)).
+- **Goal:** Never guess file paths or randomly search directories when a codebase map is available.
 
-### 2. Implementation
-- **Surgical Edits:** Apply targeted changes using `replace` or `write_file`. Avoid unrelated refactoring.
-- **Conventions:** Adhere to Django/DRF best practices, type hinting (Python 3.12+), and GeoNode's integration patterns.
-- **Logic Placement:** Keep business logic in `services.py` or `tasks.py`. Views should remain lean.
-- **Comments:** Provide clear, concise comments for complex logic blocks.
+### 🛡️ Rule 2: Codebase Map Maintenance
+- **Action Required:** If you make changes, add, or refactor any source files, model definitions, API endpoints, views, or React components within an app, you **MUST** immediately update that app's `docs/codebase_map.md` to reflect the new structure.
 
-### 3. Testing & Validation
-- **Automated Tests:** Add or update test cases in `tests.py`. Use Django's `TestCase` or `APITestCase`.
-- **Manual Verification:** Verify UI changes and API responses within the Docker environment.
-- **Static Analysis:** Run linting (`flake8`) and type checking if applicable.
+### 🛡️ Rule 3: Business Logic Placement
+- **Action Required:** Keep Django Views clean and lean. Business logic and heavy computations **MUST** reside in `services.py` or asynchronous Celery `tasks.py`.
 
-### 4. Documentation
-- **Technical Docs:** Update module-level documentation (e.g., `src/co2_management/functional_design.md`) when features change.
-- **Platform Docs:** Update `GEMINI.md` or `MEMORY.md` if the change affects project-wide architecture or workflows.
+### 🛡️ Rule 4: Frontend Development & Synchronisation
+- **Action Required:** When modifications are made to the React frontend code inside the `frontend/` directory, the agent **MUST** run the build and collectstatic cycle:
+  1. Compile assets: `npm run build` (inside the `frontend/` directory).
+  2. Sync assets with Docker: `docker-compose exec django python manage.py collectstatic --noinput`.
+- **Comment Policy:** Always write clear comments on complex code blocks, especially inside React state selectors or custom Django queries.
 
-### 5. Committing
-- **Atomic Commits:** Keep commits focused on a single logical change.
-- **Commit Messages:** Follow a clear structure (e.g., `feat: add xco2 comparison logic` or `fix: resolve race condition in importer`). Propose a draft for review before final execution.
-- **Branching:** Work on feature/bugfix branches named appropriately (e.g., `feature/co2-analytics`).
-
-## User note: 
-- Nhớ comment code ở những đoạn code phức tạp
-- Sau mỗi lần cập nhật giao diện frontend, hãy chạy lại lệnh `npm run build` trong thư mục `frontend/` và `docker-compose exec django python manage.py collectstatic --noinput` để cập nhật giao diện trên trình duyệt
+### 🛡️ Rule 5: Commit Strategy
+- **Action Required:** Keep commits atomic. Before finalizing changes, write down a draft commit message matching the conventional commits standard (e.g., `feat: ...`, `fix: ...`) for user approval.
 ---
 *This file is maintained for AI agent context. Update it when significant architectural changes occur.*
+

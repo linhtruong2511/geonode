@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from "react";
+// import React, { useState, useMemo } from "react";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
+import StationsPage from "./pages/StationsPage";
+import StationDetailPage from "./pages/StationDetailPage";
 import { SharedLayout, type NavLinkDef } from "@common/components/SharedLayout";
-import { useMapStore } from "@common/stores/useMapStore";
-import { useMapEvents } from "react-leaflet";
+// import { useMapStore } from "@common/stores/useMapStore";
+// import { useMapEvents } from "react-leaflet";
 
 // New Map Components
 import { WMSGridLayer } from "./components/map/WMSGridLayer";
@@ -15,11 +17,10 @@ import { StationClusterLayer } from "./components/map/StationClusterLayer";
 import { TimeSliderControl } from "./components/controls/TimeSliderControl";
 import { QuerySidebar } from "./components/controls/QuerySidebar";
 import { EventSelector } from "./components/controls/EventSelector";
-import { LayerControlPanel } from "./components/controls/LayerControlPanel";
+// import { LayerControlPanel } from "./components/controls/LayerControlPanel";
 
 // New Display & Charts
-import { StationTimeSeriesChart } from "./components/display/StationTimeSeriesChart";
-import { PointGridChart } from "./components/display/PointGridChart";
+// import { PointGridChart } from "./components/display/PointGridChart";
 import { QueryResultsTable } from "./components/display/QueryResultsTable";
 
 // A function to get color based on wind speed (m/s)
@@ -30,84 +31,6 @@ const getWindColor = (speed: number) => {
   if (speed >= 10) return "#fdae61"; // Strong breeze
   if (speed >= 5) return "#fee08b"; // Gentle breeze
   return "#d9ef8b"; // Light air
-};
-
-// Map Overlay for Wind Stats
-const WindMapOverlay: React.FC = () => {
-  const mapData = useMapStore((state) => state.mapData);
-  const [mousePos, setMousePos] = useState<{ lat: number; lng: number } | null>(null);
-
-  useMapEvents({
-    mousemove: (e) => {
-      setMousePos(e.latlng);
-    },
-  });
-
-  const stats = useMemo(() => {
-    if (!mapData || mapData.length === 0) return null;
-    
-    let maxSpeed = 0;
-    let count = 0;
-    
-    mapData.forEach(item => {
-      if (typeof item.wind_speed === 'number') {
-        if (item.wind_speed > maxSpeed) maxSpeed = item.wind_speed;
-        count++;
-      }
-    });
-    
-    return {
-      maxSpeed,
-      total: count
-    };
-  }, [mapData]);
-
-  return (
-    <>
-      <div
-        style={{
-          position: "absolute",
-          top: "5px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 1000,
-          backgroundColor: "rgba(255, 255, 255, 0.95)",
-          padding: "6px 16px",
-          borderRadius: "8px",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
-          display: "flex",
-          gap: "16px",
-          alignItems: "center",
-          border: "1px solid var(--color-border)",
-          backdropFilter: "blur(4px)",
-          whiteSpace: "nowrap"
-        }}
-      >
-        {stats && stats.total > 0 && (
-          <>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '9px', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Trạm đo</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-accent-primary)' }}>{stats.total}</div>
-            </div>
-            <div style={{ width: '1px', height: '24px', backgroundColor: '#eee' }}></div>
-            <div>
-              <div style={{ fontSize: '9px', color: '#e11d48', textTransform: 'uppercase', fontWeight: 700 }}>Max Speed</div>
-              <div style={{ fontSize: '13px', fontWeight: 700 }}>{stats.maxSpeed.toFixed(1)} <span style={{ fontSize: '10px', fontWeight: 400 }}>m/s</span></div>
-            </div>
-            <div style={{ width: '1px', height: '24px', backgroundColor: '#eee' }}></div>
-          </>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <i className="fa fa-crosshairs" style={{ color: 'var(--color-text-secondary)', fontSize: '11px' }}></i>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#333', minWidth: '110px' }}>
-            {mousePos ? `${mousePos.lat.toFixed(4)}, ${mousePos.lng.toFixed(4)}` : 'Đang tải...'}
-          </div>
-        </div>
-      </div>
-      <LayerControlPanel />
-      <PointGridChart />
-    </>
-  );
 };
 
 // Map Legend for Wind Speed
@@ -151,7 +74,6 @@ const WindMapLegend: React.FC = () => {
         ))}
       </div>
       <TimeSliderControl />
-      <StationTimeSeriesChart />
     </>
   );
 };
@@ -209,14 +131,14 @@ const WindManagementApp: React.FC = () => {
         appIcon={<i className="fa fa-wind fa-2x" style={{ color: "#397aab" }}></i>}
         navLinks={navLinks}
         routeNames={routeNames}
-        mapOverlay={<WindMapOverlay />}
         mapLegend={<WindMapLegend />}
         mapMarkers={<WindMapMarkersWrapper />}
-        isFullWidthPage={(path) => path === '/data'}
+        isFullWidthPage={(path) => path === '/data' || (path.startsWith('/stations/') && path !== '/stations')}
       >
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/stations" element={<div className="co2-card"><div className="co2-card-header">Stations</div></div>} />
+          <Route path="/stations" element={<StationsPage />} />
+          <Route path="/stations/:id" element={<StationDetailPage />} />
           <Route path="/events" element={<div className="co2-card"><div className="co2-card-header">Events</div></div>} />
           <Route path="/data" element={<DataQueryPage />} />
         </Routes>
