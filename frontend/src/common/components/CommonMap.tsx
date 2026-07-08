@@ -1,9 +1,10 @@
 import React, { useEffect } from "react";
 import { useMapStore } from "../stores/useMapStore";
-import { MapContainer, TileLayer, useMapEvents, useMap, LayersControl } from "react-leaflet";
+import { MapContainer, TileLayer, useMapEvents, useMap, LayersControl, Marker, Circle } from "react-leaflet";
 import "@geoman-io/leaflet-geoman-free";
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
 export const GeomanControl: React.FC = () => {
   const map = useMap();
@@ -122,6 +123,88 @@ export const MapViewUpdater: React.FC = () => {
   return null;
 };
 
+// Fix default marker icon issue in Leaflet + React
+const DefaultIcon = L.icon({
+  iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
+const ScanRadarEffect: React.FC<{ center: [number, number]; maxRadiusKm: number }> = ({ center, maxRadiusKm }) => {
+  const [currentRadius, setCurrentRadius] = React.useState(0);
+
+  useEffect(() => {
+    let frameId: number;
+    const start = performance.now();
+    const duration = 1500; // 1.5 seconds for one cycle
+
+    const animate = (timestamp: number) => {
+      const elapsed = timestamp - start;
+      const progress = (elapsed % duration) / duration; // 0 to 1
+      setCurrentRadius(progress * maxRadiusKm * 1000); // convert to meters
+      frameId = requestAnimationFrame(animate);
+    };
+
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, [maxRadiusKm]);
+
+  return (
+    <Circle
+      center={center}
+      radius={currentRadius}
+      pathOptions={{
+        color: '#10b981',
+        fillColor: '#10b981',
+        fillOpacity: 0.15,
+        weight: 2,
+        dashArray: '5, 5'
+      }}
+    />
+  );
+};
+
+const PickedLocationOverlay: React.FC = () => {
+  const pickedLocation = useMapStore((state) => state.pickedLocation);
+  const scanRadius = useMapStore((state) => state.scanRadius);
+  const isScanning = useMapStore((state) => state.isScanning);
+
+  if (!pickedLocation) return null;
+
+  return (
+    <>
+      <Marker position={pickedLocation} icon={DefaultIcon} />
+      <Circle
+        center={pickedLocation}
+        radius={scanRadius * 1000}
+        pathOptions={{
+          color: '#3b82f6',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.08,
+          weight: 1.5
+        }}
+      />
+      {isScanning && <ScanRadarEffect center={pickedLocation} maxRadiusKm={scanRadius} />}
+    </>
+  );
+};
+
+export const MapClickHandler: React.FC = () => {
+  const isPickingLocation = useMapStore((state) => state.isPickingLocation);
+  const setPickedLocation = useMapStore((state) => state.setPickedLocation);
+
+  useMapEvents({
+    click: (e) => {
+      if (isPickingLocation) {
+        setPickedLocation([e.latlng.lat, e.latlng.lng]);
+      }
+    }
+  });
+
+  return null;
+};
+
 interface CommonMapProps {
   children?: React.ReactNode;
 }
@@ -153,6 +236,8 @@ export const CommonMap: React.FC<CommonMapProps> = ({ children }) => {
       </LayersControl>
       <MapBoundsSync />
       <GeomanControl />
+      <MapClickHandler />
+      <PickedLocationOverlay />
       
       {children}
     </MapContainer>

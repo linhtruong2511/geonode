@@ -19,6 +19,8 @@ interface MapState {
   isDrawingMode: boolean;
   isPickingLocation: boolean;
   pickedLocation: [number, number] | null;
+  scanRadius: number; // in km
+  isScanning: boolean;
   focusedId: number | null; // ID của điểm đo đang được định vị/highlight
   setShowMap: (show: boolean) => void;
   setMapData: (data: any[]) => void;
@@ -31,6 +33,8 @@ interface MapState {
   setIsDrawingMode: (enabled: boolean) => void;
   setIsPickingLocation: (enabled: boolean) => void;
   setPickedLocation: (location: [number, number] | null) => void;
+  setScanRadius: (radius: number) => void;
+  setIsScanning: (scanning: boolean) => void;
   setFocusedId: (id: number | null) => void;
 }
 
@@ -46,6 +50,8 @@ export const useMapStore = create<MapState>((set) => ({
   isDrawingMode: false,
   isPickingLocation: false,
   pickedLocation: null,
+  scanRadius: 50,
+  isScanning: false,
   focusedId: null,
   setShowMap: (show) => set({ showMap: show }),
   setMapData: (data) => set({ mapData: data }),
@@ -58,5 +64,7 @@ export const useMapStore = create<MapState>((set) => ({
   setIsDrawingMode: (enabled) => set({ isDrawingMode: enabled }),
   setIsPickingLocation: (enabled) => set({ isPickingLocation: enabled }),
   setPickedLocation: (location) => set({ pickedLocation: location }),
+  setScanRadius: (radius) => set({ scanRadius: radius }),
+  setIsScanning: (scanning) => set({ isScanning: scanning }),
   setFocusedId: (id) => set({ focusedId: id }),
 }));

@@ -3,6 +3,7 @@ import { CircleMarker, Popup } from 'react-leaflet';
 import { useMapStore } from '@common/stores/useMapStore';
 import { useWindStore } from '../../stores/useWindStore';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 
 // A function to get color based on variable and value
 const getColor = (variable: string, value: number) => {
@@ -111,9 +112,14 @@ export const StationClusterLayer: React.FC = () => {
   const setMapData = useMapStore((state) => state.setMapData);
   const mapData = useMapStore((state) => state.mapData);
   const focusedId = useMapStore((state) => state.focusedId);
+  const location = useLocation();
+  const isStationsPage = location.pathname === '/stations';
   const { showStations } = useWindStore();
 
   useEffect(() => {
+    if (isStationsPage) {
+      return;
+    }
     if (showStations) {
       axios.get('/wind/api/v1/stations/')
         .then(res => {
@@ -137,7 +143,7 @@ export const StationClusterLayer: React.FC = () => {
     } else {
       setMapData([]);
     }
-  }, [showStations, setMapData]);
+  }, [showStations, setMapData, isStationsPage]);
 
   if (!showStations) return null;
 
