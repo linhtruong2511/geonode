@@ -22,7 +22,7 @@ import { EventSelector } from "./components/controls/EventSelector";
 // import { LayerControlPanel } from "./components/controls/LayerControlPanel";
 
 // New Display & Charts
-// import { PointGridChart } from "./components/display/PointGridChart";
+import { PointGridChart } from "./components/display/PointGridChart";
 import { QueryResultsTable } from "./components/display/QueryResultsTable";
 
 // A function to get color based on wind speed (m/s)
@@ -186,25 +186,28 @@ const WindManagementApp: React.FC = () => {
 const AppContent: React.FC = () => {
   const location = useLocation();
   return (
-    <SharedLayout
-      appName="Wind Analytics"
-      appIcon={<i className="fa fa-wind fa-2x" style={{ color: "#397aab" }}></i>}
-      navLinks={navLinks}
-      routeNames={routeNames}
-      mapLegend={<WindMapLegend />}
-      mapMarkers={<WindMapMarkersWrapper />}
-      layersControlOverlays={location.pathname === '/grid' ? <WindMapOverlaysControl /> : null}
-      isFullWidthPage={(path) => path === '/data' || (path.startsWith('/stations/') && path !== '/stations')}
-    >
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/stations" element={<StationsPage />} />
-        <Route path="/stations/:id" element={<StationDetailPage />} />
-        <Route path="/grid" element={<GridDataPage />} />
-        <Route path="/events" element={<div className="co2-card"><div className="co2-card-header">Events</div></div>} />
-        <Route path="/data" element={<DataQueryPage />} />
-      </Routes>
-    </SharedLayout>
+    <>
+      <SharedLayout
+        appName="Wind Analytics"
+        appIcon={<i className="fa fa-wind fa-2x" style={{ color: "#397aab" }}></i>}
+        navLinks={navLinks}
+        routeNames={routeNames}
+        mapLegend={<WindMapLegend />}
+        mapMarkers={<WindMapMarkersWrapper />}
+        layersControlOverlays={location.pathname === '/grid' ? <WindMapOverlaysControl /> : null}
+        isFullWidthPage={(path) => path === '/data' || (path.startsWith('/stations/') && path !== '/stations')}
+      >
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/stations" element={<StationsPage />} />
+          <Route path="/stations/:id" element={<StationDetailPage />} />
+          <Route path="/grid" element={<GridDataPage />} />
+          <Route path="/events" element={<div className="co2-card"><div className="co2-card-header">Events</div></div>} />
+          <Route path="/data" element={<DataQueryPage />} />
+        </Routes>
+      </SharedLayout>
+      {location.pathname === '/grid' && <PointGridChart />}
+    </>
   );
 };
 
