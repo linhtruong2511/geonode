@@ -18,8 +18,7 @@ export const LayerControlPanel: React.FC = () => {
 
   return (
     <div className="panel panel-default" style={{
-      position: 'absolute', top: '70px', right: '20px', zIndex: 1000,
-      width: '240px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+      width: '100%', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
     }}>
       <div className="panel-heading" style={{ fontWeight: 'bold' }}>Điều khiển Lớp bản đồ</div>
       <div className="panel-body" style={{ padding: '10px' }}>
@@ -48,12 +47,26 @@ export const LayerControlPanel: React.FC = () => {
               <input type="radio" name="gridDataset" 
                 checked={activeGridLayers.includes(ds.code)} 
                 onChange={() => {
-                  // Tắt hết layer cũ và bật layer mới
                   activeGridLayers.forEach(l => toggleGridLayer(l));
                   toggleGridLayer(ds.code);
                 }} 
               />
               {ds.name}
+            </label>
+          </div>
+        ))}
+        {/* Lớp dữ liệu tĩnh (ERA5) */}
+        {['u10m', 'v10m', 'u100m', 'v100m'].map(layerCode => (
+          <div className="radio" key={layerCode}>
+            <label>
+              <input type="radio" name="gridDataset" 
+                checked={activeGridLayers.includes(layerCode)} 
+                onChange={() => {
+                  activeGridLayers.forEach(l => toggleGridLayer(l));
+                  toggleGridLayer(layerCode);
+                }} 
+              />
+              ERA5 Wind: {layerCode}
             </label>
           </div>
         ))}

@@ -2,7 +2,8 @@ import { create } from 'zustand';
 
 interface WindState {
   // A6: Time Slider & Animation
-  currentTime: string | null; 
+  currentTime: string | null;
+  availableTimes: string[];
   timeRange: [string, string] | null;
   isPlayingAnimation: boolean;
   
@@ -27,6 +28,7 @@ interface WindState {
 
   // Actions
   setCurrentTime: (time: string | null) => void;
+  setAvailableTimes: (times: string[]) => void;
   setTimeRange: (range: [string, string] | null) => void;
   setIsPlayingAnimation: (playing: boolean) => void;
   toggleGridLayer: (layerId: string) => void;
@@ -44,6 +46,7 @@ interface WindState {
 
 export const useWindStore = create<WindState>((set) => ({
   currentTime: null,
+  availableTimes: [],
   timeRange: null,
   isPlayingAnimation: false,
   activeGridLayers: [],
@@ -59,6 +62,7 @@ export const useWindStore = create<WindState>((set) => ({
   gridOpacity: 0.8,
 
   setCurrentTime: (time) => set({ currentTime: time }),
+  setAvailableTimes: (times) => set({ availableTimes: times }),
   setTimeRange: (range) => set({ timeRange: range }),
   setIsPlayingAnimation: (playing) => set({ isPlayingAnimation: playing }),
   toggleGridLayer: (layerId) => set((state) => ({

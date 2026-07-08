@@ -207,9 +207,10 @@ export const MapClickHandler: React.FC = () => {
 
 interface CommonMapProps {
   children?: React.ReactNode;
+  layersControlOverlays?: React.ReactNode;
 }
 
-export const CommonMap: React.FC<CommonMapProps> = ({ children }) => {
+export const CommonMap: React.FC<CommonMapProps> = ({ children, layersControlOverlays }) => {
   const mapCenter = useMapStore((state) => state.mapCenter);
   const mapZoom = useMapStore((state) => state.mapZoom);
 
@@ -233,6 +234,7 @@ export const CommonMap: React.FC<CommonMapProps> = ({ children }) => {
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           />
         </LayersControl.BaseLayer>
+        {layersControlOverlays}
       </LayersControl>
       <MapBoundsSync />
       <GeomanControl />

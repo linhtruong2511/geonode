@@ -1,20 +1,22 @@
 // import React, { useState, useMemo } from "react";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import StationsPage from "./pages/StationsPage";
 import StationDetailPage from "./pages/StationDetailPage";
+import GridDataPage from "./pages/GridDataPage";
 import { SharedLayout, type NavLinkDef } from "@common/components/SharedLayout";
 // import { useMapStore } from "@common/stores/useMapStore";
 // import { useMapEvents } from "react-leaflet";
 
 // New Map Components
-import { WMSGridLayer } from "./components/map/WMSGridLayer";
 import { StormTrackLayer } from "./components/map/StormTrackLayer";
 import { SplitMapControl } from "./components/map/SplitMapControl";
 import { StationClusterLayer } from "./components/map/StationClusterLayer";
+import { LayersControl, WMSTileLayer, useMapEvents } from "react-leaflet";
+import { useWindStore } from "./stores/useWindStore";
 
 // New Controls & Overlays
-import { TimeSliderControl } from "./components/controls/TimeSliderControl";
+// import { TimeSliderControl } from "./components/controls/TimeSliderControl";
 import { QuerySidebar } from "./components/controls/QuerySidebar";
 import { EventSelector } from "./components/controls/EventSelector";
 // import { LayerControlPanel } from "./components/controls/LayerControlPanel";
@@ -73,18 +75,66 @@ const WindMapLegend: React.FC = () => {
           </div>
         ))}
       </div>
-      <TimeSliderControl />
+    </>
+  );
+};
+
+const GridLayerSync: React.FC = () => {
+  const { toggleGridLayer, activeGridLayers } = useWindStore();
+
+  useMapEvents({
+    overlayadd: (e) => {
+      if (e.name.startsWith('ERA5 Wind:')) {
+        const layerCode = e.name.split(': ')[1];
+        if (!activeGridLayers.includes(layerCode)) {
+          toggleGridLayer(layerCode);
+        }
+      }
+    },
+    overlayremove: (e) => {
+      if (e.name.startsWith('ERA5 Wind:')) {
+        const layerCode = e.name.split(': ')[1];
+        if (activeGridLayers.includes(layerCode)) {
+          toggleGridLayer(layerCode);
+        }
+      }
+    }
+  });
+
+  return null;
+};
+
+const WindMapOverlaysControl: React.FC = () => {
+  const currentTime = useWindStore(state => state.currentTime);
+  const gridOpacity = useWindStore(state => state.gridOpacity);
+  const layers = ['u10m', 'v10m', 'u100m', 'v100m'];
+
+  return (
+    <>
+      {layers.map(layer => (
+        <LayersControl.Overlay name={`ERA5 Wind: ${layer}`} key={layer}>
+          <WMSTileLayer
+            url="/geoserver/wms"
+            layers={`geonode:${layer}`}
+            format="image/png"
+            transparent={true}
+            opacity={gridOpacity}
+            {...(currentTime ? { time: currentTime } : {})}
+          />
+        </LayersControl.Overlay>
+      ))}
+      <GridLayerSync />
     </>
   );
 };
 
 const WindMapMarkersWrapper: React.FC = () => {
+  const location = useLocation();
   return (
     <>
-      <WMSGridLayer />
       <StormTrackLayer />
       <SplitMapControl />
-      <StationClusterLayer />
+      {location.pathname.startsWith('/stations') && <StationClusterLayer />}
     </>
   );
 };
@@ -92,6 +142,7 @@ const WindMapMarkersWrapper: React.FC = () => {
 const navLinks: NavLinkDef[] = [
   { to: "/", icon: "fa-dashboard", label: "Dashboard" },
   { to: "/stations", icon: "fa-broadcast-tower", label: "Stations" },
+  { to: "/grid", icon: "fa-th", label: "Gridded Data" },
   { to: "/events", icon: "fa-hurricane", label: "Meteorological Events" },
   { to: "/data", icon: "fa-table", label: "Data Query" },
 ];
@@ -99,6 +150,7 @@ const navLinks: NavLinkDef[] = [
 const routeNames: Record<string, string> = {
   "/": "Tổng quan",
   "/stations": "Trạm quan trắc",
+  "/grid": "Dữ liệu lưới",
   "/events": "Sự kiện thời tiết",
   "/data": "Truy vấn dữ liệu",
 };
@@ -126,24 +178,33 @@ const DataQueryPage: React.FC = () => {
 const WindManagementApp: React.FC = () => {
   return (
     <HashRouter>
-      <SharedLayout
-        appName="Wind Analytics"
-        appIcon={<i className="fa fa-wind fa-2x" style={{ color: "#397aab" }}></i>}
-        navLinks={navLinks}
-        routeNames={routeNames}
-        mapLegend={<WindMapLegend />}
-        mapMarkers={<WindMapMarkersWrapper />}
-        isFullWidthPage={(path) => path === '/data' || (path.startsWith('/stations/') && path !== '/stations')}
-      >
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/stations" element={<StationsPage />} />
-          <Route path="/stations/:id" element={<StationDetailPage />} />
-          <Route path="/events" element={<div className="co2-card"><div className="co2-card-header">Events</div></div>} />
-          <Route path="/data" element={<DataQueryPage />} />
-        </Routes>
-      </SharedLayout>
+      <AppContent />
     </HashRouter>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const location = useLocation();
+  return (
+    <SharedLayout
+      appName="Wind Analytics"
+      appIcon={<i className="fa fa-wind fa-2x" style={{ color: "#397aab" }}></i>}
+      navLinks={navLinks}
+      routeNames={routeNames}
+      mapLegend={<WindMapLegend />}
+      mapMarkers={<WindMapMarkersWrapper />}
+      layersControlOverlays={location.pathname === '/grid' ? <WindMapOverlaysControl /> : null}
+      isFullWidthPage={(path) => path === '/data' || (path.startsWith('/stations/') && path !== '/stations')}
+    >
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/stations" element={<StationsPage />} />
+        <Route path="/stations/:id" element={<StationDetailPage />} />
+        <Route path="/grid" element={<GridDataPage />} />
+        <Route path="/events" element={<div className="co2-card"><div className="co2-card-header">Events</div></div>} />
+        <Route path="/data" element={<DataQueryPage />} />
+      </Routes>
+    </SharedLayout>
   );
 };
 

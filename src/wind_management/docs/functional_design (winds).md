@@ -74,7 +74,7 @@
 
 ## 3. Nhóm B — Truy vấn dữ liệu
 
-### B1. Truy vấn dữ liệu trạm theo tên trạm/khu vực và khoảng thời gian
+### B1. Truy vấn dữ liệu trạm theo tên trạm/khu vực và khoảng thời gian (Done)
 - **Mục đích**: Trích xuất nhanh số liệu đo đạc của một hoặc nhiều trạm trong một khoảng thời gian, phục vụ tra cứu hoặc phân tích tiếp theo.
 - **Người dùng**: Nhà nghiên cứu, dự báo viên.
 - **Hoạt động**:
@@ -84,7 +84,7 @@
   4. Hệ thống trả về bảng kết quả và/hoặc biểu đồ.
 - **Đầu ra**: Bảng dữ liệu hiển thị trên màn hình, có thể xem trước khi quyết định tải về (xem nhóm D).
 
-### B2. Truy vấn không gian theo bán kính hoặc vùng khoanh
+### B2. Truy vấn không gian theo bán kính hoặc vùng khoanh (Done)
 - **Mục đích**: Tìm tất cả các trạm/điểm dữ liệu nằm trong một khu vực địa lý nhất định, có thể kèm điều kiện về giá trị đo.
 - **Hoạt động**:
   1. Người dùng chọn một điểm trên bản đồ và nhập bán kính (VD: 100km), hoặc tự vẽ một vùng bất kỳ.

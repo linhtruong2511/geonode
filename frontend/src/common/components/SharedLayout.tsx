@@ -17,6 +17,7 @@ export interface SharedLayoutProps {
   mapOverlay?: React.ReactNode;
   mapLegend?: React.ReactNode;
   mapMarkers?: React.ReactNode;
+  layersControlOverlays?: React.ReactNode;
   isFullWidthPage?: (pathname: string) => boolean;
   children: React.ReactNode;
 }
@@ -30,6 +31,7 @@ export const SharedLayout: React.FC<SharedLayoutProps> = ({
   mapOverlay,
   mapLegend,
   mapMarkers,
+  layersControlOverlays,
   isFullWidthPage,
   children,
 }) => {
@@ -159,7 +161,7 @@ export const SharedLayout: React.FC<SharedLayoutProps> = ({
         <div id="co2-split-container">
           {/* CENTER MAP PANEL */}
           <div id="co2-map-panel">
-            <CommonMap>
+            <CommonMap layersControlOverlays={layersControlOverlays}>
               {mapOverlay}
               {mapMarkers}
             </CommonMap>

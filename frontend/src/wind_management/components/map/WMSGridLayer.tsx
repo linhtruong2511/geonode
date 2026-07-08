@@ -12,12 +12,11 @@ export const WMSGridLayer: React.FC = () => {
       {activeGridLayers.map(layer => (
         <WMSTileLayer
           key={`${layer}-${currentTime || 'latest'}`}
-          url="/geoserver/wms" // placeholder, usually read from config
-          layers={`geonode:${layer}`} // assuming geonode namespace
+          url="/geoserver/wms"
+          layers={`geonode:${layer}`}
           format="image/png"
           transparent={true}
           opacity={gridOpacity}
-          // If we have time
           {...(currentTime ? { time: currentTime } : {})}
         />
       ))}
