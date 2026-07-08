@@ -171,21 +171,31 @@ export const TimeSliderControl: React.FC = () => {
 
   return (
     <div
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
       style={{
-        position: "relative",
+        position: "absolute",
+        bottom: "20px",
+        left: "190px", // Đặt cạnh legend bản đồ (tránh đè lên nhau)
+        right: "20px",
         display: "flex",
         alignItems: "center",
         gap: "15px",
-        width: "100%",
-        padding: "0 20px",
-        marginTop: "30px" // Khoảng trống cho nhãn ngày hiển thị phía trên
+        padding: "12px 18px",
+        backgroundColor: "rgba(255, 255, 255, 0.95)",
+        backdropFilter: "blur(10px)",
+        borderRadius: "10px",
+        boxShadow: "0 4px 25px rgba(0,0,0,0.18)",
+        border: "1px solid rgba(226, 232, 240, 0.9)",
+        zIndex: 1000,
+        pointerEvents: "auto"
       }}
     >
       {/* Nhãn hiển thị thời gian hiện tại nổi bật phía trên thanh trượt */}
       {currentTime && (
         <div style={{
           position: 'absolute',
-          top: '-28px',
+          top: '-26px',
           left: '50%',
           transform: 'translateX(-50%)',
           backgroundColor: '#1e293b',
@@ -194,7 +204,7 @@ export const TimeSliderControl: React.FC = () => {
           borderRadius: '20px',
           fontSize: '11px',
           fontWeight: 700,
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
           zIndex: 10,
           whiteSpace: 'nowrap',
           border: '1px solid #3b82f6'
