@@ -23,9 +23,11 @@ const getColor = (variable: string, value: number) => {
   return "#d9ef8b"; 
 };
 
-const WindStationMarker: React.FC<{ item: any; focusedId: number | null; activeVar: string }> = ({ item, focusedId, activeVar }) => {
+const WindStationMarker: React.FC<{ item: any; focusedId: number | null }> = ({ item, focusedId }) => {
   const markerRef = useRef<any>(null);
   const { setSelectedStationId } = useWindStore();
+  const [detailData, setDetailData] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState<boolean>(false);
 
   useEffect(() => {
     if (markerRef.current && focusedId === item.id) {
@@ -35,8 +37,21 @@ const WindStationMarker: React.FC<{ item: any; focusedId: number | null; activeV
     }
   }, [focusedId, item.id]);
 
+  const handleOpenPopup = () => {
+    setLoading(true);
+    axios.get(`/wind/api/v1/stations/${item.id}/`)
+      .then(res => {
+        setDetailData(res.data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error fetching station detail", err);
+        setLoading(false);
+      });
+  };
+
   const isFocused = focusedId === item.id;
-  const val = activeVar === 'temp' ? (item.temp || 0) : (item.wind_speed || 0);
+  const val = item.wind_speed !== undefined && item.wind_speed !== null ? parseFloat(item.wind_speed) : 0;
 
   return (
     <CircleMarker
@@ -44,7 +59,7 @@ const WindStationMarker: React.FC<{ item: any; focusedId: number | null; activeV
       center={[item.lat || item.latitude || 0, item.lon || item.longitude || 0]}
       radius={isFocused ? 10 : 6}
       pathOptions={{
-        fillColor: getColor(activeVar, val),
+        fillColor: getColor('wind_speed', val),
         color: isFocused ? '#ef4444' : '#fff',
         weight: isFocused ? 3 : 1,
         opacity: 1,
@@ -53,17 +68,39 @@ const WindStationMarker: React.FC<{ item: any; focusedId: number | null; activeV
       eventHandlers={{
         click: () => {
           setSelectedStationId(item.id);
+        },
+        popupopen: () => {
+          handleOpenPopup();
         }
       }}
     >
       <Popup autoPan={false}>
-        <div style={{ fontSize: "11px", minWidth: "160px" }}>
-          <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '3px', marginBottom: '3px', fontWeight: 700, color: '#397aab' }}>
-            Trạm: {item.name || `Station #${item.id}`}
+        <div style={{ fontSize: "11px", minWidth: "180px", padding: "2px" }}>
+          <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '5px', marginBottom: '5px', fontWeight: 700 }}>
+            Trạm: <a href={`#/stations/${item.id}`} style={{ color: '#397aab', textDecoration: 'underline', cursor: 'pointer' }} title="Xem chi tiết trạm">
+              {item.name || `Station #${item.id}`} ({item.station_code}) <i className="fa fa-external-link" style={{ fontSize: '10px', marginLeft: '2px' }}></i>
+            </a>
           </div>
-          <strong>{activeVar === 'temp' ? 'Nhiệt độ' : 'Tốc độ gió'}:</strong> {val} {activeVar === 'temp' ? '°C' : 'm/s'}<br />
-          <strong>Hướng gió:</strong> {item.wind_dir || 'N/A'}°<br />
-          <strong>Tọa độ:</strong> {(item.lat || item.latitude || 0).toFixed(4)}, {(item.lon || item.longitude || 0).toFixed(4)}
+          <strong>Cao độ:</strong> {item.elevation ? `${item.elevation}m` : 'N/A'}<br />
+          <strong>Tọa độ:</strong> {(item.lat || item.latitude || 0).toFixed(4)}, {(item.lon || item.longitude || 0).toFixed(4)}<br />
+          
+          {loading ? (
+            <div style={{ marginTop: '5px', color: '#64748b' }}>
+              <i className="fa fa-spinner fa-spin"></i> Đang tải đo đạc mới nhất...
+            </div>
+          ) : detailData?.properties?.latest_observation ? (
+            <div style={{ marginTop: '5px', borderTop: '1px dashed #cbd5e1', paddingTop: '5px' }}>
+              <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '3px' }}>Đo đạc mới nhất:</div>
+              <div>Thời gian: {new Date(detailData.properties.latest_observation.obs_time).toLocaleString('vi-VN')}</div>
+              <div>Nhiệt độ: {detailData.properties.latest_observation.temp_2m !== null ? `${detailData.properties.latest_observation.temp_2m} °C` : 'N/A'}</div>
+              <div>Tốc độ gió: {detailData.properties.latest_observation.wind_speed !== null ? `${detailData.properties.latest_observation.wind_speed} m/s` : 'N/A'}</div>
+              <div>Hướng gió: {detailData.properties.latest_observation.wind_dir !== null ? `${detailData.properties.latest_observation.wind_dir}°` : 'N/A'}</div>
+              <div>Độ ẩm: {detailData.properties.latest_observation.humidity !== null ? `${detailData.properties.latest_observation.humidity}%` : 'N/A'}</div>
+              <div>Khí áp: {detailData.properties.latest_observation.pressure !== null ? `${detailData.properties.latest_observation.pressure} hPa` : 'N/A'}</div>
+            </div>
+          ) : (
+            <div style={{ marginTop: '5px', fontStyle: 'italic', color: '#64748b' }}>Không có dữ liệu đo đạc mới nhất</div>
+          )}
         </div>
       </Popup>
     </CircleMarker>
@@ -74,16 +111,14 @@ export const StationClusterLayer: React.FC = () => {
   const setMapData = useMapStore((state) => state.setMapData);
   const mapData = useMapStore((state) => state.mapData);
   const focusedId = useMapStore((state) => state.focusedId);
-  const { selectedVariables, showStations } = useWindStore();
-  
-  const activeVar = selectedVariables.length > 0 ? selectedVariables[0] : 'wind_speed';
+  const { showStations } = useWindStore();
 
   useEffect(() => {
     if (showStations) {
       axios.get('/wind/api/v1/stations/')
         .then(res => {
-          // serializer trả về GeoJSON dạng FeatureCollection
-          const features = res.data.features || [];
+          // serializer trả về GeoJSON dạng FeatureCollection, hỗ trợ phân trang
+          const features = res.data.results?.features || res.data.features || [];
           const parsedStations = features.map((f: any) => ({
             id: f.id,
             name: f.properties.name,
@@ -93,8 +128,8 @@ export const StationClusterLayer: React.FC = () => {
             // GeoJSON geometry coords: [lng, lat]
             lat: f.geometry.coordinates[1],
             lon: f.geometry.coordinates[0],
-            wind_speed: 12, // mock value vì endpoint list trạm không kèm obs_speed realtime
-            wind_dir: 180
+            wind_speed: f.properties.latest_observation?.wind_speed !== undefined && f.properties.latest_observation?.wind_speed !== null ? parseFloat(f.properties.latest_observation.wind_speed) : 0,
+            wind_dir: f.properties.latest_observation?.wind_dir !== undefined && f.properties.latest_observation?.wind_dir !== null ? parseFloat(f.properties.latest_observation.wind_dir) : 180
           }));
           setMapData(parsedStations);
         })
@@ -110,7 +145,7 @@ export const StationClusterLayer: React.FC = () => {
     <>
       {mapData.map((item) =>
         (item.lat || item.latitude) && (item.lon || item.longitude) ? (
-          <WindStationMarker key={item.id} item={item} focusedId={focusedId} activeVar={activeVar} />
+          <WindStationMarker key={item.id} item={item} focusedId={focusedId} />
         ) : null
       )}
     </>
