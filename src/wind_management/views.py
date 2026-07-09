@@ -9,7 +9,7 @@ from django.contrib.gis.measure import D
 from django_filters import rest_framework as filters
 from rest_framework_gis.filters import InBBoxFilter
 from rest_framework.pagination import PageNumberPagination
-from django.db.models.functions import TruncMonth, TruncYear
+from django.db.models.functions import TruncMonth, TruncYear, TruncDay
 from django.db.models import Avg, Max, Min, Count, Aggregate, FloatField
 from .services import get_netcdf_data
 
@@ -79,6 +79,38 @@ class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
         )
         return Response({"time_steps": list(granules)})
 
+    @action(detail=True, methods=["get"])
+    def year_steps(self, request, pk=None):
+        datasest = self.get_object()
+        granules = (
+            RasterGranuleIndex.objects.filter(dataset=datasest)
+            .annotate(year=TruncYear("granule_time"))
+            .values_list("year", flat=True)
+            .distinct()
+        )
+        return Response({"year_steps": list(granules)})
+    
+    @action(detail=True, methods=["get"])
+    def month_steps(self, request, pk=None):
+        datasest = self.get_object()
+        granules = (
+            RasterGranuleIndex.objects.filter(dataset=datasest)
+            .annotate(month=TruncMonth("granule_time"))
+            .values_list("month", flat=True)
+            .distinct()
+        )
+        return Response({"month_steps": list(granules)})
+    
+    @action(detail=True, methods=["get"])
+    def day_steps(self, request, pk=None):
+        datasest = self.get_object()
+        granules = (
+            RasterGranuleIndex.objects.filter(dataset=datasest)
+            .annotate(day=TruncDay("granule_time"))
+            .values_list("day", flat=True)
+            .distinct()
+        )
+        return Response({"day_steps": list(granules)})
 
 class StationViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -451,19 +483,26 @@ class RasterGranuleIndexViewSet(viewsets.ReadOnlyModelViewSet):
         API to extract raw/sliced/downsampled NetCDF grid values for wind vector & heatmap plotting.
 
         Query parameters:
+        - time: Time filter (string, format 'YYYY-MM-DDTHH:MM:SS')
+        - dataset_id: Dataset ID
         - step: Downsampling factor (int, default=1, e.g. step=2 retrieves every 2nd grid point)
         - bbox: Bounding box coordinates (string, format 'min_lon,min_lat,max_lon,max_lat')
         - variable_code: Override default wind component variables
         """
         time = request.query_params.get("time")
+        dataset_id = request.query_params.get("dataset_id")
         if time is None:
-            granule = RasterGranuleIndex.objects.order_by("-granule_time").first()
+            granule = (
+                RasterGranuleIndex.objects.filter(dataset_id=dataset_id)
+                .order_by("-granule_time")
+                .first()
+            )
         else:
             granule = RasterGranuleIndex.objects.filter(granule_time__gte=time).first()
 
         if granule is None:
             return Response({"error": "No granules found"}, status=404)
-        
+
         file_location = granule.file_location
 
         # Parse step

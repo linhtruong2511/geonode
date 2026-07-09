@@ -13,6 +13,7 @@ export const WindVelocityLayer: React.FC = () => {
   const activeGridLayers = useWindStore((state) => state.activeGridLayers);
   const mapBounds = useMapStore((state) => state.mapBounds);
   const velocityLayerRef = useRef<any>(null);
+  const heatmapLayerRef = useRef<any>(null);
   const [data, setData] = useState<any>(null);
 
   // Bounds for Gulf of Tonkin (Vịnh Bắc Bộ)
@@ -24,8 +25,14 @@ export const WindVelocityLayer: React.FC = () => {
   };
 
   useEffect(() => {
-    // Zoom and pan map to Gulf of Tonkin when layer is active
+    // Zoom, pan and set max bounds to restrict user panning to Gulf of Tonkin
+    const bounds = L.latLngBounds([17.0, 105.0], [21.0, 110.0]);
+    map.setMaxBounds(bounds);
     map.setView([19.0, 107.5], 7);
+    
+    return () => {
+      map.setMaxBounds(null as any);
+    };
   }, [map]);
 
   useEffect(() => {
@@ -33,6 +40,10 @@ export const WindVelocityLayer: React.FC = () => {
       if (velocityLayerRef.current) {
         map.removeLayer(velocityLayerRef.current);
         velocityLayerRef.current = null;
+      }
+      if (heatmapLayerRef.current) {
+        map.removeLayer(heatmapLayerRef.current);
+        heatmapLayerRef.current = null;
       }
       setData(null);
       return;
@@ -80,9 +91,14 @@ export const WindVelocityLayer: React.FC = () => {
   }, [currentTime, activeGridLayers, mapBounds]);
 
   useEffect(() => {
+    // Cleanup previous layers
     if (velocityLayerRef.current) {
       map.removeLayer(velocityLayerRef.current);
       velocityLayerRef.current = null;
+    }
+    if (heatmapLayerRef.current) {
+      map.removeLayer(heatmapLayerRef.current);
+      heatmapLayerRef.current = null;
     }
 
     if (!data || !data.u || data.u.length === 0) return;
@@ -97,6 +113,82 @@ export const WindVelocityLayer: React.FC = () => {
     const dx = nx > 1 ? (lo2 - lo1) / (nx - 1) : 0;
     const dy = ny > 1 ? Math.abs(la1 - la2) / (ny - 1) : 0;
 
+    // Speeds matrix
+    const speeds: number[][] = [];
+    for (let r = 0; r < ny; r++) {
+      speeds[r] = [];
+      for (let c = 0; c < nx; c++) {
+        const uVal = u[r][c] || 0;
+        const vVal = v && v[r] ? (v[r][c] || 0) : 0;
+        speeds[r][c] = Math.sqrt(uVal * uVal + vVal * vVal);
+      }
+    }
+
+    const getColorForSpeed = (speed: number) => {
+      const s = Math.min(25, Math.max(0, speed));
+      const hue = Math.max(0, 240 - (s / 25) * 240);
+      return `hsla(${hue}, 85%, 55%, 0.5)`;
+    };
+
+    // Pre-render the speeds grid to a tiny offscreen canvas for smooth bilinear interpolation by the browser
+    const offscreenCanvas = document.createElement("canvas");
+    offscreenCanvas.width = nx;
+    offscreenCanvas.height = ny;
+    const offscreenCtx = offscreenCanvas.getContext("2d");
+
+    if (offscreenCtx) {
+      for (let r = 0; r < ny; r++) {
+        for (let c = 0; c < nx; c++) {
+          offscreenCtx.fillStyle = getColorForSpeed(speeds[r][c]);
+          offscreenCtx.fillRect(c, r, 1, 1);
+        }
+      }
+    }
+
+    // Min and Max lat/lon of dataset for geographic alignment
+    const maxLat = Math.max(...lats);
+    const minLat = Math.min(...lats);
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+
+    // 2. Create and add Grid-based Heatmap Layer (Canvas)
+    try {
+      const HeatmapCanvasLayer = (L.GridLayer as any).extend({
+        createTile: function (coords: any) {
+          const tile = L.DomUtil.create("canvas", "leaflet-tile");
+          const size = this.getTileSize();
+          tile.width = size.x;
+          tile.height = size.y;
+          const ctx = tile.getContext("2d");
+
+          if (!ctx) return tile;
+
+          // Project the dataset bounding box to tile relative coordinates
+          const pNW = map.project(L.latLng(maxLat, minLon), coords.z);
+          const pSE = map.project(L.latLng(minLat, maxLon), coords.z);
+
+          const x1 = pNW.x - coords.x * size.x;
+          const y1 = pNW.y - coords.y * size.y;
+          const x2 = pSE.x - coords.x * size.x;
+          const y2 = pSE.y - coords.y * size.y;
+
+          // Draw the offscreen canvas scaled smoothly to the tile canvas
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(offscreenCanvas, x1, y1, x2 - x1, y2 - y1);
+
+          return tile;
+        }
+      });
+
+      const heatmapLayer = new HeatmapCanvasLayer();
+      heatmapLayer.addTo(map);
+      heatmapLayerRef.current = heatmapLayer;
+    } catch (e) {
+      console.error("Error creating heatmap grid layer:", e);
+    }
+
+    // 3. Create and add Velocity flow Layer (Leaflet Velocity)
     const uData = [];
     const vData = [];
 
@@ -163,6 +255,10 @@ export const WindVelocityLayer: React.FC = () => {
       if (velocityLayerRef.current) {
         map.removeLayer(velocityLayerRef.current);
         velocityLayerRef.current = null;
+      }
+      if (heatmapLayerRef.current) {
+        map.removeLayer(heatmapLayerRef.current);
+        heatmapLayerRef.current = null;
       }
     };
   }, [data, map]);

@@ -32,13 +32,59 @@ const formatDate = (dateStr: string | null) => {
     return dateStr;
   }
 };
+
 const GridDataPage: React.FC = () => {
-  const { activeGridLayers, toggleGridLayer, currentTime, setCurrentTime, selectedDatasetId, setSelectedDatasetId } = useWindStore();
+  const { activeGridLayers, toggleGridLayer, setCurrentTime, selectedDatasetId, setSelectedDatasetId } = useWindStore();
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [datasetsList, setDatasetsList] = useState<any[]>([]);
   const [timeSteps, setTimeSteps] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [selectedYear, setSelectedYear] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedDay, setSelectedDay] = useState<string>("");
+  const [selectedHour, setSelectedHour] = useState<string>("");
+
+  const getUtcParts = (isoString: string) => {
+    const d = new Date(isoString);
+    return {
+      year: d.getUTCFullYear().toString(),
+      month: (d.getUTCMonth() + 1).toString().padStart(2, "0"),
+      day: d.getUTCDate().toString().padStart(2, "0"),
+      hour: d.getUTCHours().toString().padStart(2, "0") + ":" + d.getUTCMinutes().toString().padStart(2, "0")
+    };
+  };
+
+  const parsedTimes = timeSteps.map(t => ({ ...getUtcParts(t), original: t }));
+
+  // Helper to extract options
+  const availableYears = Array.from(new Set(parsedTimes.map(p => p.year))).sort();
+  
+  const availableMonths = Array.from(
+    new Set(parsedTimes.filter(p => p.year === selectedYear).map(p => p.month))
+  ).sort();
+
+  const availableDays = Array.from(
+    new Set(
+      parsedTimes
+        .filter(p => p.year === selectedYear && p.month === selectedMonth)
+        .map(p => p.day)
+    )
+  ).sort();
+
+  const availableHours = Array.from(
+    new Set(
+      parsedTimes
+        .filter(
+          p =>
+            p.year === selectedYear &&
+            p.month === selectedMonth &&
+            p.day === selectedDay
+        )
+        .map(p => p.hour)
+    )
+  ).sort();
 
   useEffect(() => {
     // Tự động bật u10m (gió) khi người dùng truy cập trang này
@@ -86,28 +132,110 @@ const GridDataPage: React.FC = () => {
       .then((res) => {
         const steps = res.data.time_steps || [];
         setTimeSteps(steps);
-        if (steps.length > 0) {
-          // If current time is not in list, pick the first one
-          if (!currentTime || !steps.includes(currentTime)) {
-            setCurrentTime(steps[0]);
-          }
-        } else {
-          setCurrentTime(null);
-        }
       })
       .catch((err) => {
         console.error("Error fetching time steps:", err);
       });
   }, [selectedDatasetId]);
 
+  // Set default selection when timeSteps changes
+  useEffect(() => {
+    if (timeSteps.length === 0) {
+      setSelectedYear("");
+      setSelectedMonth("");
+      setSelectedDay("");
+      setSelectedHour("");
+      return;
+    }
+
+    const firstPart = getUtcParts(timeSteps[0]);
+    setSelectedYear(firstPart.year);
+    setSelectedMonth(firstPart.month);
+    setSelectedDay(firstPart.day);
+    setSelectedHour(firstPart.hour);
+  }, [timeSteps]);
+
+  // Sync currentTime to the store when selections change
+  useEffect(() => {
+    if (!selectedYear || !selectedMonth || !selectedDay || !selectedHour) return;
+
+    const matched = parsedTimes.find(
+      p =>
+        p.year === selectedYear &&
+        p.month === selectedMonth &&
+        p.day === selectedDay &&
+        p.hour === selectedHour
+    );
+
+    if (matched) {
+      setCurrentTime(matched.original);
+    }
+  }, [selectedYear, selectedMonth, selectedDay, selectedHour, timeSteps]);
+
   const handleDatasetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     setSelectedDatasetId(val);
   };
 
-  const handleTimeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setCurrentTime(val || null);
+  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const yr = e.target.value;
+    setSelectedYear(yr);
+
+    const monthsForYr = Array.from(new Set(parsedTimes.filter(p => p.year === yr).map(p => p.month))).sort();
+    const defaultMonth = monthsForYr[0] || "";
+    setSelectedMonth(defaultMonth);
+
+    const daysForMonth = Array.from(new Set(parsedTimes.filter(p => p.year === yr && p.month === defaultMonth).map(p => p.day))).sort();
+    const defaultDay = daysForMonth[0] || "";
+    setSelectedDay(defaultDay);
+
+    const hoursForDay = Array.from(
+      new Set(
+        parsedTimes
+          .filter(p => p.year === yr && p.month === defaultMonth && p.day === defaultDay)
+          .map(p => p.hour)
+      )
+    ).sort();
+    const defaultHour = hoursForDay[0] || "";
+    setSelectedHour(defaultHour);
+  };
+
+  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const m = e.target.value;
+    setSelectedMonth(m);
+
+    const daysForMonth = Array.from(new Set(parsedTimes.filter(p => p.year === selectedYear && p.month === m).map(p => p.day))).sort();
+    const defaultDay = daysForMonth[0] || "";
+    setSelectedDay(defaultDay);
+
+    const hoursForDay = Array.from(
+      new Set(
+        parsedTimes
+          .filter(p => p.year === selectedYear && p.month === m && p.day === defaultDay)
+          .map(p => p.hour)
+      )
+    ).sort();
+    const defaultHour = hoursForDay[0] || "";
+    setSelectedHour(defaultHour);
+  };
+
+  const handleDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const d = e.target.value;
+    setSelectedDay(d);
+
+    const hoursForDay = Array.from(
+      new Set(
+        parsedTimes
+          .filter(p => p.year === selectedYear && p.month === selectedMonth && p.day === d)
+          .map(p => p.hour)
+      )
+    ).sort();
+    const defaultHour = hoursForDay[0] || "";
+    setSelectedHour(defaultHour);
+  };
+
+  const handleHourChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedHour(e.target.value);
   };
 
   return (
@@ -163,33 +291,132 @@ const GridDataPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Time Steps Dropdown */}
+            {/* Year Dropdown */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label style={{ fontWeight: 600, color: "#475569", fontSize: "13px" }}>
-                Chọn thời gian dự báo:
+                Chọn năm:
               </label>
               <select
-                value={currentTime || ""}
-                onChange={handleTimeChange}
-                disabled={timeSteps.length === 0}
+                value={selectedYear}
+                onChange={handleYearChange}
+                disabled={availableYears.length === 0}
                 style={{
                   padding: "10px 14px",
                   borderRadius: "8px",
                   border: "1px solid #cbd5e1",
-                  backgroundColor: timeSteps.length === 0 ? "#f1f5f9" : "#fff",
+                  backgroundColor: availableYears.length === 0 ? "#f1f5f9" : "#fff",
                   fontSize: "14px",
                   color: "#1e293b",
                   outline: "none",
                   boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                  cursor: timeSteps.length === 0 ? "not-allowed" : "pointer",
+                  cursor: availableYears.length === 0 ? "not-allowed" : "pointer",
                 }}
               >
-                {timeSteps.length === 0 ? (
-                  <option value="">Không có mốc thời gian nào</option>
+                {availableYears.length === 0 ? (
+                  <option value="">N/A</option>
                 ) : (
-                  timeSteps.map((t) => (
-                    <option key={t} value={t}>
-                      {formatDate(t)}
+                  availableYears.map((yr) => (
+                    <option key={yr} value={yr}>
+                      {yr}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* Month Dropdown */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label style={{ fontWeight: 600, color: "#475569", fontSize: "13px" }}>
+                Chọn tháng:
+              </label>
+              <select
+                value={selectedMonth}
+                onChange={handleMonthChange}
+                disabled={availableMonths.length === 0}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  backgroundColor: availableMonths.length === 0 ? "#f1f5f9" : "#fff",
+                  fontSize: "14px",
+                  color: "#1e293b",
+                  outline: "none",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  cursor: availableMonths.length === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                {availableMonths.length === 0 ? (
+                  <option value="">N/A</option>
+                ) : (
+                  availableMonths.map((m) => (
+                    <option key={m} value={m}>
+                      Tháng {m}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* Day Dropdown */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label style={{ fontWeight: 600, color: "#475569", fontSize: "13px" }}>
+                Chọn ngày:
+              </label>
+              <select
+                value={selectedDay}
+                onChange={handleDayChange}
+                disabled={availableDays.length === 0}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  backgroundColor: availableDays.length === 0 ? "#f1f5f9" : "#fff",
+                  fontSize: "14px",
+                  color: "#1e293b",
+                  outline: "none",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  cursor: availableDays.length === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                {availableDays.length === 0 ? (
+                  <option value="">N/A</option>
+                ) : (
+                  availableDays.map((d) => (
+                    <option key={d} value={d}>
+                      Ngày {d}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* Hour Dropdown */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label style={{ fontWeight: 600, color: "#475569", fontSize: "13px" }}>
+                Chọn giờ (UTC):
+              </label>
+              <select
+                value={selectedHour}
+                onChange={handleHourChange}
+                disabled={availableHours.length === 0}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  backgroundColor: availableHours.length === 0 ? "#f1f5f9" : "#fff",
+                  fontSize: "14px",
+                  color: "#1e293b",
+                  outline: "none",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  cursor: availableHours.length === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                {availableHours.length === 0 ? (
+                  <option value="">N/A</option>
+                ) : (
+                  availableHours.map((hr) => (
+                    <option key={hr} value={hr}>
+                      {hr}
                     </option>
                   ))
                 )}
