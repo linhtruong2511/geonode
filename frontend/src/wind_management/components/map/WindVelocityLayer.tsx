@@ -91,17 +91,17 @@ export const WindVelocityLayer: React.FC = () => {
   }, [currentTime, activeGridLayers, mapBounds]);
 
   useEffect(() => {
-    // Cleanup previous layers
-    if (velocityLayerRef.current) {
-      map.removeLayer(velocityLayerRef.current);
-      velocityLayerRef.current = null;
+    if (!data || !data.u || data.u.length === 0) {
+      if (velocityLayerRef.current) {
+        map.removeLayer(velocityLayerRef.current);
+        velocityLayerRef.current = null;
+      }
+      if (heatmapLayerRef.current) {
+        map.removeLayer(heatmapLayerRef.current);
+        heatmapLayerRef.current = null;
+      }
+      return;
     }
-    if (heatmapLayerRef.current) {
-      map.removeLayer(heatmapLayerRef.current);
-      heatmapLayerRef.current = null;
-    }
-
-    if (!data || !data.u || data.u.length === 0) return;
 
     const { lats, lons, u, v } = data;
     const nx = lons.length;
@@ -151,7 +151,14 @@ export const WindVelocityLayer: React.FC = () => {
     const minLon = Math.min(...lons);
     const maxLon = Math.max(...lons);
 
-    // 2. Create and add Grid-based Heatmap Layer (Canvas)
+    // Keep track of old layers
+    const oldHeatmap = heatmapLayerRef.current;
+    const oldVelocity = velocityLayerRef.current;
+
+    let newHeatmapLayer: any = null;
+    let newVelocityLayer: any = null;
+
+    // 2. Create Grid-based Heatmap Layer (Canvas)
     try {
       const HeatmapCanvasLayer = (L.GridLayer as any).extend({
         createTile: function (coords: any) {
@@ -181,14 +188,14 @@ export const WindVelocityLayer: React.FC = () => {
         }
       });
 
-      const heatmapLayer = new HeatmapCanvasLayer();
-      heatmapLayer.addTo(map);
-      heatmapLayerRef.current = heatmapLayer;
+      newHeatmapLayer = new HeatmapCanvasLayer();
+      newHeatmapLayer.addTo(map);
+      heatmapLayerRef.current = newHeatmapLayer;
     } catch (e) {
       console.error("Error creating heatmap grid layer:", e);
     }
 
-    // 3. Create and add Velocity flow Layer (Leaflet Velocity)
+    // 3. Create Velocity flow Layer (Leaflet Velocity)
     const uData = [];
     const vData = [];
 
@@ -233,7 +240,7 @@ export const WindVelocityLayer: React.FC = () => {
     ];
 
     try {
-      const velocityLayer = (L as any).velocityLayer({
+      newVelocityLayer = (L as any).velocityLayer({
         displayValues: true,
         displayOptions: {
           velocityType: "Global Wind",
@@ -245,21 +252,24 @@ export const WindVelocityLayer: React.FC = () => {
         velocityScale: 0.005,
       });
 
-      velocityLayer.addTo(map);
-      velocityLayerRef.current = velocityLayer;
+      newVelocityLayer.addTo(map);
+      velocityLayerRef.current = newVelocityLayer;
     } catch (e) {
       console.error("Error creating velocity layer:", e);
     }
 
+    // Safely remove old layers after the new layers have been mounted and painted
+    const cleanupTimeout = setTimeout(() => {
+      if (oldHeatmap && map.hasLayer(oldHeatmap)) {
+        map.removeLayer(oldHeatmap);
+      }
+      if (oldVelocity && map.hasLayer(oldVelocity)) {
+        map.removeLayer(oldVelocity);
+      }
+    }, 80);
+
     return () => {
-      if (velocityLayerRef.current) {
-        map.removeLayer(velocityLayerRef.current);
-        velocityLayerRef.current = null;
-      }
-      if (heatmapLayerRef.current) {
-        map.removeLayer(heatmapLayerRef.current);
-        heatmapLayerRef.current = null;
-      }
+      clearTimeout(cleanupTimeout);
     };
   }, [data, map]);
 
