@@ -142,7 +142,7 @@ const WindMapMarkersWrapper: React.FC = () => {
 
 const navLinks: NavLinkDef[] = [
   { to: "/", icon: "fa-dashboard", label: "Dashboard" },
-  { to: "/stations", icon: "fa-broadcast-tower", label: "Stations" },
+  { to: "/stations", icon: "fa-location-arrow", label: "Stations" },
   { to: "/grid", icon: "fa-th", label: "Gridded Data" },
   { to: "/events", icon: "fa-hurricane", label: "Meteorological Events" },
   { to: "/data", icon: "fa-table", label: "Data Query" },

@@ -77,6 +77,7 @@ Long-running tasks (e.g., AI analysis, remote data polling, large GeoNode upload
 ### 5. UI/UX Consistency
 - Inherit from `mining_detection/templates/mining_detection/app_base.html` for custom operational pages.
 - Use the existing card and toolbar patterns to maintain a cohesive look.
+- Project using Bootstrap 3, you can using them
 
 ## 🔍 Key Integration Points
 - **AI Service:** Integration layer in `src/mining_detection/services.py`.
