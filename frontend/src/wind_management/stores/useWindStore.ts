@@ -25,6 +25,9 @@ interface WindState {
   // Map settings
   showStations: boolean;
   gridOpacity: number;
+  
+  // Selected Dataset ID (e.g. for raster rendering)
+  selectedDatasetId: number | string | null;
 
   // Actions
   setCurrentTime: (time: string | null) => void;
@@ -42,6 +45,7 @@ interface WindState {
   setSelectedGridPoint: (point: { lat: number, lng: number } | null) => void;
   setShowStations: (show: boolean) => void;
   setGridOpacity: (opacity: number) => void;
+  setSelectedDatasetId: (id: number | string | null) => void;
 }
 
 export const useWindStore = create<WindState>((set) => ({
@@ -60,6 +64,7 @@ export const useWindStore = create<WindState>((set) => ({
   selectedGridPoint: null,
   showStations: true,
   gridOpacity: 0.8,
+  selectedDatasetId: null,
 
   setCurrentTime: (time) => set({ currentTime: time }),
   setAvailableTimes: (times) => set({ availableTimes: times }),
@@ -80,4 +85,6 @@ export const useWindStore = create<WindState>((set) => ({
   setSelectedGridPoint: (point) => set({ selectedGridPoint: point }),
   setShowStations: (show) => set({ showStations: show }),
   setGridOpacity: (opacity) => set({ gridOpacity: opacity }),
+  setSelectedDatasetId: (id) => set({ selectedDatasetId: id }),
 }));
+

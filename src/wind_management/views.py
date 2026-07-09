@@ -11,6 +11,7 @@ from rest_framework_gis.filters import InBBoxFilter
 from rest_framework.pagination import PageNumberPagination
 from django.db.models.functions import TruncMonth, TruncYear
 from django.db.models import Avg, Max, Min, Count, Aggregate, FloatField
+from .services import get_netcdf_data
 
 
 class Median(Aggregate):
@@ -149,10 +150,8 @@ class StationViewSet(viewsets.ReadOnlyModelViewSet):
         station = self.get_object()
 
         # Lọc ra danh sách đo đạc của trạm này
-        observations = (
-            Observation.objects.filter(station=station)
-        )
-        
+        observations = Observation.objects.filter(station=station)
+
         if start_date:
             observations = observations.filter(obs_time__gte=start_date)
         if end_date:
@@ -220,7 +219,7 @@ class StationViewSet(viewsets.ReadOnlyModelViewSet):
     def yearly_summary(self, request, pk=None):
         # Lấy thông tin trạm hiện tại
         station = self.get_object()
-        
+
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
 
@@ -365,7 +364,7 @@ class RasterGranuleIndexViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = StandardResultsSetPagination
     bbox_filter_field = "footprint"
     filter_backends = [filters.DjangoFilterBackend, InBBoxFilter]
-    filterset_fields = ["dataset", "variable_code"]
+    filterset_fields = ["dataset", "variable_code", "granule_time"]
 
     @action(detail=False, methods=["get"])
     def point_metadata(self, request):
@@ -408,8 +407,7 @@ class RasterGranuleIndexViewSet(viewsets.ReadOnlyModelViewSet):
 
         # 2. Minimum and maximum granule_time
         time_bounds = queryset.aggregate(
-            min_time=Min("granule_time"),
-            max_time=Max("granule_time")
+            min_time=Min("granule_time"), max_time=Max("granule_time")
         )
         min_granule_time = time_bounds.get("min_time")
         max_granule_time = time_bounds.get("max_time")
@@ -424,7 +422,7 @@ class RasterGranuleIndexViewSet(viewsets.ReadOnlyModelViewSet):
             {
                 "dataset_code": item["dataset__code"],
                 "dataset_name": item["dataset__name"],
-                "count": item["count"]
+                "count": item["count"],
             }
             for item in dataset_counts
         ]
@@ -437,24 +435,35 @@ class RasterGranuleIndexViewSet(viewsets.ReadOnlyModelViewSet):
             .exclude(variable_code="")
         )
 
-        return Response({
-            "total_granules": total_granules,
-            "min_granule_time": min_granule_time,
-            "max_granule_time": max_granule_time,
-            "datasets": datasets,
-            "unique_variable_codes": unique_variable_codes
-        })
+        return Response(
+            {
+                "total_granules": total_granules,
+                "min_granule_time": min_granule_time,
+                "max_granule_time": max_granule_time,
+                "datasets": datasets,
+                "unique_variable_codes": unique_variable_codes,
+            }
+        )
 
-    @action(detail=True, methods=["get"])
-    def data(self, request, pk=None):
+    @action(detail=False, methods=["get"])
+    def data(self, request):
         """
         API to extract raw/sliced/downsampled NetCDF grid values for wind vector & heatmap plotting.
+
         Query parameters:
         - step: Downsampling factor (int, default=1, e.g. step=2 retrieves every 2nd grid point)
         - bbox: Bounding box coordinates (string, format 'min_lon,min_lat,max_lon,max_lat')
         - variable_code: Override default wind component variables
         """
-        granule = self.get_object()
+        time = request.query_params.get("time")
+        if time is None:
+            granule = RasterGranuleIndex.objects.order_by("-granule_time").first()
+        else:
+            granule = RasterGranuleIndex.objects.filter(granule_time__gte=time).first()
+
+        if granule is None:
+            return Response({"error": "No granules found"}, status=404)
+        
         file_location = granule.file_location
 
         # Parse step
@@ -478,13 +487,14 @@ class RasterGranuleIndexViewSet(viewsets.ReadOnlyModelViewSet):
                 bbox = None
 
         # Parse variable code override
-        variable_code = request.query_params.get("variable_code") or granule.variable_code
+        variable_code = (
+            request.query_params.get("variable_code") or granule.variable_code
+        )
 
-        from .services import get_netcdf_data
         try:
-            data = get_netcdf_data(file_location, bbox=bbox, step=step, variable_code=variable_code)
+            data = get_netcdf_data(
+                file_location, bbox=bbox, step=step, variable_code=variable_code
+            )
             return Response(data)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
-
-

@@ -12,11 +12,11 @@ import { SharedLayout, type NavLinkDef } from "@common/components/SharedLayout";
 import { StormTrackLayer } from "./components/map/StormTrackLayer";
 import { SplitMapControl } from "./components/map/SplitMapControl";
 import { StationClusterLayer } from "./components/map/StationClusterLayer";
+import { WindVelocityLayer } from "./components/map/WindVelocityLayer";
 import { LayersControl, WMSTileLayer, useMapEvents } from "react-leaflet";
 import { useWindStore } from "./stores/useWindStore";
 
-// New Controls & Overlays
-import { TimeSliderControl } from "./components/controls/TimeSliderControl";
+
 import { QuerySidebar } from "./components/controls/QuerySidebar";
 import { EventSelector } from "./components/controls/EventSelector";
 // import { LayerControlPanel } from "./components/controls/LayerControlPanel";
@@ -135,7 +135,7 @@ const WindMapMarkersWrapper: React.FC = () => {
       <StormTrackLayer />
       <SplitMapControl />
       {location.pathname.startsWith('/stations') && <StationClusterLayer />}
-      {location.pathname === '/grid' && <TimeSliderControl />}
+      {location.pathname === '/grid' && <WindVelocityLayer />}
     </>
   );
 };

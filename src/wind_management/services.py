@@ -20,12 +20,9 @@ def get_netcdf_data(file_location, bbox=None, step=1, variable_code=None):
 
     with xr.open_dataset(file_location) as ds:
         # Detect lat and lon coordinate names
-        lon_name = next((c for c in ['lon', 'longitude'] if c in ds.coords), None)
-        lat_name = next((c for c in ['lat', 'latitude'] if c in ds.coords), None)
-
-        if not lon_name or not lat_name:
-            raise ValueError("Coordinates lon/longitude or lat/latitude not found in NetCDF dataset.")
-
+        lon_name = 'lon'
+        lat_name = 'lat'
+        
         # Detect variables
         u_name = None
         v_name = None

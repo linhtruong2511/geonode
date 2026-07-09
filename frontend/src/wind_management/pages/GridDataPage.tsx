@@ -21,19 +21,22 @@ const formatDate = (dateStr: string | null) => {
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("vi-VN", {
+    return d.toLocaleString("vi-VN", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch (e) {
     return dateStr;
   }
 };
-
 const GridDataPage: React.FC = () => {
-  const { activeGridLayers, toggleGridLayer } = useWindStore();
+  const { activeGridLayers, toggleGridLayer, currentTime, setCurrentTime, selectedDatasetId, setSelectedDatasetId } = useWindStore();
   const [summary, setSummary] = useState<SummaryData | null>(null);
+  const [datasetsList, setDatasetsList] = useState<any[]>([]);
+  const [timeSteps, setTimeSteps] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,18 +48,67 @@ const GridDataPage: React.FC = () => {
 
     setLoading(true);
     setError(null);
+
+    // Fetch summary metrics
     axios
-      .get<SummaryData>("/wind/api/v1/raster-granule/summary/")
+      .get<SummaryData>("/wind/api/v1/raster-granules/summary/")
       .then((res) => {
         setSummary(res.data);
-        setLoading(false);
       })
       .catch((err) => {
         console.error("Error fetching summary metrics:", err);
-        setError("Không thể tải thông tin tổng quan dữ liệu lưới.");
+      });
+
+    // Fetch available datasets
+    axios
+      .get("/wind/api/v1/datasets/")
+      .then((res) => {
+        const results = res.data.results || res.data;
+        setDatasetsList(results);
+        if (results.length > 0) {
+          setSelectedDatasetId(results[0].id);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching datasets:", err);
+        setError("Không thể tải danh sách bộ dữ liệu.");
         setLoading(false);
       });
   }, []);
+
+  // Fetch time steps when selected dataset changes
+  useEffect(() => {
+    if (!selectedDatasetId) return;
+
+    axios
+      .get(`/wind/api/v1/datasets/${selectedDatasetId}/time_steps/`)
+      .then((res) => {
+        const steps = res.data.time_steps || [];
+        setTimeSteps(steps);
+        if (steps.length > 0) {
+          // If current time is not in list, pick the first one
+          if (!currentTime || !steps.includes(currentTime)) {
+            setCurrentTime(steps[0]);
+          }
+        } else {
+          setCurrentTime(null);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching time steps:", err);
+      });
+  }, [selectedDatasetId]);
+
+  const handleDatasetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setSelectedDatasetId(val);
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setCurrentTime(val || null);
+  };
 
   return (
     <div
@@ -67,6 +119,86 @@ const GridDataPage: React.FC = () => {
         gap: "20px",
       }}
     >
+      {/* Time & Dataset Selector Panel */}
+      <div className="co2-card" style={{ margin: 0 }}>
+        <div className="co2-card-header" style={{ borderBottom: "1px solid #e2e8f0" }}>
+          <h3 style={{ display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+            <i className="fa fa-sliders-h" style={{ color: "#3b82f6" }}></i>
+            Bộ chọn dữ liệu & thời gian (Vịnh Bắc Bộ)
+          </h3>
+        </div>
+        <div className="co2-card-body" style={{ padding: "20px" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "20px",
+            }}
+          >
+            {/* Dataset Dropdown */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label style={{ fontWeight: 600, color: "#475569", fontSize: "13px" }}>
+                Chọn bộ dữ liệu:
+              </label>
+              <select
+                value={selectedDatasetId || ""}
+                onChange={handleDatasetChange}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  backgroundColor: "#fff",
+                  fontSize: "14px",
+                  color: "#1e293b",
+                  outline: "none",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  cursor: "pointer",
+                }}
+              >
+                {datasetsList.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Time Steps Dropdown */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label style={{ fontWeight: 600, color: "#475569", fontSize: "13px" }}>
+                Chọn thời gian dự báo:
+              </label>
+              <select
+                value={currentTime || ""}
+                onChange={handleTimeChange}
+                disabled={timeSteps.length === 0}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  backgroundColor: timeSteps.length === 0 ? "#f1f5f9" : "#fff",
+                  fontSize: "14px",
+                  color: "#1e293b",
+                  outline: "none",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  cursor: timeSteps.length === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                {timeSteps.length === 0 ? (
+                  <option value="">Không có mốc thời gian nào</option>
+                ) : (
+                  timeSteps.map((t) => (
+                    <option key={t} value={t}>
+                      {formatDate(t)}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Loading state */}
       {loading && (
         <div
