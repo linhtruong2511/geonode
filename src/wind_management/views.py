@@ -395,3 +395,96 @@ class RasterGranuleIndexViewSet(viewsets.ReadOnlyModelViewSet):
 
         serializer = self.get_serializer(granules, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """
+        API summary metrics of the RasterGranuleIndex records.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # 1. Total number of granules
+        total_granules = queryset.count()
+
+        # 2. Minimum and maximum granule_time
+        time_bounds = queryset.aggregate(
+            min_time=Min("granule_time"),
+            max_time=Max("granule_time")
+        )
+        min_granule_time = time_bounds.get("min_time")
+        max_granule_time = time_bounds.get("max_time")
+
+        # 3. Granule count grouped by dataset (dataset code, dataset name, count)
+        dataset_counts = (
+            queryset.values("dataset__code", "dataset__name")
+            .annotate(count=Count("id"))
+            .order_by("dataset__code")
+        )
+        datasets = [
+            {
+                "dataset_code": item["dataset__code"],
+                "dataset_name": item["dataset__name"],
+                "count": item["count"]
+            }
+            for item in dataset_counts
+        ]
+
+        # 4. List of unique variable codes
+        unique_variable_codes = list(
+            queryset.values_list("variable_code", flat=True)
+            .distinct()
+            .exclude(variable_code__isnull=True)
+            .exclude(variable_code="")
+        )
+
+        return Response({
+            "total_granules": total_granules,
+            "min_granule_time": min_granule_time,
+            "max_granule_time": max_granule_time,
+            "datasets": datasets,
+            "unique_variable_codes": unique_variable_codes
+        })
+
+    @action(detail=True, methods=["get"])
+    def data(self, request, pk=None):
+        """
+        API to extract raw/sliced/downsampled NetCDF grid values for wind vector & heatmap plotting.
+        Query parameters:
+        - step: Downsampling factor (int, default=1, e.g. step=2 retrieves every 2nd grid point)
+        - bbox: Bounding box coordinates (string, format 'min_lon,min_lat,max_lon,max_lat')
+        - variable_code: Override default wind component variables
+        """
+        granule = self.get_object()
+        file_location = granule.file_location
+
+        # Parse step
+        step = request.query_params.get("step", 1)
+        try:
+            step = int(step)
+            if step < 1:
+                step = 1
+        except ValueError:
+            step = 1
+
+        # Parse bbox
+        bbox = None
+        bbox_str = request.query_params.get("bbox")
+        if bbox_str:
+            try:
+                bbox = [float(x) for x in bbox_str.split(",")]
+                if len(bbox) != 4:
+                    bbox = None
+            except ValueError:
+                bbox = None
+
+        # Parse variable code override
+        variable_code = request.query_params.get("variable_code") or granule.variable_code
+
+        from .services import get_netcdf_data
+        try:
+            data = get_netcdf_data(file_location, bbox=bbox, step=step, variable_code=variable_code)
+            return Response(data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
+

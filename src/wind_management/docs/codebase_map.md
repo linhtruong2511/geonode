@@ -24,6 +24,7 @@ src/wind_management/
 │   └── kttv_bulk_import.py           # ETL nạp dữ liệu lịch sử trạm KTTV
 ├── models.py                         # Định nghĩa toàn bộ Models (Django ORM + GeoDjango)
 ├── views.py                          # Django REST Framework ViewSets (API endpoints)
+├── services.py                       # Chứa logic xử lý NetCDF (xarray, slicing, downsampling)
 ├── template_views.py                 # Django Class-Based Views cho trang giao diện chính
 ├── urls.py                           # Định tuyến URL cho API v1 và React App
 ├── serializers.py                    # Serializers chuyển đổi dữ liệu cho API REST
@@ -72,6 +73,7 @@ Tất cả các API REST nằm dưới đường dẫn: `/wind/api/v1/` (hoặc 
 | `api/v1/observations/` | [ObservationViewSet](file:///D:/Research/Geonode/geonode-project/src/wind_management/urls.py#L14) | Tìm kiếm số liệu đo đạc lịch sử của trạm theo khoảng thời gian |
 | `api/v1/events/` | [MeteorologicalEventViewSet](file:///D:/Research/Geonode/geonode-project/src/wind_management/urls.py#L15) | Truy xuất danh sách cơn bão, không khí lạnh và track tâm bão |
 | `api/v1/raster-granules/` | [RasterGranuleIndexViewSet](file:///D:/Research/Geonode/geonode-project/src/wind_management/urls.py#L16) | Tra cứu metadata và đường dẫn của các tệp NetCDF theo lưới tọa độ/thời gian |
+| `api/v1/raster-granules/<id>/data/` | [RasterGranuleIndexViewSet](file:///D:/Research/Geonode/geonode-project/src/wind_management/views.py#L445) | Đọc, cắt (bbox) và downsample lưới dữ liệu NetCDF trả về định dạng ma trận lưới u, v |
 
 ---
 

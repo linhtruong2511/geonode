@@ -106,26 +106,26 @@ def import_metadata(base_dir, dataset, filename_prefix='', time_format='%Y%m%d%H
     print(f"Completed {dataset.code}! Total granules inserted/processed: {count}/{total_files}")
 
 def main():
-    # ERA5
-    era5_dataset, _ = Dataset.objects.get_or_create(
-        code='era5',
+    # WRF 3km
+    wrf_dataset, _ = Dataset.objects.get_or_create(
+        code='wrf3km',
         defaults={
-            'name': 'ERA5 Reanalysis',
+            'name': 'WRF 3km Regional Model',
             'category': 'GRIDDED',
-            'description': 'ECMWF Global Reanalysis Data (Flipped).',
-            'source_provider': 'Copernicus',
-            'temporal_resolution': '6-hourly',
-            # Set spatial extent to Gulf of Tonkin (Vịnh Bắc Bộ)
+            'description': 'High resolution weather model for Vietnam and East Sea.',
+            'source_provider': 'VNMHA',
+            'temporal_resolution': 'hourly',
+            # Spatial extent for Gulf of Tonkin (Vịnh Bắc Bộ)
             'spatial_extent': Polygon.from_bbox((105.0, 17.0, 110.0, 21.0))
         }
     )
     
-    # Use environment variable or default to Docker container path for era5flip
-    era5_dir = os.environ.get('ERA5_DATA_DIR', '/data/winds/era5flip')
-    if os.path.exists(era5_dir):
-        import_metadata(era5_dir, era5_dataset, filename_prefix='era_wind_', time_format='%Y%m%d%H')
+    # Use environment variable or default to Docker container path for wrf3km_cut
+    wrf_dir = os.environ.get('WRF_DATA_DIR', '/data/winds/wrf3km_cut')
+    if os.path.exists(wrf_dir):
+        import_metadata(wrf_dir, wrf_dataset, filename_prefix='', time_format='%Y%m%d%H')
     else:
-        print(f"Directory {era5_dir} does not exist.")
+        print(f"Directory {wrf_dir} does not exist.")
 
 if __name__ == "__main__":
     main()
