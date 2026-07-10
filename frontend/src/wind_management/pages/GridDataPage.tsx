@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { useWindStore } from "../stores/useWindStore";
 
@@ -34,7 +34,7 @@ const formatDate = (dateStr: string | null) => {
 };
 
 const GridDataPage: React.FC = () => {
-  const { activeGridLayers, toggleGridLayer, setCurrentTime, selectedDatasetId, setSelectedDatasetId } = useWindStore();
+  const { activeGridLayers, setCurrentTime, selectedDatasetId, setSelectedDatasetId, setDatasetVariables, datasetVariables, setActiveGridLayers } = useWindStore();
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [datasetsList, setDatasetsList] = useState<any[]>([]);
   const [timeSteps, setTimeSteps] = useState<string[]>([]);
@@ -86,10 +86,60 @@ const GridDataPage: React.FC = () => {
     )
   ).sort();
 
+  // Group variables into u/v combos or single variables
+  const variableCombos = useMemo(() => {
+    const combos: { value: string; label: string }[] = [];
+    const processed = new Set<string>();
+
+    datasetVariables.forEach((v) => {
+      const code = v.variable_code;
+      if (processed.has(code)) return;
+
+      if (code.startsWith("u")) {
+        const suffix = code.slice(1);
+        const companion = `v${suffix}`;
+        const companionVar = datasetVariables.find((x) => x.variable_code === companion);
+
+        if (companionVar) {
+          combos.push({
+            value: `${code},${companion}`,
+            label: `Trường gió ${suffix} (${code} & ${companion})`,
+          });
+          processed.add(code);
+          processed.add(companion);
+          return;
+        }
+      } else if (code.startsWith("v")) {
+        const suffix = code.slice(1);
+        const companion = `u${suffix}`;
+        const companionVar = datasetVariables.find((x) => x.variable_code === companion);
+
+        if (companionVar) {
+          combos.push({
+            value: `${companion},${code}`,
+            label: `Trường gió ${suffix} (${companion} & ${code})`,
+          });
+          processed.add(code);
+          processed.add(companion);
+          return;
+        }
+      }
+
+      // Single variable
+      combos.push({
+        value: code,
+        label: `${v.variable_name} (${code})`,
+      });
+      processed.add(code);
+    });
+
+    return combos;
+  }, [datasetVariables]);
+
   useEffect(() => {
-    // Tự động bật u10m (gió) khi người dùng truy cập trang này
+    // Tự động bật u10m & v10m (gió) khi người dùng truy cập trang này
     if (activeGridLayers.length === 0) {
-      toggleGridLayer("u10m");
+      setActiveGridLayers(["u10m", "v10m"]);
     }
 
     setLoading(true);
@@ -107,7 +157,7 @@ const GridDataPage: React.FC = () => {
 
     // Fetch available datasets
     axios
-      .get("/wind/api/v1/datasets/")
+      .get("/wind/api/v1/datasets/?category=GRIDDED")
       .then((res) => {
         const results = res.data.results || res.data;
         setDatasetsList(results);
@@ -123,9 +173,11 @@ const GridDataPage: React.FC = () => {
       });
   }, []);
 
-  // Fetch time steps when selected dataset changes
+  // Fetch time steps and variables when selected dataset changes
   useEffect(() => {
     if (!selectedDatasetId) return;
+
+    setCurrentTime(null);
 
     axios
       .get(`/wind/api/v1/datasets/${selectedDatasetId}/time_steps/`)
@@ -136,7 +188,29 @@ const GridDataPage: React.FC = () => {
       .catch((err) => {
         console.error("Error fetching time steps:", err);
       });
+
+    axios
+      .get(`/wind/api/v1/datasets/${selectedDatasetId}/get_variables/`)
+      .then((res) => {
+        const vars = res.data.variables || [];
+        setDatasetVariables(vars);
+      })
+      .catch((err) => {
+        console.error("Error fetching dataset variables:", err);
+      });
   }, [selectedDatasetId]);
+
+  // Set default variable when datasetVariables changes
+  useEffect(() => {
+    if (variableCombos.length > 0) {
+      // Check if current active layer matches any valid variable in this dataset
+      const isValid = activeGridLayers.some(l => datasetVariables.some(v => v.variable_code === l));
+      if (!isValid) {
+        const defaultVal = variableCombos[0].value;
+        setActiveGridLayers(defaultVal.split(","));
+      }
+    }
+  }, [variableCombos, datasetVariables]);
 
   // Set default selection when timeSteps changes
   useEffect(() => {
@@ -259,7 +333,7 @@ const GridDataPage: React.FC = () => {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
               gap: "20px",
             }}
           >
@@ -417,6 +491,53 @@ const GridDataPage: React.FC = () => {
                   availableHours.map((hr) => (
                     <option key={hr} value={hr}>
                       {hr}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* Variable Dropdown */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label style={{ fontWeight: 600, color: "#475569", fontSize: "13px" }}>
+                Chọn lớp dữ liệu hiển thị:
+              </label>
+              <select
+                value={(() => {
+                  if (activeGridLayers.length === 0) return "";
+                  const match = variableCombos.find((c: { value: string; label: string }) => {
+                    const parts = c.value.split(",");
+                    return parts.every((p: string) => activeGridLayers.includes(p));
+                  });
+                  return match ? match.value : activeGridLayers[0];
+                })()}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val) {
+                    setActiveGridLayers(val.split(","));
+                  } else {
+                    setActiveGridLayers([]);
+                  }
+                }}
+                disabled={variableCombos.length === 0}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  backgroundColor: variableCombos.length === 0 ? "#f1f5f9" : "#fff",
+                  fontSize: "14px",
+                  color: "#1e293b",
+                  outline: "none",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  cursor: variableCombos.length === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                {variableCombos.length === 0 ? (
+                  <option value="">Không có lớp dữ liệu nào</option>
+                ) : (
+                  variableCombos.map((c: { value: string; label: string }) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
                     </option>
                   ))
                 )}

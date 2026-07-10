@@ -11,10 +11,19 @@ export const WindVelocityLayer: React.FC = () => {
   const map = useMap();
   const currentTime = useWindStore((state) => state.currentTime);
   const activeGridLayers = useWindStore((state) => state.activeGridLayers);
+  const datasetVariables = useWindStore((state) => state.datasetVariables);
   const mapBounds = useMapStore((state) => state.mapBounds);
   const velocityLayerRef = useRef<any>(null);
   const heatmapLayerRef = useRef<any>(null);
   const [data, setData] = useState<any>(null);
+  const setCurrentGridData = useWindStore((state) => state.setCurrentGridData);
+
+  useEffect(() => {
+    setCurrentGridData(data);
+    return () => {
+      setCurrentGridData(null);
+    };
+  }, [data, setCurrentGridData]);
 
   // Bounds for Gulf of Tonkin (Vịnh Bắc Bộ)
   const GULF_OF_TONKIN_BBOX = {
@@ -35,7 +44,36 @@ export const WindVelocityLayer: React.FC = () => {
     };
   }, [map]);
 
+  const selectedDatasetId = useWindStore((state) => state.selectedDatasetId);
+  const lastDatasetIdRef = useRef<string | number | null>(null);
+
   useEffect(() => {
+    return () => {
+      if (velocityLayerRef.current) {
+        map.removeLayer(velocityLayerRef.current);
+        velocityLayerRef.current = null;
+      }
+      if (heatmapLayerRef.current) {
+        map.removeLayer(heatmapLayerRef.current);
+        heatmapLayerRef.current = null;
+      }
+    };
+  }, [map]);
+
+  useEffect(() => {
+    // If dataset changes, immediately clear data and remove layers to prevent stacking
+    if (selectedDatasetId !== lastDatasetIdRef.current) {
+      lastDatasetIdRef.current = selectedDatasetId;
+      if (velocityLayerRef.current) {
+        map.removeLayer(velocityLayerRef.current);
+        velocityLayerRef.current = null;
+      }
+      if (heatmapLayerRef.current) {
+        map.removeLayer(heatmapLayerRef.current);
+        heatmapLayerRef.current = null;
+      }
+      setData(null);
+    }
     if (!currentTime || activeGridLayers.length === 0) {
       if (velocityLayerRef.current) {
         map.removeLayer(velocityLayerRef.current);
@@ -46,6 +84,39 @@ export const WindVelocityLayer: React.FC = () => {
         heatmapLayerRef.current = null;
       }
       setData(null);
+      return;
+    }
+
+    // Determine u and v parameters based on activeVar and datasetVariables
+    const activeVar = activeGridLayers[0];
+    let uParam: string | undefined = undefined;
+    let vParam: string | undefined = undefined;
+
+    if (activeVar) {
+      if (activeVar.startsWith("u")) {
+        uParam = activeVar;
+        const suffix = activeVar.slice(1);
+        vParam = `v${suffix}`;
+      } else if (activeVar.startsWith("v")) {
+        vParam = activeVar;
+        const suffix = activeVar.slice(1);
+        uParam = `u${suffix}`;
+      } else {
+        uParam = activeVar;
+      }
+    }
+
+    // Validate existence in loaded variables
+    const validCodes = datasetVariables.map(v => v.variable_code);
+    if (uParam && validCodes.length > 0 && !validCodes.includes(uParam)) {
+      uParam = undefined;
+    }
+    if (vParam && validCodes.length > 0 && !validCodes.includes(vParam)) {
+      vParam = undefined;
+    }
+
+    // Must have at least one valid parameter
+    if (!uParam && !vParam) {
       return;
     }
 
@@ -72,26 +143,28 @@ export const WindVelocityLayer: React.FC = () => {
 
     const bboxStr = `${minLon},${minLat},${maxLon},${maxLat}`;
 
+    // Build query params
+    const params: any = {
+      time: currentTime,
+      bbox: bboxStr,
+      step: 1,
+    };
+    if (uParam) params.u = uParam;
+    if (vParam) params.v = vParam;
+
     // Fetch raw grid data using the detail=False action which accepts time directly
     axios
-      .get("/wind/api/v1/raster-granules/data/", {
-        params: {
-          time: currentTime,
-          bbox: bboxStr,
-          step: 1,
-          variable_code: activeGridLayers[0],
-        },
-      })
+      .get("/wind/api/v1/raster-granules/data/", { params })
       .then((dataRes) => {
         setData(dataRes.data);
       })
       .catch((err) => {
         console.error("Error fetching wind velocity grid data:", err);
       });
-  }, [currentTime, activeGridLayers, mapBounds]);
+  }, [currentTime, activeGridLayers, datasetVariables, mapBounds, selectedDatasetId]);
 
   useEffect(() => {
-    if (!data || !data.u || data.u.length === 0) {
+    if (!data || (!data.u && !data.v)) {
       if (velocityLayerRef.current) {
         map.removeLayer(velocityLayerRef.current);
         velocityLayerRef.current = null;
@@ -113,14 +186,21 @@ export const WindVelocityLayer: React.FC = () => {
     const dx = nx > 1 ? (lo2 - lo1) / (nx - 1) : 0;
     const dy = ny > 1 ? Math.abs(la1 - la2) / (ny - 1) : 0;
 
+    const hasU = u && u.length > 0;
+    const hasV = v && v.length > 0;
+
     // Speeds matrix
     const speeds: number[][] = [];
     for (let r = 0; r < ny; r++) {
       speeds[r] = [];
       for (let c = 0; c < nx; c++) {
-        const uVal = u[r][c] || 0;
-        const vVal = v && v[r] ? (v[r][c] || 0) : 0;
-        speeds[r][c] = Math.sqrt(uVal * uVal + vVal * vVal);
+        const uVal = hasU ? (u[r][c] || 0) : 0;
+        const vVal = hasV ? (v[r][c] || 0) : 0;
+        if (hasU && hasV) {
+          speeds[r][c] = Math.sqrt(uVal * uVal + vVal * vVal);
+        } else {
+          speeds[r][c] = hasU ? Math.abs(uVal) : Math.abs(vVal);
+        }
       }
     }
 
@@ -161,6 +241,9 @@ export const WindVelocityLayer: React.FC = () => {
     // 2. Create Grid-based Heatmap Layer (Canvas)
     try {
       const HeatmapCanvasLayer = (L.GridLayer as any).extend({
+        options: {
+          pane: "overlayPane",
+        },
         createTile: function (coords: any) {
           const tile = L.DomUtil.create("canvas", "leaflet-tile");
           const size = this.getTileSize();
@@ -195,67 +278,69 @@ export const WindVelocityLayer: React.FC = () => {
       console.error("Error creating heatmap grid layer:", e);
     }
 
-    // 3. Create Velocity flow Layer (Leaflet Velocity)
-    const uData = [];
-    const vData = [];
+    // 3. Create Velocity flow Layer (Leaflet Velocity) if both U and V are available
+    if (hasU && hasV) {
+      const uData = [];
+      const vData = [];
 
-    for (let r = 0; r < ny; r++) {
-      for (let c = 0; c < nx; c++) {
-        uData.push(u[r][c] !== null ? u[r][c] : 0);
-        vData.push(v && v[r] ? (v[r][c] !== null ? v[r][c] : 0) : 0);
+      for (let r = 0; r < ny; r++) {
+        for (let c = 0; c < nx; c++) {
+          uData.push(u[r][c] !== null ? u[r][c] : 0);
+          vData.push(v[r][c] !== null ? v[r][c] : 0);
+        }
       }
-    }
 
-    const velocityData = [
-      {
-        header: {
-          parameterCategory: 2,
-          parameterNumber: 2,
-          nx,
-          ny,
-          lo1,
-          la1,
-          lo2,
-          la2,
-          dx,
-          dy,
+      const velocityData = [
+        {
+          header: {
+            parameterCategory: 2,
+            parameterNumber: 2,
+            nx,
+            ny,
+            lo1,
+            la1,
+            lo2,
+            la2,
+            dx,
+            dy,
+          },
+          data: uData,
         },
-        data: uData,
-      },
-      {
-        header: {
-          parameterCategory: 2,
-          parameterNumber: 3,
-          nx,
-          ny,
-          lo1,
-          la1,
-          lo2,
-          la2,
-          dx,
-          dy,
+        {
+          header: {
+            parameterCategory: 2,
+            parameterNumber: 3,
+            nx,
+            ny,
+            lo1,
+            la1,
+            lo2,
+            la2,
+            dx,
+            dy,
+          },
+          data: vData,
         },
-        data: vData,
-      },
-    ];
+      ];
 
-    try {
-      newVelocityLayer = (L as any).velocityLayer({
-        displayValues: true,
-        displayOptions: {
-          velocityType: "Global Wind",
-          position: "bottomleft",
-          emptyString: "No wind data",
-        },
-        data: velocityData,
-        maxVelocity: 15,
-        velocityScale: 0.005,
-      });
+      try {
+        newVelocityLayer = (L as any).velocityLayer({
+          displayValues: true,
+          displayOptions: {
+            velocityType: "Global Wind",
+            position: "bottomleft",
+            emptyString: "No wind data",
+          },
+          data: velocityData,
+          maxVelocity: 15,
+          velocityScale: 0.005,
+        });
 
-      newVelocityLayer.addTo(map);
-      velocityLayerRef.current = newVelocityLayer;
-    } catch (e) {
-      console.error("Error creating velocity layer:", e);
+        newVelocityLayer.addTo(map);
+        velocityLayerRef.current = newVelocityLayer;
+      } catch (e) {
+        console.error("Error creating velocity layer:", e);
+      }
     }
 
     // Safely remove old layers after the new layers have been mounted and painted

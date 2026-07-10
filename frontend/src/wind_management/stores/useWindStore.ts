@@ -28,6 +28,12 @@ interface WindState {
   
   // Selected Dataset ID (e.g. for raster rendering)
   selectedDatasetId: number | string | null;
+  
+  // Shared current grid raster data
+  currentGridData: any | null;
+
+  // Dataset Variables from get_variables API
+  datasetVariables: any[];
 
   // Actions
   setCurrentTime: (time: string | null) => void;
@@ -46,6 +52,9 @@ interface WindState {
   setShowStations: (show: boolean) => void;
   setGridOpacity: (opacity: number) => void;
   setSelectedDatasetId: (id: number | string | null) => void;
+  setCurrentGridData: (data: any | null) => void;
+  setDatasetVariables: (variables: any[]) => void;
+  setActiveGridLayers: (layers: string[]) => void;
 }
 
 export const useWindStore = create<WindState>((set) => ({
@@ -65,6 +74,8 @@ export const useWindStore = create<WindState>((set) => ({
   showStations: true,
   gridOpacity: 0.8,
   selectedDatasetId: null,
+  currentGridData: null,
+  datasetVariables: [],
 
   setCurrentTime: (time) => set({ currentTime: time }),
   setAvailableTimes: (times) => set({ availableTimes: times }),
@@ -86,5 +97,8 @@ export const useWindStore = create<WindState>((set) => ({
   setShowStations: (show) => set({ showStations: show }),
   setGridOpacity: (opacity) => set({ gridOpacity: opacity }),
   setSelectedDatasetId: (id) => set({ selectedDatasetId: id }),
+  setCurrentGridData: (data) => set({ currentGridData: data }),
+  setDatasetVariables: (variables) => set({ datasetVariables: variables }),
+  setActiveGridLayers: (layers) => set({ activeGridLayers: layers }),
 }));
 

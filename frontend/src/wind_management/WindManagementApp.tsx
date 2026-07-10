@@ -1,12 +1,11 @@
-// import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import StationsPage from "./pages/StationsPage";
 import StationDetailPage from "./pages/StationDetailPage";
 import GridDataPage from "./pages/GridDataPage";
 import { SharedLayout, type NavLinkDef } from "@common/components/SharedLayout";
-// import { useMapStore } from "@common/stores/useMapStore";
-// import { useMapEvents } from "react-leaflet";
+import { useMapStore } from "@common/stores/useMapStore";
 
 // New Map Components
 import { StormTrackLayer } from "./components/map/StormTrackLayer";
@@ -107,7 +106,11 @@ const GridLayerSync: React.FC = () => {
 const WindMapOverlaysControl: React.FC = () => {
   const currentTime = useWindStore(state => state.currentTime);
   const gridOpacity = useWindStore(state => state.gridOpacity);
-  const layers = ['u10m', 'v10m', 'u100m', 'v100m'];
+  const datasetVariables = useWindStore(state => state.datasetVariables);
+  
+  const layers = datasetVariables.length > 0 
+    ? datasetVariables.map(v => v.variable_code)
+    : ['u10m', 'v10m', 'u100m', 'v100m']; // fallback to default ERA5 wind components
 
   return (
     <>
@@ -176,6 +179,175 @@ const DataQueryPage: React.FC = () => {
   );
 };
 
+const MapTopOverlay: React.FC = () => {
+  const location = useLocation();
+  const mapData = useMapStore((state) => state.mapData);
+  const currentGridData = useWindStore((state) => state.currentGridData);
+  const [mousePos, setMousePos] = useState<{ lat: number; lng: number } | null>(null);
+
+  useMapEvents({
+    mousemove: (e) => {
+      setMousePos(e.latlng);
+    },
+  });
+
+  // 1. Station statistics
+  const stationStats = useMemo(() => {
+    if (!location.pathname.startsWith("/stations") || !mapData || mapData.length === 0) return null;
+    
+    let max = -Infinity;
+    let min = Infinity;
+    
+    mapData.forEach((item) => {
+      const s = item.wind_speed;
+      if (typeof s === "number") {
+        if (s < min) min = s;
+        if (s > max) max = s;
+      }
+    });
+
+    return {
+      total: mapData.length,
+      max: max === -Infinity ? 0 : max,
+      min: min === Infinity ? 0 : min,
+    };
+  }, [mapData, location.pathname]);
+
+  // 2. Gridded Data mouse hover lookup
+  const hoveredGridValue = useMemo(() => {
+    if (location.pathname !== "/grid" || !currentGridData || !mousePos) return null;
+
+    const { lats, lons, u, v } = currentGridData;
+    if (!lats || !lons || !u || lats.length === 0 || lons.length === 0) return null;
+
+    // Find closest latitude index
+    let closestR = 0;
+    let minLatDiff = Infinity;
+    for (let r = 0; r < lats.length; r++) {
+      const diff = Math.abs(lats[r] - mousePos.lat);
+      if (diff < minLatDiff) {
+        minLatDiff = diff;
+        closestR = r;
+      }
+    }
+
+    // Find closest longitude index
+    let closestC = 0;
+    let minLonDiff = Infinity;
+    for (let c = 0; c < lons.length; c++) {
+      const diff = Math.abs(lons[c] - mousePos.lng);
+      if (diff < minLonDiff) {
+        minLonDiff = diff;
+        closestC = c;
+      }
+    }
+
+    // Lookup corresponding values
+    const uVal = u[closestR]?.[closestC];
+    const vVal = v?.[closestR]?.[closestC] || 0;
+
+    if (uVal === undefined || uVal === null) return null;
+
+    const speed = Math.sqrt(uVal * uVal + vVal * vVal);
+    // Meteorological wind direction (direction from which the wind blows)
+    const directionDeg = Math.round((Math.atan2(-uVal, -vVal) * 180 / Math.PI + 360) % 360);
+
+    return {
+      speed,
+      directionDeg,
+      lat: lats[closestR],
+      lon: lons[closestC]
+    };
+  }, [currentGridData, mousePos, location.pathname]);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "10px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 1000,
+        backgroundColor: "rgba(255, 255, 255, 0.95)",
+        padding: "8px 18px",
+        borderRadius: "8px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+        display: "flex",
+        gap: "16px",
+        alignItems: "center",
+        border: "1px solid #cbd5e1",
+        backdropFilter: "blur(4px)",
+        whiteSpace: "nowrap",
+        fontSize: "13px",
+        color: "#1e293b"
+      }}
+    >
+      {/* Stations Route Info */}
+      {location.pathname.startsWith("/stations") && (
+        <>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <span style={{ fontWeight: 600, color: "#475569" }}>Trạm quan trắc:</span>
+            <span className="badge" style={{ backgroundColor: "#3b82f6", color: "white", padding: "3px 8px", borderRadius: "12px", fontWeight: 700 }}>
+              {stationStats ? stationStats.total : 0} trạm
+            </span>
+          </div>
+          {stationStats && stationStats.total > 0 && (
+            <>
+              <div style={{ width: "1px", height: "20px", backgroundColor: "#e2e8f0" }}></div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <span style={{ color: "#64748b" }}>Gió mạnh nhất:</span>
+                <strong style={{ color: "#ef4444" }}>{stationStats.max.toFixed(1)} m/s</strong>
+              </div>
+              <div style={{ width: "1px", height: "20px", backgroundColor: "#e2e8f0" }}></div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <span style={{ color: "#64748b" }}>Gió nhẹ nhất:</span>
+                <strong style={{ color: "#10b981" }}>{stationStats.min.toFixed(1)} m/s</strong>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* Gridded Data Route Info */}
+      {location.pathname === "/grid" && (
+        <>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <span style={{ fontWeight: 600, color: "#475569" }}>Dữ liệu lưới (ERA5/WRF):</span>
+            {hoveredGridValue ? (
+              <>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <span style={{ color: "#64748b" }}>Tốc độ gió:</span>
+                  <strong style={{ color: "#3b82f6" }}>{hoveredGridValue.speed.toFixed(2)} m/s</strong>
+                </div>
+                <div style={{ width: "1px", height: "20px", backgroundColor: "#e2e8f0" }}></div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <span style={{ color: "#64748b" }}>Hướng gió:</span>
+                  <strong style={{ color: "#f59e0b" }}>{hoveredGridValue.directionDeg}°</strong>
+                </div>
+                <div style={{ width: "1px", height: "20px", backgroundColor: "#e2e8f0" }}></div>
+                <div style={{ display: "flex", gap: "6px", fontSize: "11px", color: "#64748b" }}>
+                  ({hoveredGridValue.lat.toFixed(3)}°, {hoveredGridValue.lon.toFixed(3)}°)
+                </div>
+              </>
+            ) : (
+              <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Di chuột lên vùng lưới để xem thông số</span>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* General Mouse Location crosshair */}
+      <div style={{ width: "1px", height: "20px", backgroundColor: "#e2e8f0" }}></div>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <i className="fa fa-crosshairs" style={{ color: "#64748b", fontSize: "12px" }}></i>
+        <div style={{ fontSize: "11px", fontWeight: 600, color: "#475569", minWidth: "110px" }}>
+          {mousePos ? `${mousePos.lat.toFixed(4)}°, ${mousePos.lng.toFixed(4)}°` : "Đang di chuyển..."}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const WindManagementApp: React.FC = () => {
   return (
     <HashRouter>
@@ -195,6 +367,7 @@ const AppContent: React.FC = () => {
         routeNames={routeNames}
         mapLegend={<WindMapLegend />}
         mapMarkers={<WindMapMarkersWrapper />}
+        mapOverlay={<MapTopOverlay />}
         layersControlOverlays={location.pathname === '/grid' ? <WindMapOverlaysControl /> : null}
         isFullWidthPage={(path) => path === '/data' || (path.startsWith('/stations/') && path !== '/stations')}
       >

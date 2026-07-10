@@ -226,11 +226,11 @@ const StationsPage: React.FC = () => {
             >
               {isScanning ? (
                 <>
-                  <i className="fa fa-spinner fa-spin"></i> Đang quét radar...
+                  <i className="fa fa-spinner fa-spin"></i> Đang tìm kiếm...
                 </>
               ) : (
                 <>
-                  <i className="fa fa-search"></i> Bắt đầu Quét trạm
+                  <i className="fa fa-search"></i> Bắt đầu tìm kiếm trạm
                 </>
               )}
             </button>

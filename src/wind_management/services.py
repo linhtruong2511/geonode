@@ -2,7 +2,7 @@ import os
 import numpy as np
 import xarray as xr
 
-def get_netcdf_data(file_location, bbox=None, step=1, variable_code=None):
+def get_netcdf_data(file_location, bbox=None, step=1, u=None, v=None):
     """
     Reads a NetCDF file, slices it by bounding box, downsamples it by step,
     and returns a structured dictionary:
@@ -22,33 +22,6 @@ def get_netcdf_data(file_location, bbox=None, step=1, variable_code=None):
         # Detect lat and lon coordinate names
         lon_name = 'lon'
         lat_name = 'lat'
-        
-        # Detect variables
-        u_name = None
-        v_name = None
-
-        if variable_code and variable_code != 'multiple':
-            # If a specific variable is requested, we try to use it or match it
-            # If the user asks for a single variable, they might just want a heatmap of that variable.
-            # In that case, we can return it as 'u' and leave 'v' empty or return both if it matches wind patterns.
-            if variable_code in ds.data_vars:
-                u_name = variable_code
-            else:
-                # Try case insensitive match
-                u_name = next((v for v in ds.data_vars if v.lower() == variable_code.lower()), None)
-        
-        # If no specific variable was found or requested, fall back to auto-detecting wind components
-        if not u_name:
-            u_name = next((v for v in ds.data_vars if v.lower() in ['u10m', 'u10', 'u', 'u100m', 'uwnd']), None)
-        if not v_name:
-            v_name = next((v for v in ds.data_vars if v.lower() in ['v10m', 'v10', 'v', 'v100m', 'vwnd']), None)
-
-        if not u_name:
-            # If still nothing, pick the first variable in the dataset
-            u_name = list(ds.data_vars)[0] if ds.data_vars else None
-
-        if not u_name:
-            raise ValueError("No data variables found in NetCDF dataset.")
 
         # Select the active data subset
         sub_ds = ds
@@ -67,6 +40,11 @@ def get_netcdf_data(file_location, bbox=None, step=1, variable_code=None):
         # Slice by bounding box if provided (bbox: [min_lon, min_lat, max_lon, max_lat])
         if bbox:
             min_lon, min_lat, max_lon, max_lat = bbox
+            # Padding the bbox by 1 unit to avoid empty borders when zooming in
+            min_lon -= 1.0
+            min_lat -= 1.0
+            max_lon += 1.0
+            max_lat += 1.0
             
             # Check coordinate ordering (ascending vs descending) to slice correctly
             lat_coords = sub_ds[lat_name].values
@@ -97,20 +75,22 @@ def get_netcdf_data(file_location, bbox=None, step=1, variable_code=None):
         lats = sub_ds[lat_name].values.tolist()
         lons = sub_ds[lon_name].values.tolist()
 
-        # Convert u variable to list with NaNs replaced by None
-        u_vals = sub_ds[u_name].values
-        # Handle 2D grid
-        if u_vals.ndim == 2:
-            u_list = [[None if np.isnan(val) else float(val) for val in row] for row in u_vals]
-        else:
-            # Flatten/reshape or convert if it's 1D/3D
-            u_vals = np.atleast_2d(u_vals)
-            u_list = [[None if np.isnan(val) else float(val) for val in row] for row in u_vals]
+        u_list = None
+        if u: 
+            # Convert u variable to list with NaNs replaced by None
+            u_vals = sub_ds[u].values
+            # Handle 2D grid
+            if u_vals.ndim == 2:
+                u_list = [[None if np.isnan(val) else float(val) for val in row] for row in u_vals]
+            else:
+                # Flatten/reshape or convert if it's 1D/3D
+                u_vals = np.atleast_2d(u_vals)
+                u_list = [[None if np.isnan(val) else float(val) for val in row] for row in u_vals]
 
         # Convert v variable if it exists
         v_list = None
-        if v_name:
-            v_vals = sub_ds[v_name].values
+        if v:
+            v_vals = sub_ds[v].values
             if v_vals.ndim == 2:
                 v_list = [[None if np.isnan(val) else float(val) for val in row] for row in v_vals]
             else:
@@ -122,6 +102,6 @@ def get_netcdf_data(file_location, bbox=None, step=1, variable_code=None):
             "lons": [float(x) for x in lons],
             "u": u_list,
             "v": v_list,
-            "u_var_name": u_name,
-            "v_var_name": v_name or ""
+            "u_var_name": u,
+            "v_var_name": v
         }

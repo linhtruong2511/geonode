@@ -37,6 +37,9 @@ class Dataset(models.Model):
             models.Index(fields=['category']),
             models.Index(fields=['access_level']),
         ]
+    
+    def __str__(self):
+        return self.name
 
 class DatasetVariable(models.Model):
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='variables')
@@ -47,7 +50,8 @@ class DatasetVariable(models.Model):
     class Meta:
         db_table = 'wind_dataset_variables'
         unique_together = ('dataset', 'variable_code')
-
+    def __str__(self):
+        return self.variable_name
 class DatasetAccessPolicy(models.Model):
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='access_policies')
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='dataset_policies')

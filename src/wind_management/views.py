@@ -17,7 +17,7 @@ from .services import get_netcdf_data
 class Median(Aggregate):
     function = "PERCENTILE_CONT"
     template = "%(function)s(0.5) WITHIN GROUP (ORDER BY %(expressions)s)"
-    output_field = FloatField()
+    # output_field = FloatField()
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -35,6 +35,7 @@ from .models import (
 )
 from .serializers import (
     DatasetSerializer,
+    DatasetVariableSerializer,
     StationSerializer,
     ObservationSerializer,
     MeteorologicalEventSerializer,
@@ -111,6 +112,12 @@ class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
             .distinct()
         )
         return Response({"day_steps": list(granules)})
+
+    @action(detail=True, methods=["get"])
+    def get_variables(self, request, pk=None):
+        dataset = self.get_object()
+        serialser = DatasetVariableSerializer(dataset.variables.all(), many=True)
+        return Response({"variables": serialser.data})
 
 class StationViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -487,7 +494,8 @@ class RasterGranuleIndexViewSet(viewsets.ReadOnlyModelViewSet):
         - dataset_id: Dataset ID
         - step: Downsampling factor (int, default=1, e.g. step=2 retrieves every 2nd grid point)
         - bbox: Bounding box coordinates (string, format 'min_lon,min_lat,max_lon,max_lat')
-        - variable_code: Override default wind component variables
+        - u: U component variable code
+        - v: V component variable code
         """
         time = request.query_params.get("time")
         dataset_id = request.query_params.get("dataset_id")
@@ -526,13 +534,25 @@ class RasterGranuleIndexViewSet(viewsets.ReadOnlyModelViewSet):
                 bbox = None
 
         # Parse variable code override
-        variable_code = (
-            request.query_params.get("variable_code") or granule.variable_code
-        )
-
+        u = request.query_params.get("u")
+        v = request.query_params.get("v")
+        if u is None and v is None:
+            return Response(
+                {"error": "Missing both u and v variable codes. Provide at least one."}, status=400
+            )
+        
+        valid_codes = list(granule.dataset.variables.values_list("variable_code", flat=True))
+        if u and u not in valid_codes:
+            return Response(
+                {"error": f"Invalid u variable code: {u}"}, status=400
+            )
+        if v and v not in valid_codes:
+            return Response(
+                {"error": f"Invalid v variable code: {v}"}, status=400
+            )
         try:
             data = get_netcdf_data(
-                file_location, bbox=bbox, step=step, variable_code=variable_code
+                file_location, bbox=bbox, step=step, u=u, v=v
             )
             return Response(data)
         except Exception as e:
