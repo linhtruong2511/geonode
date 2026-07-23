@@ -12,7 +12,7 @@ import { StormTrackLayer } from "./components/map/StormTrackLayer";
 import { SplitMapControl } from "./components/map/SplitMapControl";
 import { StationClusterLayer } from "./components/map/StationClusterLayer";
 import { WindVelocityLayer } from "./components/map/WindVelocityLayer";
-import { LayersControl, WMSTileLayer, useMapEvents } from "react-leaflet";
+import { useMapEvents } from "react-leaflet";
 import { useWindStore } from "./stores/useWindStore";
 
 
@@ -78,58 +78,58 @@ const WindMapLegend: React.FC = () => {
   );
 };
 
-const GridLayerSync: React.FC = () => {
-  const { toggleGridLayer, activeGridLayers } = useWindStore();
+// const GridLayerSync: React.FC = () => {
+//   const { toggleGridLayer, activeGridLayers } = useWindStore();
 
-  useMapEvents({
-    overlayadd: (e) => {
-      if (e.name.startsWith('ERA5 Wind:')) {
-        const layerCode = e.name.split(': ')[1];
-        if (!activeGridLayers.includes(layerCode)) {
-          toggleGridLayer(layerCode);
-        }
-      }
-    },
-    overlayremove: (e) => {
-      if (e.name.startsWith('ERA5 Wind:')) {
-        const layerCode = e.name.split(': ')[1];
-        if (activeGridLayers.includes(layerCode)) {
-          toggleGridLayer(layerCode);
-        }
-      }
-    }
-  });
+//   useMapEvents({
+//     overlayadd: (e) => {
+//       if (e.name.startsWith('ERA5 Wind:')) {
+//         const layerCode = e.name.split(': ')[1];
+//         if (!activeGridLayers.includes(layerCode)) {
+//           toggleGridLayer(layerCode);
+//         }
+//       }
+//     },
+//     overlayremove: (e) => {
+//       if (e.name.startsWith('ERA5 Wind:')) {
+//         const layerCode = e.name.split(': ')[1];
+//         if (activeGridLayers.includes(layerCode)) {
+//           toggleGridLayer(layerCode);
+//         }
+//       }
+//     }
+//   });
 
-  return null;
-};
+//   return null;
+// };
 
-const WindMapOverlaysControl: React.FC = () => {
-  const currentTime = useWindStore(state => state.currentTime);
-  const gridOpacity = useWindStore(state => state.gridOpacity);
-  const datasetVariables = useWindStore(state => state.datasetVariables);
+// const WindMapOverlaysControl: React.FC = () => {
+//   const currentTime = useWindStore(state => state.currentTime);
+//   const gridOpacity = useWindStore(state => state.gridOpacity);
+//   const datasetVariables = useWindStore(state => state.datasetVariables);
   
-  const layers = datasetVariables.length > 0 
-    ? datasetVariables.map(v => v.variable_code)
-    : ['u10m', 'v10m', 'u100m', 'v100m']; // fallback to default ERA5 wind components
+//   const layers = datasetVariables.length > 0 
+//     ? datasetVariables.map(v => v.variable_code)
+//     : ['u10m', 'v10m', 'u100m', 'v100m']; // fallback to default ERA5 wind components
 
-  return (
-    <>
-      {layers.map(layer => (
-        <LayersControl.Overlay name={`ERA5 Wind: ${layer}`} key={layer}>
-          <WMSTileLayer
-            url="/geoserver/wms"
-            layers={`geonode:${layer}`}
-            format="image/png"
-            transparent={true}
-            opacity={gridOpacity}
-            {...(currentTime ? { time: currentTime } : {})}
-          />
-        </LayersControl.Overlay>
-      ))}
-      <GridLayerSync />
-    </>
-  );
-};
+//   return (
+//     <>
+//       {layers.map(layer => (
+//         <LayersControl.Overlay name={`ERA5 Wind: ${layer}`} key={layer}>
+//           <WMSTileLayer
+//             url="/geoserver/wms"
+//             layers={`geonode:${layer}`}
+//             format="image/png"
+//             transparent={true}
+//             opacity={gridOpacity}
+//             {...(currentTime ? { time: currentTime } : {})}
+//           />
+//         </LayersControl.Overlay>
+//       ))}
+//       <GridLayerSync />
+//     </>
+//   );
+// };
 
 const WindMapMarkersWrapper: React.FC = () => {
   const location = useLocation();
@@ -368,7 +368,6 @@ const AppContent: React.FC = () => {
         mapLegend={<WindMapLegend />}
         mapMarkers={<WindMapMarkersWrapper />}
         mapOverlay={<MapTopOverlay />}
-        layersControlOverlays={location.pathname === '/grid' ? <WindMapOverlaysControl /> : null}
         isFullWidthPage={(path) => path === '/data' || (path.startsWith('/stations/') && path !== '/stations')}
       >
         <Routes>

@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -23,215 +22,39 @@ ChartJS.register(
   Legend
 );
 
-interface Station {
-  id: number;
-  station_code: string;
-  name: string;
-  elevation: string | number | null;
-  station_type: string;
-  is_active: boolean;
-  dataset_code: string;
-  geometry?: {
-    type: string;
-    coordinates: [number, number];
-  };
-  properties?: {
-    latest_observation?: {
-      obs_time: string;
-      wind_speed: number | null;
-      wind_dir: number | null;
-      temp_2m: number | null;
-      humidity: number | null;
-      pressure: number | null;
-    };
-  };
-  latest_observation?: {
-    obs_time: string;
-    wind_speed: number | null;
-    wind_dir: number | null;
-    temp_2m: number | null;
-    humidity: number | null;
-    pressure: number | null;
-  };
-}
-
-interface Observation {
-  id: number;
-  obs_time: string;
-  wind_speed: number | null;
-  wind_dir: number | null;
-  temp_2m: number | null;
-  humidity: number | null;
-  pressure: number | null;
-  rain_06h: number | null;
-  rain_24h: number | null;
-}
+import type { StationDetail as Station } from '../../types/wind.types';
+import { useStationDetail } from '../hooks/useStationDetail';
 
 interface StationDetailPageProps {
   station?: Station;
 }
 
+const variablesMap: Record<string, { label: string; unit: string; color: string }> = {
+  wind_speed: { label: 'Tốc độ gió', unit: 'm/s', color: '#397aab' },
+  wind_dir: { label: 'Hướng gió', unit: '°', color: '#10b981' },
+  temp_2m: { label: 'Nhiệt độ (2m)', unit: '°C', color: '#ef4444' },
+  humidity: { label: 'Độ ẩm', unit: '%', color: '#3b82f6' },
+  pressure: { label: 'Khí áp', unit: 'hPa', color: '#8b5cf6' },
+  rain_06h: { label: 'Lượng mưa (6h)', unit: 'mm', color: '#f59e0b' },
+};
+
+// Tạo danh sách năm phục vụ dropdown select
+const currentYear = new Date().getFullYear();
+const yearsList = Array.from({ length: 30 }, (_, i) => (currentYear - i).toString());
+
 const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationProp }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
-  const [station, setStation] = useState<Station | null>(null);
-  const [observations, setObservations] = useState<Observation[]>([]);
-  const [loadingStation, setLoadingStation] = useState<boolean>(true);
-  const [loadingObs, setLoadingObs] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const [variable, setVariable] = useState<string>('wind_speed');
-  
-  // Các bộ lọc thời gian riêng cho từng View Mode để tối ưu trải nghiệm người dùng
-  const [viewMode, setViewMode] = useState<'raw' | 'monthly' | 'yearly'>('yearly');
-  
-  // 1. Raw mode: datetime-local
-  const [startTime, setStartTime] = useState<string>('');
-  const [endTime, setEndTime] = useState<string>('');
-
-  // 2. Monthly mode: input type="month" (YYYY-MM)
-  const [startMonth, setStartMonth] = useState<string>('');
-  const [endMonth, setEndMonth] = useState<string>('');
-
-  // 3. Yearly mode: select YYYY
-  const [startYear, setStartYear] = useState<string>('');
-  const [endYear, setEndYear] = useState<string>('');
-
-  const [summaryResults, setSummaryResults] = useState<any[]>([]);
-  const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
-
-  const variablesMap: Record<string, { label: string; unit: string; color: string }> = {
-    wind_speed: { label: 'Tốc độ gió', unit: 'm/s', color: '#397aab' },
-    wind_dir: { label: 'Hướng gió', unit: '°', color: '#10b981' },
-    temp_2m: { label: 'Nhiệt độ (2m)', unit: '°C', color: '#ef4444' },
-    humidity: { label: 'Độ ẩm', unit: '%', color: '#3b82f6' },
-    pressure: { label: 'Khí áp', unit: 'hPa', color: '#8b5cf6' },
-    rain_06h: { label: 'Lượng mưa (6h)', unit: 'mm', color: '#f59e0b' },
-  };
-
-  // Tạo danh sách năm phục vụ dropdown select
-  const currentYear = new Date().getFullYear();
-  const yearsList = Array.from({ length: 30 }, (_, i) => (currentYear - i).toString());
-
-  // Chuẩn hóa trạm
-  const normalizeStation = (data: any): Station | null => {
-    if (!data) return null;
-    if (data.properties) {
-      return {
-        id: data.id || data.properties.id,
-        station_code: data.properties.station_code,
-        name: data.properties.name,
-        elevation: data.properties.elevation,
-        station_type: data.properties.station_type,
-        is_active: data.properties.is_active,
-        dataset_code: data.properties.dataset_code,
-        geometry: data.geometry,
-        properties: data.properties,
-        latest_observation: data.properties.latest_observation,
-      };
-    }
-    const geometry = data.geometry || (data.lon !== undefined && data.lat !== undefined ? {
-      type: 'Point',
-      coordinates: [Number(data.lon), Number(data.lat)]
-    } : undefined);
-
-    return {
-      ...data,
-      geometry
-    };
-  };
-
-  useEffect(() => {
-    if (stationProp) {
-      setStation(normalizeStation(stationProp));
-      setLoadingStation(false);
-      return;
-    }
-    if (!id) return;
-
-    setLoadingStation(true);
-    setError(null);
-
-    axios.get(`/wind/api/v1/stations/${id}/`)
-      .then((res) => {
-        setStation(normalizeStation(res.data));
-        setLoadingStation(false);
-      })
-      .catch((err) => {
-        console.error('Error fetching station details:', err);
-        setError('Không thể tải thông tin trạm quan trắc.');
-        setLoadingStation(false);
-      });
-  }, [id, stationProp]);
-
-  // Tải dữ liệu thô (raw mode)
-  useEffect(() => {
-    if (!id || viewMode !== 'raw') return;
-
-    setLoadingObs(true);
-    const params: any = {
-      station: id,
-      page_size: 200
-    };
-
-    if (startTime) {
-      params.start_time = new Date(startTime).toISOString();
-    }
-    if (endTime) {
-      params.end_time = new Date(endTime).toISOString();
-    }
-
-    axios.get('/wind/api/v1/observations/', { params })
-      .then((res) => {
-        const obsList = res.data.results || res.data || [];
-        const sortedData = [...obsList].sort(
-          (a, b) => new Date(a.obs_time).getTime() - new Date(b.obs_time).getTime()
-        );
-        setObservations(sortedData);
-        setLoadingObs(false);
-      })
-      .catch((err) => {
-        console.error('Error fetching observations:', err);
-        setLoadingObs(false);
-      });
-  }, [id, startTime, endTime, viewMode]);
-
-  // Tải dữ liệu tóm tắt (monthly/yearly mode)
-  useEffect(() => {
-    if (!id || viewMode === 'raw') return;
-
-    setLoadingSummary(true);
-    const endpoint = viewMode === 'monthly' ? 'monthly-summary' : 'yearly-summary';
-
-    const params: any = {};
-    if (viewMode === 'monthly') {
-      if (startMonth) {
-        params.start_date = `${startMonth}-01T00:00:00Z`;
-      }
-      if (endMonth) {
-        // Cuối tháng (quy ước tạm ngày 28 để an toàn hoặc lấy ngày cuối cùng)
-        params.end_date = `${endMonth}-28T23:59:59Z`;
-      }
-    } else if (viewMode === 'yearly') {
-      if (startYear) {
-        params.start_date = `${startYear}-01-01T00:00:00Z`;
-      }
-      if (endYear) {
-        params.end_date = `${endYear}-12-31T23:59:59Z`;
-      }
-    }
-
-    axios.get(`/wind/api/v1/stations/${id}/${endpoint}/`, { params })
-      .then((res) => {
-        setSummaryResults(res.data.results || []);
-        setLoadingSummary(false);
-      })
-      .catch((err) => {
-        console.error(`Error fetching ${viewMode} summary:`, err);
-        setLoadingSummary(false);
-      });
-  }, [id, viewMode, startMonth, endMonth, startYear, endYear]);
+  const {
+    station, observations, summaryResults,
+    loadingStation, loadingObs, loadingSummary, error,
+    viewMode, setViewMode,
+    variable, setVariable,
+    startTime, setStartTime, endTime, setEndTime,
+    startMonth, setStartMonth, endMonth, setEndMonth,
+    startYear, setStartYear, endYear, setEndYear,
+  } = useStationDetail(id, stationProp);
 
   if (loadingStation) {
     return (
@@ -291,7 +114,7 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
       const timeStr = viewMode === 'monthly' ? item.month : item.year;
       if (!timeStr) return '';
       const date = new Date(timeStr);
-      return viewMode === 'monthly' 
+      return viewMode === 'monthly'
         ? date.toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric' })
         : date.getFullYear().toString();
     };
@@ -370,7 +193,7 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', padding: '10px' }}>
       {/* Header điều hướng quay lại */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-        <button 
+        <button
           onClick={() => navigate('/stations')}
           style={{
             background: 'none',
@@ -425,7 +248,7 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
                 <span style={{ color: 'var(--color-text-secondary)' }}>Cao độ: </span>
                 <strong style={{ float: 'right' }}>{station.elevation ? `${station.elevation}m` : 'N/A'}</strong>
               </div>
-              
+
               {station.geometry?.coordinates && (
                 <>
                   <div style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '8px', marginBottom: '8px' }}>
@@ -470,8 +293,8 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
             <div className="co2-card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', padding: '16px', fontSize: '13px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontWeight: 600 }}>Chế độ hiển thị:</label>
-                <select 
-                  value={viewMode} 
+                <select
+                  value={viewMode}
                   onChange={(e) => setViewMode(e.target.value as any)}
                   style={{ padding: '6px', borderRadius: '4px', border: '1px solid var(--color-border)', fontWeight: 600 }}
                 >
@@ -483,8 +306,8 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontWeight: 600 }}>Yếu tố đo đạc:</label>
-                <select 
-                  value={variable} 
+                <select
+                  value={variable}
                   onChange={(e) => setVariable(e.target.value)}
                   style={{ padding: '6px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
                 >
@@ -497,10 +320,10 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
               {/* Tùy biến UI cho Start Date dựa trên View Mode */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontWeight: 600 }}>Thời gian từ:</label>
-                
+
                 {viewMode === 'raw' && (
-                  <input 
-                    type="datetime-local" 
+                  <input
+                    type="datetime-local"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
                     style={{ padding: '5px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
@@ -508,8 +331,8 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
                 )}
 
                 {viewMode === 'monthly' && (
-                  <input 
-                    type="month" 
+                  <input
+                    type="month"
                     value={startMonth}
                     onChange={(e) => setStartMonth(e.target.value)}
                     style={{ padding: '5px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
@@ -533,10 +356,10 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
               {/* Tùy biến UI cho End Date dựa trên View Mode */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontWeight: 600 }}>Thời gian đến:</label>
-                
+
                 {viewMode === 'raw' && (
-                  <input 
-                    type="datetime-local" 
+                  <input
+                    type="datetime-local"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
                     style={{ padding: '5px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
@@ -544,8 +367,8 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
                 )}
 
                 {viewMode === 'monthly' && (
-                  <input 
-                    type="month" 
+                  <input
+                    type="month"
                     value={endMonth}
                     onChange={(e) => setEndMonth(e.target.value)}
                     style={{ padding: '5px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
@@ -692,12 +515,12 @@ const StationDetailPage: React.FC<StationDetailPageProps> = ({ station: stationP
                   ) : (
                     summaryResults.map((item, idx) => {
                       const timeStr = viewMode === 'monthly' ? item.month : item.year;
-                      const formattedTime = timeStr 
-                        ? (viewMode === 'monthly' 
+                      const formattedTime = timeStr
+                        ? (viewMode === 'monthly'
                            ? new Date(timeStr).toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric' })
                            : new Date(timeStr).getFullYear().toString())
                         : 'N/A';
-                      
+
                       const minVal = item[`${variable}_min`];
                       const maxVal = item[`${variable}_max`];
                       const avgVal = item[`${variable}_avg`];

@@ -84,7 +84,9 @@ Mã nguồn Frontend React của module được cấu trúc như sau:
 - **Điểm gắn kết (Mount Point)**: Nhúng vào Django template thông qua thẻ `div` có `id="wind-management-root"` tại [react_app.html](file:///D:/Research/Geonode/geonode-project/src/wind_management/templates/wind_management/react_app.html).
 - **Ứng dụng chính**: [WindManagementApp.tsx](file:///D:/Research/Geonode/geonode-project/frontend/src/wind_management/WindManagementApp.tsx) - Điểm bắt đầu khởi tạo cấu trúc trang SPA.
 - **Thư mục components/**: Các UI component dùng riêng cho giám sát gió & hải dương (bản đồ WindMap, panel điều khiển).
-- **Thư mục pages/**: Chứa các màn hình chức năng chính (Dashboard, So sánh lớp dữ liệu song song, Lịch sử truy vấn).
+- **Thư mục pages/**: Chứa các màn hình chức năng chính (GridDataPage, StationsPage, StationDetailPage).
 - **Thư mục stores/**: Quản lý Global State bằng Zustand hoặc Redux phục vụ đồng bộ thanh trượt thời gian (Time Slider) và hiển thị trạm.
+- **Thư mục hooks/**: Các custom hooks (`useGridDataPage`, `useStationDetail`, `useStationsPage`) tách biệt logic nghiệp vụ khỏi view.
+- **Thư mục services/**: Lớp giao tiếp API (`windApi.ts`) tập trung các hàm gọi HTTP.
 
 

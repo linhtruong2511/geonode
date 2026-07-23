@@ -1,20 +1,5 @@
-import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
-import { useWindStore } from "../stores/useWindStore";
-
-interface DatasetSummary {
-  dataset_code: string;
-  dataset_name: string;
-  count: number;
-}
-
-interface SummaryData {
-  total_granules: number;
-  min_granule_time: string | null;
-  max_granule_time: string | null;
-  datasets: DatasetSummary[];
-  unique_variable_codes: string[];
-}
+import React from "react";
+import { useGridDataPage } from "../hooks/useGridDataPage";
 
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return "N/A";
@@ -34,278 +19,29 @@ const formatDate = (dateStr: string | null) => {
 };
 
 const GridDataPage: React.FC = () => {
-  const { activeGridLayers, setCurrentTime, selectedDatasetId, setSelectedDatasetId, setDatasetVariables, datasetVariables, setActiveGridLayers } = useWindStore();
-  const [summary, setSummary] = useState<SummaryData | null>(null);
-  const [datasetsList, setDatasetsList] = useState<any[]>([]);
-  const [timeSteps, setTimeSteps] = useState<string[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [selectedYear, setSelectedYear] = useState<string>("");
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedDay, setSelectedDay] = useState<string>("");
-  const [selectedHour, setSelectedHour] = useState<string>("");
-
-  const getUtcParts = (isoString: string) => {
-    const d = new Date(isoString);
-    return {
-      year: d.getUTCFullYear().toString(),
-      month: (d.getUTCMonth() + 1).toString().padStart(2, "0"),
-      day: d.getUTCDate().toString().padStart(2, "0"),
-      hour: d.getUTCHours().toString().padStart(2, "0") + ":" + d.getUTCMinutes().toString().padStart(2, "0")
-    };
-  };
-
-  const parsedTimes = timeSteps.map(t => ({ ...getUtcParts(t), original: t }));
-
-  // Helper to extract options
-  const availableYears = Array.from(new Set(parsedTimes.map(p => p.year))).sort();
-  
-  const availableMonths = Array.from(
-    new Set(parsedTimes.filter(p => p.year === selectedYear).map(p => p.month))
-  ).sort();
-
-  const availableDays = Array.from(
-    new Set(
-      parsedTimes
-        .filter(p => p.year === selectedYear && p.month === selectedMonth)
-        .map(p => p.day)
-    )
-  ).sort();
-
-  const availableHours = Array.from(
-    new Set(
-      parsedTimes
-        .filter(
-          p =>
-            p.year === selectedYear &&
-            p.month === selectedMonth &&
-            p.day === selectedDay
-        )
-        .map(p => p.hour)
-    )
-  ).sort();
-
-  // Group variables into u/v combos or single variables
-  const variableCombos = useMemo(() => {
-    const combos: { value: string; label: string }[] = [];
-    const processed = new Set<string>();
-
-    datasetVariables.forEach((v) => {
-      const code = v.variable_code;
-      if (processed.has(code)) return;
-
-      if (code.startsWith("u")) {
-        const suffix = code.slice(1);
-        const companion = `v${suffix}`;
-        const companionVar = datasetVariables.find((x) => x.variable_code === companion);
-
-        if (companionVar) {
-          combos.push({
-            value: `${code},${companion}`,
-            label: `Trường gió ${suffix} (${code} & ${companion})`,
-          });
-          processed.add(code);
-          processed.add(companion);
-          return;
-        }
-      } else if (code.startsWith("v")) {
-        const suffix = code.slice(1);
-        const companion = `u${suffix}`;
-        const companionVar = datasetVariables.find((x) => x.variable_code === companion);
-
-        if (companionVar) {
-          combos.push({
-            value: `${companion},${code}`,
-            label: `Trường gió ${suffix} (${companion} & ${code})`,
-          });
-          processed.add(code);
-          processed.add(companion);
-          return;
-        }
-      }
-
-      // Single variable
-      combos.push({
-        value: code,
-        label: `${v.variable_name} (${code})`,
-      });
-      processed.add(code);
-    });
-
-    return combos;
-  }, [datasetVariables]);
-
-  useEffect(() => {
-    // Tự động bật u10m & v10m (gió) khi người dùng truy cập trang này
-    if (activeGridLayers.length === 0) {
-      setActiveGridLayers(["u10m", "v10m"]);
-    }
-
-    setLoading(true);
-    setError(null);
-
-    // Fetch summary metrics
-    axios
-      .get<SummaryData>("/wind/api/v1/raster-granules/summary/")
-      .then((res) => {
-        setSummary(res.data);
-      })
-      .catch((err) => {
-        console.error("Error fetching summary metrics:", err);
-      });
-
-    // Fetch available datasets
-    axios
-      .get("/wind/api/v1/datasets/?category=GRIDDED")
-      .then((res) => {
-        const results = res.data.results || res.data;
-        setDatasetsList(results);
-        if (results.length > 0) {
-          setSelectedDatasetId(results[0].id);
-        }
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Error fetching datasets:", err);
-        setError("Không thể tải danh sách bộ dữ liệu.");
-        setLoading(false);
-      });
-  }, []);
-
-  // Fetch time steps and variables when selected dataset changes
-  useEffect(() => {
-    if (!selectedDatasetId) return;
-
-    setCurrentTime(null);
-
-    axios
-      .get(`/wind/api/v1/datasets/${selectedDatasetId}/time_steps/`)
-      .then((res) => {
-        const steps = res.data.time_steps || [];
-        setTimeSteps(steps);
-      })
-      .catch((err) => {
-        console.error("Error fetching time steps:", err);
-      });
-
-    axios
-      .get(`/wind/api/v1/datasets/${selectedDatasetId}/get_variables/`)
-      .then((res) => {
-        const vars = res.data.variables || [];
-        setDatasetVariables(vars);
-      })
-      .catch((err) => {
-        console.error("Error fetching dataset variables:", err);
-      });
-  }, [selectedDatasetId]);
-
-  // Set default variable when datasetVariables changes
-  useEffect(() => {
-    if (variableCombos.length > 0) {
-      // Check if current active layer matches any valid variable in this dataset
-      const isValid = activeGridLayers.some(l => datasetVariables.some(v => v.variable_code === l));
-      if (!isValid) {
-        const defaultVal = variableCombos[0].value;
-        setActiveGridLayers(defaultVal.split(","));
-      }
-    }
-  }, [variableCombos, datasetVariables]);
-
-  // Set default selection when timeSteps changes
-  useEffect(() => {
-    if (timeSteps.length === 0) {
-      setSelectedYear("");
-      setSelectedMonth("");
-      setSelectedDay("");
-      setSelectedHour("");
-      return;
-    }
-
-    const firstPart = getUtcParts(timeSteps[0]);
-    setSelectedYear(firstPart.year);
-    setSelectedMonth(firstPart.month);
-    setSelectedDay(firstPart.day);
-    setSelectedHour(firstPart.hour);
-  }, [timeSteps]);
-
-  // Sync currentTime to the store when selections change
-  useEffect(() => {
-    if (!selectedYear || !selectedMonth || !selectedDay || !selectedHour) return;
-
-    const matched = parsedTimes.find(
-      p =>
-        p.year === selectedYear &&
-        p.month === selectedMonth &&
-        p.day === selectedDay &&
-        p.hour === selectedHour
-    );
-
-    if (matched) {
-      setCurrentTime(matched.original);
-    }
-  }, [selectedYear, selectedMonth, selectedDay, selectedHour, timeSteps]);
+  const {
+    summary, datasetsList, loading, error, variableCombos,
+    activeGridLayers, selectedDatasetId,
+    selectedYear, selectedMonth, selectedDay, selectedHour,
+    availableYears, availableMonths, availableDays, availableHours,
+    setSelectedDatasetId, setActiveGridLayers, setSelectedHour,
+    handleYearChange, handleMonthChange, handleDayChange,
+  } = useGridDataPage();
 
   const handleDatasetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    setSelectedDatasetId(val);
+    setSelectedDatasetId(e.target.value);
   };
 
-  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const yr = e.target.value;
-    setSelectedYear(yr);
-
-    const monthsForYr = Array.from(new Set(parsedTimes.filter(p => p.year === yr).map(p => p.month))).sort();
-    const defaultMonth = monthsForYr[0] || "";
-    setSelectedMonth(defaultMonth);
-
-    const daysForMonth = Array.from(new Set(parsedTimes.filter(p => p.year === yr && p.month === defaultMonth).map(p => p.day))).sort();
-    const defaultDay = daysForMonth[0] || "";
-    setSelectedDay(defaultDay);
-
-    const hoursForDay = Array.from(
-      new Set(
-        parsedTimes
-          .filter(p => p.year === yr && p.month === defaultMonth && p.day === defaultDay)
-          .map(p => p.hour)
-      )
-    ).sort();
-    const defaultHour = hoursForDay[0] || "";
-    setSelectedHour(defaultHour);
+  const handleYearChangeEv = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    handleYearChange(e.target.value);
   };
 
-  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const m = e.target.value;
-    setSelectedMonth(m);
-
-    const daysForMonth = Array.from(new Set(parsedTimes.filter(p => p.year === selectedYear && p.month === m).map(p => p.day))).sort();
-    const defaultDay = daysForMonth[0] || "";
-    setSelectedDay(defaultDay);
-
-    const hoursForDay = Array.from(
-      new Set(
-        parsedTimes
-          .filter(p => p.year === selectedYear && p.month === m && p.day === defaultDay)
-          .map(p => p.hour)
-      )
-    ).sort();
-    const defaultHour = hoursForDay[0] || "";
-    setSelectedHour(defaultHour);
+  const handleMonthChangeEv = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    handleMonthChange(e.target.value);
   };
 
-  const handleDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const d = e.target.value;
-    setSelectedDay(d);
-
-    const hoursForDay = Array.from(
-      new Set(
-        parsedTimes
-          .filter(p => p.year === selectedYear && p.month === selectedMonth && p.day === d)
-          .map(p => p.hour)
-      )
-    ).sort();
-    const defaultHour = hoursForDay[0] || "";
-    setSelectedHour(defaultHour);
+  const handleDayChangeEv = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    handleDayChange(e.target.value);
   };
 
   const handleHourChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -372,7 +108,7 @@ const GridDataPage: React.FC = () => {
               </label>
               <select
                 value={selectedYear}
-                onChange={handleYearChange}
+                onChange={handleYearChangeEv}
                 disabled={availableYears.length === 0}
                 style={{
                   padding: "10px 14px",
@@ -405,7 +141,7 @@ const GridDataPage: React.FC = () => {
               </label>
               <select
                 value={selectedMonth}
-                onChange={handleMonthChange}
+                onChange={handleMonthChangeEv}
                 disabled={availableMonths.length === 0}
                 style={{
                   padding: "10px 14px",
@@ -438,7 +174,7 @@ const GridDataPage: React.FC = () => {
               </label>
               <select
                 value={selectedDay}
-                onChange={handleDayChange}
+                onChange={handleDayChangeEv}
                 disabled={availableDays.length === 0}
                 style={{
                   padding: "10px 14px",

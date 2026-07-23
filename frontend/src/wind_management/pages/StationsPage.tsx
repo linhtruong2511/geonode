@@ -1,131 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { useMapStore } from '@common/stores/useMapStore';
-import { useWindStore } from '../stores/useWindStore';
-
-interface Station {
-  id: number;
-  name: string;
-  station_code: string;
-  elevation: number;
-  station_type: string;
-  lat: number;
-  lon: number;
-  latest_observation?: any;
-  wind_speed?: number;
-  wind_dir?: number;
-}
+import { useStationsPage } from '../hooks/useStationsPage';
 
 const StationsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [stations, setStations] = useState<Station[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const { 
-    setIsPickingLocation, 
-    pickedLocation, setPickedLocation, 
-    scanRadius, setScanRadius, 
-    isScanning, setIsScanning,
-    setMapData,
-    setMapCenter,
-    setMapZoom,
-    setFocusedId
-  } = useMapStore();
-
-  const { setSelectedStationId, showStations, setShowStations } = useWindStore();
-
-  const [stationTypeFilter, setStationTypeFilter] = useState<string>('');
-  const [windSpeedFilter, setWindSpeedFilter] = useState<string>('');
-  const [hasScanned, setHasScanned] = useState<boolean>(false);
-
-  useEffect(() => {
-    // Kích hoạt chế độ chọn vị trí trên bản đồ và dọn dẹp các trạm cũ
-    setIsPickingLocation(true);
-    setMapData([]);
-
-    if (!showStations) {
-      setShowStations(true);
-    }
-
-    return () => {
-      // Hủy chế độ chọn vị trí khi thoát khỏi trang
-      setIsPickingLocation(false);
-      setPickedLocation(null);
-      setIsScanning(false);
-    };
-  }, []);
-
-  const handleScan = () => {
-    if (!pickedLocation) return;
-    setIsScanning(true);
-    setLoading(true);
-    setError(null);
-
-    // Giả lập hiệu ứng quét radar 1.5s trước khi tải dữ liệu thực tế
-    setTimeout(() => {
-      axios.get('/wind/api/v1/stations/spatial_query/', {
-        params: {
-          lat: pickedLocation[0],
-          lon: pickedLocation[1],
-          radius_km: scanRadius
-        }
-      })
-      .then((res) => {
-        const features = res.data.results?.features || res.data.features || [];
-        let parsedStations: Station[] = features.map((f: any) => ({
-          id: f.id,
-          name: f.properties.name,
-          station_code: f.properties.station_code,
-          elevation: f.properties.elevation,
-          station_type: f.properties.station_type,
-          lat: f.geometry.coordinates[1],
-          lon: f.geometry.coordinates[0],
-          latest_observation: f.properties.latest_observation,
-          wind_speed: f.properties.latest_observation?.wind_speed !== undefined && f.properties.latest_observation?.wind_speed !== null ? parseFloat(f.properties.latest_observation.wind_speed) : 0,
-          wind_dir: f.properties.latest_observation?.wind_dir !== undefined && f.properties.latest_observation?.wind_dir !== null ? parseFloat(f.properties.latest_observation.wind_dir) : 180
-        }));
-
-        // Áp dụng bộ lọc tùy chọn tại local
-        if (stationTypeFilter) {
-          parsedStations = parsedStations.filter(s => s.station_type === stationTypeFilter);
-        }
-        if (windSpeedFilter) {
-          const speedVal = parseFloat(windSpeedFilter);
-          parsedStations = parsedStations.filter(s => (s.wind_speed || 0) >= speedVal);
-        }
-
-        setStations(parsedStations);
-        setMapData(parsedStations); // Đồng bộ hiển thị lên bản đồ
-        setHasScanned(true);
-        setIsScanning(false);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Error spatial query stations:', err);
-        setError('Không thể thực hiện quét trạm quan trắc.');
-        setIsScanning(false);
-        setLoading(false);
-      });
-    }, 1500);
-  };
-
-  const handleClearScan = () => {
-    setPickedLocation(null);
-    setStations([]);
-    setMapData([]);
-    setHasScanned(false);
-    setStationTypeFilter('');
-    setWindSpeedFilter('');
-  };
-
-  const handleLocateStation = (station: Station) => {
-    setMapCenter([station.lat, station.lon]);
-    setMapZoom(12);
-    setFocusedId(station.id);
-    setSelectedStationId(station.id);
-  };
+  const {
+    stations, loading, error,
+    pickedLocation, scanRadius, setScanRadius, isScanning,
+    stationTypeFilter, setStationTypeFilter,
+    windSpeedFilter, setWindSpeedFilter,
+    hasScanned,
+    handleScan, handleClearScan, handleLocateStation,
+  } = useStationsPage();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
