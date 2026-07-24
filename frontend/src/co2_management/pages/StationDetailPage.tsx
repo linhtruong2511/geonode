@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import {
   Chart as ChartJS,
@@ -86,6 +87,21 @@ const variablesMap: Record<string, { label: string; unit: string; color: string 
   wind_speed: { label: 'Tốc độ gió', unit: 'm/s', color: '#0d9488' }
 };
 
+function getCookie(name: string): string {
+  let cookieValue = '';
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
 const StationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -106,8 +122,15 @@ const StationDetailPage: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const pageSize = 50;
 
+  // State Import CSV đo đạc trạm
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [importResult, setImportResult] = useState<any>(null);
+
   // 1. Tải thông tin chi tiết trạm
-  useEffect(() => {
+  const fetchStationInfo = () => {
     if (!id) return;
     setLoadingStation(true);
     setError(null);
@@ -120,10 +143,10 @@ const StationDetailPage: React.FC = () => {
         setError("Không tìm thấy thông tin trạm quan trắc hoặc có lỗi kết nối.");
       })
       .finally(() => setLoadingStation(false));
-  }, [id]);
+  };
 
   // 2. Tải thống kê các chỉ số ô nhiễm (Min, Max, Avg, Count) từ /stats/
-  useEffect(() => {
+  const fetchStationStats = () => {
     if (!id) return;
     setLoadingStats(true);
     const params: any = {};
@@ -138,10 +161,10 @@ const StationDetailPage: React.FC = () => {
         console.error("Lỗi tải thống kê trạm:", err);
       })
       .finally(() => setLoadingStats(false));
-  }, [id, dateFrom, dateTo]);
+  };
 
   // 3. Tải danh sách các điểm đo đạc theo trạm
-  useEffect(() => {
+  const fetchStationMeasurements = () => {
     if (!id) return;
     setLoadingMeasurements(true);
     const params: any = {
@@ -166,7 +189,82 @@ const StationDetailPage: React.FC = () => {
         console.error("Lỗi tải dữ liệu đo đạc:", err);
       })
       .finally(() => setLoadingMeasurements(false));
+  };
+
+  useEffect(() => {
+    fetchStationInfo();
+  }, [id]);
+
+  useEffect(() => {
+    fetchStationStats();
+  }, [id, dateFrom, dateTo]);
+
+  useEffect(() => {
+    fetchStationMeasurements();
   }, [id, page, dateFrom, dateTo]);
+
+  // Xử lý Tải file CSV mẫu đo đạc trạm
+  const handleDownloadTemplate = () => {
+    window.location.href = `/co2/api/v1/aq-stations/download_measurement_template/`;
+  };
+
+  // Xử lý Xuất file CSV dữ liệu đo đạc trạm
+  const handleExportCSV = () => {
+    let url = `/co2/api/v1/aq-measurements/export/?station=${id}`;
+    if (dateFrom) url += `&date_from=${dateFrom}`;
+    if (dateTo) url += `&date_to=${dateTo}`;
+    window.location.href = url;
+  };
+
+  // Xử lý chọn file CSV
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+      setUploadStatus('');
+      setImportResult(null);
+    }
+  };
+
+  // Xử lý gửi Form Import CSV đo đạc
+  const handleImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile || !id) {
+      alert("Vui lòng chọn tệp tin CSV hợp lệ.");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadStatus("Đang nạp dữ liệu đo đạc vào cơ sở dữ liệu...");
+    setImportResult(null);
+
+    try {
+      const csrfToken = getCookie('csrftoken');
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const res = await axios.post(`/co2/api/v1/aq-stations/${id}/import_measurements/`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'X-CSRFToken': csrfToken,
+        }
+      });
+
+      const resData = res.data;
+      setImportResult(resData);
+      setUploadStatus(resData.message || "Import dữ liệu đo đạc trạm thành công!");
+      
+      // Làm mới lại dữ liệu trạm
+      fetchStationInfo();
+      fetchStationStats();
+      fetchStationMeasurements();
+    } catch (err: any) {
+      console.error(err);
+      const errMsg = err.response?.data?.error || "Có lỗi xảy ra trong quá trình nạp file CSV.";
+      setUploadStatus(`Lỗi: ${errMsg}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const currentVarInfo = variablesMap[variable] || variablesMap.pm_2_5;
   const currentStat = stats?.pollutants?.[variable];
@@ -250,7 +348,7 @@ const StationDetailPage: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '10px' }}>
       {/* Header điều hướng quay lại (đặt phía trên tên trạm) */}
-      <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button
           onClick={() => navigate('/stations')}
           style={{
@@ -269,6 +367,80 @@ const StationDetailPage: React.FC = () => {
         >
           <i className="fa fa-arrow-left"></i> Quay lại danh sách
         </button>
+
+        {/* Nhóm các nút tác vụ Import / Export cho trạm */}
+        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <button
+            onClick={handleDownloadTemplate}
+            className="btn-responsive-text"
+            style={{
+              padding: '6px 12px',
+              background: '#fff',
+              color: 'var(--color-accent-primary)',
+              border: '1px solid var(--color-accent-primary)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap'
+            }}
+            title="Tải tệp CSV mẫu cấu trúc đo đạc trạm"
+          >
+            <i className="fa fa-download"></i> <span className="btn-label">Tải file mẫu CSV</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setShowImportModal(true);
+              setSelectedFile(null);
+              setImportResult(null);
+              setUploadStatus('');
+            }}
+            className="btn-responsive-text"
+            style={{
+              padding: '6px 12px',
+              background: 'var(--color-accent-primary)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap'
+            }}
+            title="Import tệp CSV dữ liệu đo đạc cho trạm này"
+          >
+            <i className="fa fa-upload"></i> <span className="btn-label">Import dữ liệu đo</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="btn-responsive-text"
+            style={{
+              padding: '6px 12px',
+              background: '#fff',
+              color: '#10b981',
+              border: '1px solid #10b981',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap'
+            }}
+            title="Xuất danh sách dữ liệu đo đạc của trạm ra tệp CSV"
+          >
+            <i className="fa fa-file-excel-o"></i> <span className="btn-label">Xuất CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Tiêu đề trạm & Trạng thái */}
@@ -491,9 +663,31 @@ const StationDetailPage: React.FC = () => {
           <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
             Chi tiết nhật ký số liệu quan trắc ({totalCount} bản ghi)
           </h4>
-          <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-            Trang {page} / {pageCount || 1}
-          </span>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={handleExportCSV}
+              style={{
+                padding: '4px 10px',
+                background: '#fff',
+                color: '#10b981',
+                border: '1px solid #10b981',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Xuất bảng số liệu đo đạc này ra tệp CSV"
+            >
+              <i className="fa fa-file-excel-o"></i> Xuất CSV
+            </button>
+            <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+              Trang {page} / {pageCount || 1}
+            </span>
+          </div>
         </div>
 
         <div style={{ overflowX: 'auto', maxHeight: '420px' }}>
@@ -588,6 +782,138 @@ const StationDetailPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ─── MODAL IMPORT CSV DỮ LIỆU ĐO ĐẠC TRẠM ───────────────── */}
+      {showImportModal && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.4)',
+          backdropFilter: 'blur(2px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 99999
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            width: '95%',
+            maxWidth: '500px',
+            overflow: 'hidden',
+            border: '1px solid var(--color-border)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '12px 16px',
+              borderBottom: '1px solid var(--color-border)',
+              background: '#f8fafc'
+            }}>
+              <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                Import dữ liệu đo đạc cho trạm: {station.name}
+              </h4>
+              <button
+                onClick={() => setShowImportModal(false)}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  color: 'var(--color-text-secondary)',
+                  padding: 0,
+                  lineHeight: 1
+                }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleImportSubmit} style={{ padding: '16px' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
+                  Chọn tệp tin CSV dữ liệu đo đạc:
+                </label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileChange}
+                  style={{ width: '100%', fontSize: '12px' }}
+                />
+                <p style={{ fontSize: '10px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                  File CSV phải chứa cột mốc thời gian bắt buộc: <code>measured_at</code>.<br />
+                  Các cột chỉ số khuyến nghị: <code>pm_2_5</code>, <code>pm_10</code>, <code>co</code>, <code>no2</code>, <code>so2</code>, <code>o3</code>, <code>temperature</code>, <code>humidity</code>, <code>wind_speed</code>.
+                </p>
+              </div>
+
+              {uploadStatus && (
+                <div style={{
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  marginBottom: '12px',
+                  background: uploadStatus.startsWith('Lỗi') ? '#fef2f2' : '#f0fdf4',
+                  color: uploadStatus.startsWith('Lỗi') ? '#991b1b' : '#166534',
+                  border: uploadStatus.startsWith('Lỗi') ? '1px solid #fecaca' : '1px solid #bbf7d0'
+                }}>
+                  {uploadStatus}
+                </div>
+              )}
+
+              {importResult && importResult.success && (
+                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', fontSize: '11px', marginBottom: '12px', border: '1px solid #e2e8f0' }}>
+                  <div><strong>Tổng số dòng dữ liệu:</strong> {importResult.total_rows}</div>
+                  <div style={{ color: '#059669' }}><strong>Tạo mới thành công:</strong> {importResult.created_count}</div>
+                  <div style={{ color: '#0284c7' }}><strong>Cập nhật:</strong> {importResult.updated_count}</div>
+                  {importResult.error_count > 0 && (
+                    <div style={{ color: '#dc2626' }}><strong>Số dòng lỗi:</strong> {importResult.error_count}</div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowImportModal(false)}
+                  style={{
+                    padding: '6px 12px',
+                    background: '#fff',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUploading || !selectedFile}
+                  style={{
+                    padding: '6px 12px',
+                    background: 'var(--color-accent-primary)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: isUploading || !selectedFile ? 'not-allowed' : 'pointer',
+                    opacity: isUploading || !selectedFile ? 0.6 : 1
+                  }}
+                >
+                  {isUploading ? 'Đang nạp dữ liệu...' : 'Tải lên & Import'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
