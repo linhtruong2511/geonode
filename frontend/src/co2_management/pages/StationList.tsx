@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useFetchData } from '@common/hooks/useFetchData';
 import axios from 'axios';
 import { useMapStore } from '../../common/stores/useMapStore';
@@ -21,6 +22,7 @@ export interface Station {
 }
 
 const StationList: React.FC = () => {
+  const navigate = useNavigate();
   // Lấy các hàm điều khiển bản đồ từ Store dùng chung
   const { setShowMap, setMapData, setMapCenter, setMapZoom, setFocusedId, setCustomLegend } = useMapStore();
 
@@ -35,7 +37,6 @@ const StationList: React.FC = () => {
     search: '',
     status: '',
     has_data: '',
-    bbox: '',
   });
 
   // State hỗ trợ tải lại danh sách
@@ -65,7 +66,6 @@ const StationList: React.FC = () => {
     if (filters.search) params.search = filters.search;
     if (filters.status !== '') params.status = filters.status;
     if (filters.has_data !== '') params.has_data = filters.has_data;
-    if (filters.bbox) params.bbox = filters.bbox;
 
     return params;
   }, [pageIndex, pageSize, filters, refetchKey]);
@@ -326,7 +326,7 @@ const StationList: React.FC = () => {
 
       {/* Bộ lọc tìm kiếm */}
       <div style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '10px', marginBottom: '10px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, marginBottom: '2px', color: 'var(--color-text-secondary)' }}>Tìm kiếm</label>
             <input
@@ -353,17 +353,6 @@ const StationList: React.FC = () => {
               <option value="true">Có dữ liệu</option>
               <option value="false">Chưa có dữ liệu</option>
             </select>
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, marginBottom: '2px', color: 'var(--color-text-secondary)' }}>Khung tọa độ (BBox)</label>
-            <input
-              type="text"
-              name="bbox"
-              placeholder="min_lon,min_lat,max_lon,max_lat"
-              value={filters.bbox}
-              onChange={handleFilterChange}
-              style={{ width: '100%', padding: '4px 8px', fontSize: '12px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
-            />
           </div>
         </div>
       </div>
@@ -471,12 +460,12 @@ const StationList: React.FC = () => {
                   onChange={() => handleRowSelect(item.id)}
                   style={{ margin: 0, cursor: 'pointer' }}
                 />
-                {/* Nút i (Info) xem chi tiết trạm */}
+                {/* Nút i (Info) xem Modal nhanh */}
                 <i
                   className="fa fa-info-circle"
                   onClick={() => setActiveDetail(item)}
                   style={{ cursor: 'pointer', color: 'var(--color-accent-primary)', fontSize: '13px' }}
-                  title="Xem thông tin chi tiết trạm quan trắc"
+                  title="Xem thông tin tóm tắt trạm"
                 ></i>
                 {/* Nút Target định vị trạm trên bản đồ */}
                 <i
@@ -484,6 +473,13 @@ const StationList: React.FC = () => {
                   onClick={() => handleTargetLocation(item)}
                   style={{ cursor: 'pointer', color: '#10b981', fontSize: '13px' }}
                   title="Định vị vị trí trạm trên bản đồ"
+                ></i>
+                {/* Nút Xem trang chi tiết (Biểu đồ & Nhật ký số liệu) */}
+                <i
+                  className="fa fa-line-chart"
+                  onClick={() => navigate(`/stations/${item.id}`)}
+                  style={{ cursor: 'pointer', color: '#0284c7', fontSize: '13px' }}
+                  title="Xem trang chi tiết trạm (Biểu đồ & Thống kê)"
                 ></i>
                 {/* Nút Xóa trạm */}
                 <i
@@ -499,9 +495,13 @@ const StationList: React.FC = () => {
 
               {/* Thông tin chính của trạm */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                <div
+                  onClick={() => navigate(`/stations/${item.id}`)}
+                  style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text-primary)', cursor: 'pointer' }}
+                  title="Xem trang chi tiết trạm"
+                >
                   <span style={{ color: 'var(--color-accent-primary)', marginRight: '6px' }}>[{item.code || 'NO-CODE'}]</span>
-                  {item.name}
+                  {item.name} <i className="fa fa-external-link" style={{ fontSize: '10px', color: '#0284c7', marginLeft: '4px' }}></i>
                 </div>
                 <div>
                   {getStatusBadge(item.status)}

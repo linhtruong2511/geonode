@@ -10,6 +10,7 @@ import LocationList from "./pages/LocationList";
 import LocationForm from "./pages/LocationForm";
 import MeasurementList from "./pages/MeasurementList";
 import StationList from "./pages/StationList";
+import StationDetailPage from "./pages/StationDetailPage";
 import Comparisons from "./pages/Comparisons";
 import Statistics from "./pages/Statistics";
 
@@ -151,15 +152,40 @@ const MeasurementMarker: React.FC<{ item: any; focusedId: number | null }> = ({ 
     >
       <Popup autoPan={false}>
         {isStation ? (
-          <div style={{ fontSize: "11px", minWidth: "160px" }}>
-            <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '3px', marginBottom: '3px', fontWeight: 700, color: 'var(--color-accent-primary)' }}>
-              Trạm: {item.name}
+          <div style={{ fontSize: "11px", minWidth: "170px" }}>
+            <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '4px', fontWeight: 700 }}>
+              <a
+                href={`#/stations/${item.id}`}
+                style={{ color: 'var(--color-accent-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                title="Xem trang chi tiết trạm quan trắc"
+              >
+                <span>Trạm: {item.name}</span>
+                <i className="fa fa-external-link" style={{ fontSize: '11px', marginLeft: '6px' }}></i>
+              </a>
             </div>
             <strong>Mã trạm:</strong> {item.code || 'N/A'}<br />
             <strong>Trạng thái:</strong> {item.status === 0 ? 'Bình thường' : 'Bảo trì'}<br />
             <strong>Địa chỉ:</strong> {item.address || 'N/A'}<br />
             <strong>Số bản ghi:</strong> {item.measurement_count || 0}<br />
-            <strong>Tọa độ:</strong> {Number(item.latitude).toFixed(4)}, {Number(item.longitude).toFixed(4)}
+            <strong>Tọa độ:</strong> {Number(item.latitude).toFixed(4)}, {Number(item.longitude).toFixed(4)}<br />
+            <a
+              href={`#/stations/${item.id}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                marginTop: '6px',
+                padding: '3px 8px',
+                backgroundColor: 'var(--color-accent-primary)',
+                color: '#fff',
+                borderRadius: '4px',
+                textDecoration: 'none',
+                fontSize: '10px',
+                fontWeight: 600
+              }}
+            >
+              <i className="fa fa-line-chart"></i> Xem chi tiết trạm
+            </a>
           </div>
         ) : (
           <div style={{ fontSize: "11px", minWidth: "140px" }}>
@@ -304,6 +330,7 @@ const routeNames: Record<string, string> = {
   "/satellites": "Vệ tinh",
   "/sources": "Nguồn dữ liệu",
   "/stations": "Trạm quan trắc",
+  "/stations/:id": "Chi tiết trạm",
   "/measurements": "Dữ liệu đo lường",
   "/locations/new": "Thêm vị trí",
   "/comparisons": "So sánh dữ liệu",
@@ -335,13 +362,14 @@ const CO2ManagementApp: React.FC = () => {
         mapOverlay={<MapTopOverlay />}
         mapLegend={<DynamicMapLegend />}
         mapMarkers={<CO2MapMarkers />}
-        isFullWidthPage={(path) => path === "/statistics"}
+        isFullWidthPage={(path) => path === "/statistics" || path.startsWith("/stations/")}
       >
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/satellites" element={<SatelliteList />} />
           <Route path="/sources" element={<SourceList />} />
           <Route path="/stations" element={<StationList />} />
+          <Route path="/stations/:id" element={<StationDetailPage />} />
           <Route path="/measurements" element={<MeasurementList />} />
           <Route path="/locations" element={<LocationList />} />
           <Route path="/locations/new" element={<LocationForm />} />

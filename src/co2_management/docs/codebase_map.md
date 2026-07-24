@@ -86,7 +86,7 @@ Mã nguồn Frontend React của module được cấu trúc như sau:
 - **Điểm gắn kết (Mount Point)**: Nhúng vào Django template thông qua thẻ `div` có `id="co2-management-root"` tại [react_app.html](file:///D:/Research/Geonode/geonode-project/src/co2_management/templates/co2_management/react_app.html).
 - **Ứng dụng chính**: [CO2ManagementApp.tsx](file:///D:/Research/Geonode/geonode-project/frontend/src/co2_management/CO2ManagementApp.tsx) - Điểm bắt đầu khởi tạo cấu trúc trang SPA.
 - **Thư mục components/**: Các UI component dùng riêng cho giám sát & theo dõi CO2 (Map view, Stats widgets, Comparison table).
-- **Thư mục pages/**: Chứa các màn hình chức năng chính (Dashboard, Danh sách Trạm quan trắc `StationList.tsx`, Nguồn dữ liệu `SourceList.tsx`, So sánh dữ liệu OCO-2 & GOSAT-2, Phân tích xu hướng Trend, Danh sách các job chạy nền).
+- **Thư mục pages/**: Chứa các màn hình chức năng chính (Dashboard, Danh sách Trạm quan trắc `StationList.tsx`, Trang Chi tiết trạm `StationDetailPage.tsx`, Nguồn dữ liệu `SourceList.tsx`, So sánh dữ liệu OCO-2 & GOSAT-2, Phân tích xu hướng Trend, Danh sách các job chạy nền).
 - **Thư mục store/**: Quản lý Global State phục vụ đồng bộ dữ liệu bản đồ, dữ liệu thống kê qua các view.
 
 
