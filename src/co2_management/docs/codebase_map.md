@@ -55,6 +55,8 @@ Tất cả bảng dữ liệu của co2_management đều bắt đầu bằng ti
 | [AnalysisJob](file:///D:/Research/Geonode/geonode-project/src/co2_management/models.py#L210) | Quản lý và giám sát tiến trình các yêu cầu phân tích dữ liệu chạy nền |
 | [DataComparison](file:///D:/Research/Geonode/geonode-project/src/co2_management/models.py#L226) | Kết quả đối chiếu chênh lệch nồng độ XCO2 giữa OCO-2 và GOSAT-2 |
 | [AuditLog](file:///D:/Research/Geonode/geonode-project/src/co2_management/models.py#L241) | Nhật ký hệ thống theo dõi các thao tác thay đổi dữ liệu trong mô-đun |
+| [Station](file:///D:/Research/Geonode/geonode-project/src/co2_management/models.py#L257) | Lưu thông tin danh mục tĩnh các trạm quan trắc chất lượng không khí (bảng `stations`) |
+| [StationMeasurement](file:///D:/Research/Geonode/geonode-project/src/co2_management/models.py#L278) | Chuỗi thời gian dữ liệu ô nhiễm không khí (PM1, PM2.5, PM10, CO, NO2, SO2...) theo trạm (bảng `station_measurements`) |
 
 ---
 

@@ -3,7 +3,7 @@ from django.contrib.gis import admin as gis_admin
 from .models import (
     Satellite, SatelliteInstrument, MeasurementSource, MeasurementMetadata,
     Measurement, VerticalProfile, QualityAssessment, MonitoringLocation,
-    TemporalSeries, DataComparison, AnalysisJob, AuditLog
+    TemporalSeries, DataComparison, AnalysisJob, AuditLog, Station, StationMeasurement
 )
 
 class SatelliteInstrumentInline(admin.TabularInline):
@@ -68,3 +68,18 @@ class AuditLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+@admin.register(Station)
+class StationAdmin(admin.ModelAdmin):
+    """Cấu hình trang quản trị cho Trạm quan trắc không khí"""
+    list_display = ('id', 'code', 'name', 'latitude', 'longitude', 'status', 'created_at')
+    search_fields = ('id', 'code', 'name')
+    list_filter = ('status',)
+
+@admin.register(StationMeasurement)
+class StationMeasurementAdmin(admin.ModelAdmin):
+    """Cấu hình trang quản trị cho Dữ liệu quan trắc không khí của trạm"""
+    list_display = ('id', 'station', 'measured_at', 'pm_2_5', 'pm_10', 'co', 'so2', 'no2', 'o3')
+    list_filter = ('station',)
+    date_hierarchy = 'measured_at'
+

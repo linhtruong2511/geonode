@@ -252,3 +252,56 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"Log {self.id} - {self.action} on {self.table_name}"
+
+
+class Station(models.Model):
+    """
+    Lưu trữ dữ liệu danh mục tĩnh của các trạm quan trắc không khí.
+    """
+    id = models.CharField(max_length=255, primary_key=True)
+    code = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    name = models.CharField(max_length=255)
+    address = models.TextField(null=True, blank=True)
+    latitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    status = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+    class Meta:
+        db_table = 'stations'
+        verbose_name = 'Station'
+        verbose_name_plural = 'Stations'
+
+    def __str__(self):
+        return f"{self.name} ({self.code or self.id})"
+
+
+class StationMeasurement(models.Model):
+    """
+    Lưu trữ chuỗi thời gian đo đạc của các trạm quan trắc không khí.
+    """
+    id = models.BigAutoField(primary_key=True)
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, db_column='station_id', related_name='measurements')
+    measured_at = models.DateTimeField()
+    pm_1 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    pm_2_5 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    pm_10 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    tsp = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    co = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    no = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    no2 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    nox = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    so2 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    o3 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+
+    class Meta:
+        db_table = 'station_measurements'
+        verbose_name = 'Station Measurement'
+        verbose_name_plural = 'Station Measurements'
+        indexes = [
+            models.Index(fields=['station', 'measured_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.station_id} at {self.measured_at}"
+
