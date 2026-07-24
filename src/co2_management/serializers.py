@@ -107,9 +107,16 @@ class AuditLogSerializer(serializers.ModelSerializer):
 
 class StationMeasurementSerializer(serializers.ModelSerializer):
     """Serializer cho dữ liệu đo đạc chất lượng không khí của trạm"""
+    station_code = serializers.CharField(source='station.code', read_only=True)
+    station_name = serializers.CharField(source='station.name', read_only=True)
+
     class Meta:
         model = StationMeasurement
-        fields = '__all__'
+        fields = [
+            'id', 'station', 'station_code', 'station_name', 'measured_at',
+            'pm_1', 'pm_2_5', 'pm_10', 'tsp', 'co', 'no', 'no2', 'nox', 'so2', 'o3'
+        ]
+
 
 
 class StationSerializer(serializers.ModelSerializer):

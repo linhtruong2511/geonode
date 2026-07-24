@@ -74,7 +74,9 @@ Tất cả các endpoints REST API của module CO2 được đăng ký qua `Def
 | `api/v1/locations/` | [MonitoringLocationViewSet](file:///D:/Research/Geonode/geonode-project/src/co2_management/api_urls.py#L17) | Quản lý các điểm giám sát và vùng bán kính quan tâm |
 | `api/v1/comparisons/` | [DataComparisonViewSet](file:///D:/Research/Geonode/geonode-project/src/co2_management/api_urls.py#L18) | API truy xuất kết quả đối so sánh OCO2 vs GOSAT2 |
 | `api/v1/jobs/` | [AnalysisJobViewSet](file:///D:/Research/Geonode/geonode-project/src/co2_management/api_urls.py#L19) | Endpoint quản lý, theo dõi tiến độ các job phân tích nồng độ CO2 |
-| `api/v1/aq-stations/` | [StationViewSet](file:///D:/Research/Geonode/geonode-project/src/co2_management/api_urls.py#L19) | Quản lý trạm quan trắc không khí, lọc GeoJSON bản đồ, xem thống kê & đo đạc theo trạm |
+| `api/v1/aq-stations/` | [StationViewSet](file:///D:/Research/Geonode/geonode-project/src/co2_management/api_urls.py#L20) | Quản lý trạm quan trắc không khí, lọc GeoJSON bản đồ, xem thống kê & đo đạc theo trạm |
+| `api/v1/aq-measurements/` | [StationMeasurementViewSet](file:///D:/Research/Geonode/geonode-project/src/co2_management/api_urls.py#L21) | Truy vấn chuỗi đo đạc trạm, lấy phép đo mới nhất, xuất CSV, tải file mẫu & import CSV theo trạm |
+
 
 
 ---
