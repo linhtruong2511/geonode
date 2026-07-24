@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useFetchData } from '@common/hooks/useFetchData';
 import axios from 'axios';
 import { useMapStore } from '../../common/stores/useMapStore';
@@ -31,7 +32,7 @@ interface MeasurementSource {
 
 const SourceList: React.FC = () => {
   // Lấy các hàm điều khiển bản đồ từ Store dùng chung
-  const { setShowMap, setMapData, setMapCenter, setMapZoom, setFocusedId } = useMapStore();
+  const { setShowMap, setMapData, setMapCenter, setMapZoom, setFocusedId, setCustomLegend } = useMapStore();
 
   // Quản lý phân trang
   const [{ pageIndex, pageSize }, setPagination] = useState({
@@ -94,11 +95,13 @@ const SourceList: React.FC = () => {
     // Bản đồ hiển thị lên lần đầu luôn có bound ở khu vực miền bắc - trung tâm là hà nội
     setMapCenter([21.028511, 105.804817]);
     setMapZoom(8);
+    setCustomLegend(null); // Ẩn legend ở màn hình quản lý nguồn dữ liệu
     return () => {
       setMapData([]);
       setFocusedId(null);
+      setCustomLegend(undefined);
     };
-  }, [setShowMap, setMapCenter, setMapZoom, setMapData, setFocusedId]);
+  }, [setShowMap, setMapCenter, setMapZoom, setMapData, setFocusedId, setCustomLegend]);
 
   // Reset danh sách được chọn khi phân trang, thay đổi bộ lọc hoặc tải lại danh sách
   useEffect(() => {
@@ -374,10 +377,11 @@ const SourceList: React.FC = () => {
       <div className="co2-page-title" style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h3 style={{ fontSize: '16px', margin: 0 }}>Quản lý tệp dữ liệu nguồn</h3>
-          <p style={{ fontSize: '11px', margin: 0 }}>Danh sách các file vệ tinh đã tải lên hệ thống</p>
+          <p style={{ fontSize: '11px', margin: 0, color: 'var(--color-text-secondary)' }}>Danh sách các file vệ tinh đã tải lên hệ thống</p>
         </div>
         <button 
           onClick={() => setShowImportModal(true)}
+          className="btn-responsive-text"
           style={{
             padding: '6px 12px',
             background: 'var(--color-accent-primary)',
@@ -389,10 +393,13 @@ const SourceList: React.FC = () => {
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
-            gap: '6px'
+            gap: '6px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0
           }}
+          title="Import Tệp mới"
         >
-          <i className="fa fa-plus"></i> Import Tệp mới
+          <i className="fa fa-plus"></i> <span className="btn-label">Import Tệp mới</span>
         </button>
       </div>
 
@@ -443,7 +450,9 @@ const SourceList: React.FC = () => {
         border: '1px solid var(--color-border)',
         borderRadius: '6px',
         padding: '8px 12px',
-        marginBottom: '10px'
+        marginBottom: '10px',
+        flexWrap: 'wrap',
+        gap: '6px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <input 
@@ -452,12 +461,12 @@ const SourceList: React.FC = () => {
             onChange={handleSelectAll}
             style={{ cursor: 'pointer', margin: 0 }}
           />
-          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
             Chọn tất cả ({data.length})
           </span>
           {selectedIds.length > 0 && (
-            <span style={{ fontSize: '11px', color: 'var(--color-accent-primary)', marginLeft: '10px' }}>
-              Đang chọn: <strong>{selectedIds.length}</strong> bản ghi
+            <span style={{ fontSize: '11px', color: 'var(--color-accent-primary)', marginLeft: '6px', whiteSpace: 'nowrap' }}>
+              Đang chọn: <strong>{selectedIds.length}</strong>
             </span>
           )}
         </div>
@@ -466,6 +475,7 @@ const SourceList: React.FC = () => {
           <button
             onClick={handleBulkShow}
             disabled={selectedIds.length === 0}
+            className="btn-responsive-text"
             style={{
               padding: '4px 8px',
               fontSize: '11px',
@@ -475,15 +485,20 @@ const SourceList: React.FC = () => {
               border: '1px solid #10b981',
               backgroundColor: '#fff',
               color: '#10b981',
-              fontWeight: 600
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              whiteSpace: 'nowrap'
             }}
             title="Hiện các điểm đo của các file đã chọn trên bản đồ"
           >
-            <i className="fa fa-eye"></i> Hiện bản đồ
+            <i className="fa fa-eye"></i> <span className="btn-label">Hiện bản đồ</span>
           </button>
           <button
             onClick={handleBulkDelete}
             disabled={selectedIds.length === 0}
+            className="btn-responsive-text"
             style={{
               padding: '4px 8px',
               fontSize: '11px',
@@ -493,11 +508,15 @@ const SourceList: React.FC = () => {
               border: '1px solid #ef4444',
               backgroundColor: '#fff',
               color: '#ef4444',
-              fontWeight: 600
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              whiteSpace: 'nowrap'
             }}
-            title="Xóa các tệp nguồn và dữ liệu đo liên quan"
+            title="Xóa các tệp tin đã chọn"
           >
-            <i className="fa fa-trash"></i> Xóa nhiều
+            <i className="fa fa-trash"></i> <span className="btn-label">Xóa nhiều</span>
           </button>
         </div>
       </div>
@@ -628,7 +647,7 @@ const SourceList: React.FC = () => {
       </div>
 
       {/* ─── MODAL HIỂN THỊ CHI TIẾT FILE NGUỒN (DETAIL DIALOG) ───────────────── */}
-      {activeDetail && (
+      {activeDetail && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
@@ -640,7 +659,7 @@ const SourceList: React.FC = () => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 9999
+          zIndex: 99999
         }}>
           <div style={{
             background: '#fff',
@@ -851,10 +870,11 @@ const SourceList: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* ─── MODAL IMPORT TỆP DỮ LIỆU NGUỒN (IMPORT FILE DIALOG) ───────────────── */}
-      {showImportModal && (
+      {showImportModal && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
@@ -866,7 +886,7 @@ const SourceList: React.FC = () => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 9999
+          zIndex: 99999
         }}>
           <div style={{
             background: '#fff',
@@ -948,7 +968,6 @@ const SourceList: React.FC = () => {
                       <i className="fa fa-file-text-o"></i> Preview & Cấu hình
                     </h5>
                     
-                    {/* Thông tin tệp thô */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '4px 10px', fontSize: '11px', marginBottom: '12px', wordBreak: 'break-all' }}>
                       <span style={{ color: 'var(--color-text-secondary)' }}>Tên tệp:</span>
                       <strong>{selectedFile.name}</strong>
@@ -961,7 +980,6 @@ const SourceList: React.FC = () => {
                     </div>
 
                     <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
-                      {/* Lựa chọn Vệ tinh thủ công (nếu muốn override) */}
                       <div style={{ marginBottom: '8px' }}>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>
                           Vệ tinh sử dụng
@@ -977,7 +995,6 @@ const SourceList: React.FC = () => {
                         </select>
                       </div>
 
-                      {/* Lọc chất lượng */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                         <input 
                           type="checkbox" 
@@ -992,7 +1009,6 @@ const SourceList: React.FC = () => {
                         </label>
                       </div>
 
-                      {/* Giới hạn không gian (Bounding Box) */}
                       <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '8px', marginTop: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                           <input 
@@ -1052,20 +1068,15 @@ const SourceList: React.FC = () => {
                                     fontFamily: 'monospace'
                                   }}
                                 />
-                                <span style={{ fontSize: '9px', color: 'var(--color-text-secondary)', display: 'block', marginTop: '2px' }}>
-                                  Ví dụ: 8,102,24,110 (Thứ tự: lat_min, lon_min, lat_max, lon_max)
-                                </span>
                               </div>
                             )}
                           </div>
                         )}
                       </div>
-
                     </div>
                   </div>
                 )}
 
-                {/* Trạng thái Tiến trình */}
                 {uploadStatus && (
                   <div style={{
                     padding: '8px 12px',
@@ -1083,13 +1094,12 @@ const SourceList: React.FC = () => {
                     <span>{uploadStatus}</span>
                   </div>
                 )}
-
               </div>
-              
-              <div style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '8px',
+
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'flex-end', 
+                gap: '8px', 
                 padding: '12px 16px',
                 borderTop: '1px solid var(--color-border)',
                 background: '#f8fafc'
@@ -1145,7 +1155,8 @@ const SourceList: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

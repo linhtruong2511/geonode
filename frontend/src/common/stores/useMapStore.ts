@@ -22,6 +22,7 @@ interface MapState {
   scanRadius: number; // in km
   isScanning: boolean;
   focusedId: number | null; // ID của điểm đo đang được định vị/highlight
+  customLegend: React.ReactNode | null | undefined; // Legend tùy chỉnh theo từng màn hình (null = ẩn, ReactNode = legend tùy biến, undefined = mặc định)
   setShowMap: (show: boolean) => void;
   setMapData: (data: any[]) => void;
   setMapCenter: (center: [number, number]) => void;
@@ -36,6 +37,7 @@ interface MapState {
   setScanRadius: (radius: number) => void;
   setIsScanning: (scanning: boolean) => void;
   setFocusedId: (id: number | null) => void;
+  setCustomLegend: (legend: React.ReactNode | null | undefined) => void;
 }
 
 export const useMapStore = create<MapState>((set) => ({
@@ -53,6 +55,7 @@ export const useMapStore = create<MapState>((set) => ({
   scanRadius: 50,
   isScanning: false,
   focusedId: null,
+  customLegend: undefined,
   setShowMap: (show) => set({ showMap: show }),
   setMapData: (data) => set({ mapData: data }),
   setMapCenter: (center) => set({ mapCenter: center }),
@@ -67,4 +70,5 @@ export const useMapStore = create<MapState>((set) => ({
   setScanRadius: (radius) => set({ scanRadius: radius }),
   setIsScanning: (scanning) => set({ isScanning: scanning }),
   setFocusedId: (id) => set({ focusedId: id }),
+  setCustomLegend: (legend) => set({ customLegend: legend }),
 }));

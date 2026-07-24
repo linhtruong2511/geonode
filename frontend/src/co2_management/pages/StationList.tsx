@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useFetchData } from '@common/hooks/useFetchData';
 import axios from 'axios';
 import { useMapStore } from '../../common/stores/useMapStore';
@@ -21,7 +22,7 @@ export interface Station {
 
 const StationList: React.FC = () => {
   // Lấy các hàm điều khiển bản đồ từ Store dùng chung
-  const { setShowMap, setMapData, setMapCenter, setMapZoom, setFocusedId } = useMapStore();
+  const { setShowMap, setMapData, setMapCenter, setMapZoom, setFocusedId, setCustomLegend } = useMapStore();
 
   // Quản lý phân trang
   const [{ pageIndex, pageSize }, setPagination] = useState({
@@ -72,16 +73,18 @@ const StationList: React.FC = () => {
   // Lấy dữ liệu thông qua hook dùng chung
   const { data, totalCount, loading } = useFetchData<Station>('/co2/api/v1/aq-stations/', fetchParams);
 
-  // Kích hoạt bản đồ khi mở trang
+  // Kích hoạt bản đồ khi mở trang & ẩn legend không cần thiết
   useEffect(() => {
     setShowMap(true);
     setMapCenter([21.028511, 105.804817]);
     setMapZoom(8);
+    setCustomLegend(null); // Ẩn legend XCO2 ở màn hình trạm quan trắc
     return () => {
       setMapData([]);
       setFocusedId(null);
+      setCustomLegend(undefined); // Khôi phục legend mặc định khi sang trang khác
     };
-  }, [setShowMap, setMapCenter, setMapZoom, setMapData, setFocusedId]);
+  }, [setShowMap, setMapCenter, setMapZoom, setMapData, setFocusedId, setCustomLegend]);
 
   // Cập nhật dữ liệu bản đồ khi danh sách trạm thay đổi
   useEffect(() => {
@@ -268,11 +271,12 @@ const StationList: React.FC = () => {
       <div className="co2-page-title" style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h3 style={{ fontSize: '16px', margin: 0 }}>Quản lý trạm quan trắc không khí</h3>
-          <p style={{ fontSize: '11px', margin: 0 }}>Danh sách danh mục các trạm quan trắc chất lượng không khí trên toàn quốc</p>
+          <p style={{ fontSize: '11px', margin: 0, color: 'var(--color-text-secondary)' }}>Danh sách danh mục các trạm quan trắc chất lượng không khí trên toàn quốc</p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
           <button
             onClick={handleDownloadTemplate}
+            className="btn-responsive-text"
             style={{
               padding: '6px 12px',
               background: '#fff',
@@ -284,11 +288,12 @@ const StationList: React.FC = () => {
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
+              whiteSpace: 'nowrap'
             }}
             title="Tải tệp CSV mẫu nhập danh mục trạm"
           >
-            <i className="fa fa-download"></i> Tải file mẫu
+            <i className="fa fa-download"></i> <span className="btn-label">Tải file mẫu</span>
           </button>
           <button
             onClick={() => {
@@ -297,6 +302,7 @@ const StationList: React.FC = () => {
               setImportResult(null);
               setUploadStatus('');
             }}
+            className="btn-responsive-text"
             style={{
               padding: '6px 12px',
               background: 'var(--color-accent-primary)',
@@ -308,10 +314,12 @@ const StationList: React.FC = () => {
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
+              whiteSpace: 'nowrap'
             }}
+            title="Import CSV danh mục trạm"
           >
-            <i className="fa fa-file-text-o"></i> Import CSV
+            <i className="fa fa-file-text-o"></i> <span className="btn-label">Import CSV</span>
           </button>
         </div>
       </div>
@@ -369,7 +377,9 @@ const StationList: React.FC = () => {
         border: '1px solid var(--color-border)',
         borderRadius: '6px',
         padding: '8px 12px',
-        marginBottom: '10px'
+        marginBottom: '10px',
+        flexWrap: 'wrap',
+        gap: '6px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <input
@@ -378,12 +388,12 @@ const StationList: React.FC = () => {
             onChange={handleSelectAll}
             style={{ cursor: 'pointer', margin: 0 }}
           />
-          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
             Chọn tất cả ({data.length})
           </span>
           {selectedIds.length > 0 && (
-            <span style={{ fontSize: '11px', color: 'var(--color-accent-primary)', marginLeft: '10px' }}>
-              Đang chọn: <strong>{selectedIds.length}</strong> trạm
+            <span style={{ fontSize: '11px', color: 'var(--color-accent-primary)', marginLeft: '6px', whiteSpace: 'nowrap' }}>
+              Đang chọn: <strong>{selectedIds.length}</strong>
             </span>
           )}
         </div>
@@ -391,6 +401,7 @@ const StationList: React.FC = () => {
         <div style={{ display: 'flex', gap: '6px' }}>
           <button
             onClick={handleBulkShowMap}
+            className="btn-responsive-text"
             style={{
               padding: '4px 8px',
               fontSize: '11px',
@@ -399,15 +410,20 @@ const StationList: React.FC = () => {
               border: '1px solid #10b981',
               backgroundColor: '#fff',
               color: '#10b981',
-              fontWeight: 600
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              whiteSpace: 'nowrap'
             }}
             title="Hiện các trạm đã chọn lên bản đồ"
           >
-            <i className="fa fa-globe"></i> Hiện bản đồ
+            <i className="fa fa-globe"></i> <span className="btn-label">Hiện bản đồ</span>
           </button>
           <button
             onClick={handleBulkDelete}
             disabled={selectedIds.length === 0}
+            className="btn-responsive-text"
             style={{
               padding: '4px 8px',
               fontSize: '11px',
@@ -417,11 +433,15 @@ const StationList: React.FC = () => {
               border: '1px solid #ef4444',
               backgroundColor: '#fff',
               color: '#ef4444',
-              fontWeight: 600
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              whiteSpace: 'nowrap'
             }}
             title="Xóa các trạm đã chọn"
           >
-            <i className="fa fa-trash"></i> Xóa nhiều
+            <i className="fa fa-trash"></i> <span className="btn-label">Xóa nhiều</span>
           </button>
         </div>
       </div>
@@ -554,7 +574,7 @@ const StationList: React.FC = () => {
       </div>
 
       {/* MODAL Xem chi tiết trạm quan trắc (Information Dialog) */}
-      {activeDetail && (
+      {activeDetail && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
@@ -566,7 +586,7 @@ const StationList: React.FC = () => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 9999
+          zIndex: 99999
         }}>
           <div style={{
             background: '#fff',
@@ -691,11 +711,12 @@ const StationList: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL Import CSV Danh mục trạm */}
-      {showImportModal && (
+      {showImportModal && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
@@ -707,7 +728,7 @@ const StationList: React.FC = () => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 9999
+          zIndex: 99999
         }}>
           <div style={{
             background: '#fff',
@@ -821,7 +842,8 @@ const StationList: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

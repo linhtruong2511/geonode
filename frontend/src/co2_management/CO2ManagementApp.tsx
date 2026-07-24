@@ -296,9 +296,6 @@ const navLinks: NavLinkDef[] = [
   { to: "/sources", icon: "fa-database", label: "Nguồn dữ liệu" },
   { to: "/stations", icon: "fa-building", label: "Trạm quan trắc" },
   { to: "/measurements", icon: "fa-flask", label: "Dữ liệu đo lường" },
-  { to: "/locations", icon: "fa-map-marker", label: "Vị trí giám sát" },
-  { to: "/comparisons", icon: "fa-exchange", label: "So sánh dữ liệu" },
-  { to: "/jobs", icon: "fa-cogs", label: "Phiên phân tích" },
   { to: "/statistics", icon: "fa-bar-chart", label: "Thống kê XCO2" },
 ];
 
@@ -314,6 +311,20 @@ const routeNames: Record<string, string> = {
   "/statistics": "Thống kê XCO2",
 };
 
+const DynamicMapLegend: React.FC = () => {
+  const customLegend = useMapStore((state) => state.customLegend);
+
+  if (customLegend === null) {
+    return null;
+  }
+
+  if (customLegend !== undefined) {
+    return <>{customLegend}</>;
+  }
+
+  return <MapLegend />;
+};
+
 const CO2ManagementApp: React.FC = () => {
   return (
     <HashRouter>
@@ -322,7 +333,7 @@ const CO2ManagementApp: React.FC = () => {
         navLinks={navLinks}
         routeNames={routeNames}
         mapOverlay={<MapTopOverlay />}
-        mapLegend={<MapLegend />}
+        mapLegend={<DynamicMapLegend />}
         mapMarkers={<CO2MapMarkers />}
         isFullWidthPage={(path) => path === "/statistics"}
       >

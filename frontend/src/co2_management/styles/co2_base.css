@@ -431,3 +431,28 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
+/* ─── Responsive Buttons & Container Queries ────────── */
+#co2-content-panel {
+  container-type: inline-size;
+  container-name: content-panel;
+}
+
+.btn-responsive-text {
+  white-space: nowrap !important;
+}
+
+@container content-panel (max-width: 480px) {
+  .btn-responsive-text .btn-label {
+    display: none !important;
+  }
+  .btn-responsive-text {
+    padding: 6px 8px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .btn-responsive-text .btn-label {
+    display: none !important;
+  }
+}
