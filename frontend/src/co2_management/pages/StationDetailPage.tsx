@@ -249,35 +249,37 @@ const StationDetailPage: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '10px' }}>
-      {/* Header điều hướng quay lại */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button
-            onClick={() => navigate('/stations')}
-            style={{
-              background: '#fff',
-              border: '1px solid var(--color-border)',
-              borderRadius: '6px',
-              padding: '6px 14px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              color: 'var(--color-text-primary)'
-            }}
-          >
-            <i className="fa fa-arrow-left"></i> Quay lại danh sách
-          </button>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-              Trạm: {station.name}
-            </h2>
-            <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-              Mã trạm: <strong className="font-mono">{station.code || 'N/A'}</strong> | ID: <span className="font-mono">{station.id}</span>
-            </span>
-          </div>
+      {/* Header điều hướng quay lại (đặt phía trên tên trạm) */}
+      <div>
+        <button
+          onClick={() => navigate('/stations')}
+          style={{
+            background: '#fff',
+            border: '1px solid var(--color-border)',
+            borderRadius: '6px',
+            padding: '6px 14px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 600,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: 'var(--color-text-primary)'
+          }}
+        >
+          <i className="fa fa-arrow-left"></i> Quay lại danh sách
+        </button>
+      </div>
+
+      {/* Tiêu đề trạm & Trạng thái */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginTop: '-10px' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+            Trạm: {station.name}
+          </h2>
+          <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+            Mã trạm: <strong className="font-mono">{station.code || 'N/A'}</strong> | ID: <span className="font-mono">{station.id}</span>
+          </span>
         </div>
 
         <span style={{
@@ -292,8 +294,8 @@ const StationDetailPage: React.FC = () => {
         </span>
       </div>
 
-      {/* Grid phía trên: Trái (Thông tin trạm) - Phải (Bộ lọc + KPI + Biểu đồ) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+      {/* Grid phía trên: Trái (Thông tin trạm - 1) - Phải (Bộ lọc + KPI + Biểu đồ - 3) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '20px' }}>
         
         {/* Cột trái: Thông tin cơ bản trạm */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
