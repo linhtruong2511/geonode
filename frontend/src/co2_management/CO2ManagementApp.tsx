@@ -9,6 +9,7 @@ import JobList from "./pages/JobList";
 import LocationList from "./pages/LocationList";
 import LocationForm from "./pages/LocationForm";
 import MeasurementList from "./pages/MeasurementList";
+import StationList from "./pages/StationList";
 import Comparisons from "./pages/Comparisons";
 import Statistics from "./pages/Statistics";
 
@@ -129,30 +130,48 @@ const MeasurementMarker: React.FC<{ item: any; focusedId: number | null }> = ({ 
   }, [focusedId, item.id]);
 
   const isFocused = focusedId === item.id;
+  const isStation = Boolean(item.name || item.code);
+
+  const markerColor = isStation
+    ? (item.status === 0 ? '#10b981' : '#f59e0b')
+    : getColor(item.xco2_ppm);
 
   return (
     <CircleMarker
       ref={markerRef}
       center={[item.latitude, item.longitude]}
-      radius={isFocused ? 10 : 5}
+      radius={isFocused ? 10 : (isStation ? 7 : 5)}
       pathOptions={{
-        fillColor: getColor(item.xco2_ppm),
-        color: isFocused ? '#ef4444' : getColor(item.xco2_ppm),
+        fillColor: markerColor,
+        color: isFocused ? '#ef4444' : markerColor,
         weight: isFocused ? 3 : 1,
         opacity: isFocused ? 1.0 : 0.8,
-        fillOpacity: isFocused ? 0.95 : 0.6,
+        fillOpacity: isFocused ? 0.95 : 0.7,
       }}
     >
       <Popup autoPan={false}>
-        <div style={{ fontSize: "11px", minWidth: "140px" }}>
-          <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '3px', marginBottom: '3px', fontWeight: 700, color: 'var(--color-accent-primary)' }}>
-            Điểm đo #{item.id}
+        {isStation ? (
+          <div style={{ fontSize: "11px", minWidth: "160px" }}>
+            <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '3px', marginBottom: '3px', fontWeight: 700, color: 'var(--color-accent-primary)' }}>
+              Trạm: {item.name}
+            </div>
+            <strong>Mã trạm:</strong> {item.code || 'N/A'}<br />
+            <strong>Trạng thái:</strong> {item.status === 0 ? 'Bình thường' : 'Bảo trì'}<br />
+            <strong>Địa chỉ:</strong> {item.address || 'N/A'}<br />
+            <strong>Số bản ghi:</strong> {item.measurement_count || 0}<br />
+            <strong>Tọa độ:</strong> {Number(item.latitude).toFixed(4)}, {Number(item.longitude).toFixed(4)}
           </div>
-          <strong>XCO2:</strong> {item.xco2_ppm?.toFixed(2)} ppm<br />
-          <strong>Thời gian:</strong> {new Date(item.measurement_time).toLocaleString("vi-VN")}<br />
-          <strong>Tọa độ:</strong> {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}<br />
-          <strong>Nguồn:</strong> {item.data_source}
-        </div>
+        ) : (
+          <div style={{ fontSize: "11px", minWidth: "140px" }}>
+            <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '3px', marginBottom: '3px', fontWeight: 700, color: 'var(--color-accent-primary)' }}>
+              Điểm đo #{item.id}
+            </div>
+            <strong>XCO2:</strong> {item.xco2_ppm?.toFixed(2)} ppm<br />
+            <strong>Thời gian:</strong> {new Date(item.measurement_time).toLocaleString("vi-VN")}<br />
+            <strong>Tọa độ:</strong> {Number(item.latitude).toFixed(4)}, {Number(item.longitude).toFixed(4)}<br />
+            <strong>Nguồn:</strong> {item.data_source}
+          </div>
+        )}
       </Popup>
     </CircleMarker>
   );
@@ -275,6 +294,7 @@ const navLinks: NavLinkDef[] = [
   { to: "/", icon: "fa-dashboard", label: "Bảng điều khiển" },
   { to: "/satellites", icon: "fa-rocket", label: "Vệ tinh" },
   { to: "/sources", icon: "fa-database", label: "Nguồn dữ liệu" },
+  { to: "/stations", icon: "fa-building", label: "Trạm quan trắc" },
   { to: "/measurements", icon: "fa-flask", label: "Dữ liệu đo lường" },
   { to: "/locations", icon: "fa-map-marker", label: "Vị trí giám sát" },
   { to: "/comparisons", icon: "fa-exchange", label: "So sánh dữ liệu" },
@@ -286,6 +306,7 @@ const routeNames: Record<string, string> = {
   "/": "Tổng quan",
   "/satellites": "Vệ tinh",
   "/sources": "Nguồn dữ liệu",
+  "/stations": "Trạm quan trắc",
   "/measurements": "Dữ liệu đo lường",
   "/locations/new": "Thêm vị trí",
   "/comparisons": "So sánh dữ liệu",
@@ -309,6 +330,7 @@ const CO2ManagementApp: React.FC = () => {
           <Route path="/" element={<Dashboard />} />
           <Route path="/satellites" element={<SatelliteList />} />
           <Route path="/sources" element={<SourceList />} />
+          <Route path="/stations" element={<StationList />} />
           <Route path="/measurements" element={<MeasurementList />} />
           <Route path="/locations" element={<LocationList />} />
           <Route path="/locations/new" element={<LocationForm />} />
