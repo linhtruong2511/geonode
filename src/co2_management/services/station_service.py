@@ -4,6 +4,8 @@ from django.db import transaction
 from django.db.models import Q, Count, Exists, Max, Min, Avg, OuterRef
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import is_naive, make_aware, get_current_timezone
+
+from co2_management.services.utils import bulk_save_station_measurements, extract_measurement_csv_headers, parse_csv_file_stream, parse_row_measured_at, parse_row_pollutants
 from ..models import Station, StationMeasurement
 import logging
 logger = logging.getLogger(__name__)
@@ -483,100 +485,45 @@ def generate_measurement_csv_template():
     return '\ufeff' + csv_data
 
 
-def import_measurements_from_csv(file_obj, default_station_id=None):
+# ==============================================================================
+# Helper Functions Hỗ Trợ Tái Sử Dụng (Shared Helpers for CSV Measurement Processing)
+# ==============================================================================
+
+# ==============================================================================
+# Public API Functions Cho Import Dữ Liệu Đo Đạc
+# ==============================================================================
+
+def import_measurements_bulk_csv(file_obj):
     """
-    Import chuỗi dữ liệu đo đạc từ file CSV.
-    Tự động map cột ô nhiễm, bỏ qua cột khí tượng, nạp/cập nhật CSDL.
+    Import chuỗi dữ liệu đo đạc từ file CSV tổng hợp
+    Tự động nhận diện hoặc tạo mới trạm dựa theo stationId/stationCode của từng dòng.
     """
-    if hasattr(file_obj, 'read'):
-        content = file_obj.read()
-        if isinstance(content, bytes):
-            try:
-                decoded = content.decode('utf-8-sig')
-            except UnicodeDecodeError:
-                try:
-                    decoded = content.decode('utf-8')
-                except UnicodeDecodeError:
-                    decoded = content.decode('latin-1')
-            stream = io.StringIO(decoded)
-        else:
-            stream = io.StringIO(content)
-    else:
-        stream = file_obj
-
-    reader = csv.DictReader(stream)
-    if not reader.fieldnames:
-        return {
-            'success': False,
-            'error': 'Tệp tin CSV rỗng hoặc không chứa dòng tiêu đề (header).'
-        }
-
-    raw_headers = [f.strip() for f in reader.fieldnames if f]
-
-    time_col = None
-    for col in raw_headers:
-        if col.lower() in ['gettime', 'measured_at', 'measuredat', 'time', 'datetime', 'date']:
-            time_col = col
-            break
-
-    if not time_col:
-        return {
-            'success': False,
-            'error': 'File CSV thiếu cột thời gian đo đạc (yêu cầu cột: getTime hoặc measured_at).'
-        }
-
-    column_mapping = {}
-    for col in raw_headers:
-        clean_col = col.strip()
-        if clean_col in CSV_POLLUTANT_MAP:
-            column_mapping[col] = CSV_POLLUTANT_MAP[clean_col]
-
-    if not column_mapping:
-        return {
-            'success': False,
-            'error': 'File CSV không chứa bất kỳ cột thông số ô nhiễm nào hợp lệ (chấp nhận: PM-1, PM-2.5, PM-10, TSP, CO, NO, NO2, NOx, SO2, O3).'
-        }
+    reader = parse_csv_file_stream(file_obj)
+    time_col, column_mapping, err = extract_measurement_csv_headers(reader)
+    if err:
+        return err
 
     total_rows = 0
-    created_count = 0
-    updated_count = 0
     error_count = 0
     errors = []
-
     station_cache = {}
-    if default_station_id:
-        try:
-            st = Station.objects.get(Q(id=default_station_id) | Q(code=default_station_id))
-            station_cache[default_station_id] = st
-        except Station.DoesNotExist:
-            pass
-
     records_to_process = []
 
     for idx, row in enumerate(reader, start=1):
         total_rows += 1
 
-        time_str = (row.get(time_col) or '').strip()
-        if not time_str:
-            errors.append(f"Dòng {idx}: Thiếu thời gian đo đạc")
+        measured_at, err_msg = parse_row_measured_at(row, time_col, idx)
+        if err_msg:
+            errors.append(err_msg)
             error_count += 1
             continue
-
-        measured_at = parse_datetime(time_str)
-        if not measured_at:
-            errors.append(f"Dòng {idx}: Định dạng thời gian '{time_str}' không hợp lệ (cần ISO 8601)")
-            error_count += 1
-            continue
-
-        if is_naive(measured_at):
-            measured_at = make_aware(measured_at, timezone=get_current_timezone())
 
         st_id = (row.get('stationId') or row.get('station_id') or row.get('id') or '').strip()
         st_code = (row.get('stationCode') or row.get('station_code') or row.get('code') or '').strip()
         st_name = (row.get('stationName') or row.get('station_name') or row.get('name') or '').strip()
 
-        target_station = None
         key = st_id or st_code
+        target_station = None
 
         if key:
             if key in station_cache:
@@ -594,28 +541,14 @@ def import_measurements_from_csv(file_obj, default_station_id=None):
                         name=st_name_val
                     )
                     station_cache[key] = target_station
-        elif default_station_id:
-            target_station = station_cache.get(default_station_id)
 
         if not target_station:
-            errors.append(f"Dòng {idx}: Không xác định được trạm (thiếu stationId/stationCode và không chọn trạm mặc định)")
+            errors.append(f"Dòng {idx}: Không xác định được thông tin trạm (thiếu stationId/stationCode)")
             error_count += 1
             continue
 
-        pollutants_payload = {}
-        has_any_val = False
-        for col_name, field_name in column_mapping.items():
-            val_str = (row.get(col_name) or '').strip()
-            if val_str:
-                try:
-                    pollutants_payload[field_name] = float(val_str)
-                    has_any_val = True
-                except ValueError:
-                    pollutants_payload[field_name] = None
-            else:
-                pollutants_payload[field_name] = None
-
-        if not has_any_val:
+        pollutants_payload = parse_row_pollutants(row, column_mapping)
+        if not pollutants_payload:
             continue
 
         records_to_process.append({
@@ -630,24 +563,97 @@ def import_measurements_from_csv(file_obj, default_station_id=None):
             'error': 'File CSV không có dữ liệu bản ghi nào.'
         }
 
-    with transaction.atomic():
-        for rec in records_to_process:
-            defaults = rec['payload']
-            meas, created = StationMeasurement.objects.update_or_create(
-                station=rec['station'],
-                measured_at=rec['measured_at'],
-                defaults=defaults
-            )
-            if created:
-                created_count += 1
-            else:
-                updated_count += 1
+    created_count, updated_count = bulk_save_station_measurements(records_to_process)
 
     return {
         'success': True,
         'total_rows': total_rows,
         'created_count': created_count,
         'updated_count': updated_count,
+        'error_count': error_count,
+        'errors': errors[:20]
+    }
+
+
+def import_station_measurements_csv(station_or_id, file_obj):
+    """
+    Import chuỗi dữ liệu đo đạc dành riêng cho 1 trạm quan trắc.
+    - Chỉ nạp những dòng trong file CSV có stationId/stationCode khớp đúng với trạm chỉ định.
+    - Nếu dòng CSV không chứa thông tin trạm, mặc định gán cho trạm chỉ định.
+    - Các dòng có mã thuộc về trạm khác sẽ bị tự động bỏ qua (skipped_count).
+    """
+    if isinstance(station_or_id, Station):
+        target_st_obj = station_or_id
+    else:
+        try:
+            target_st_obj = Station.objects.get(Q(id=station_or_id) | Q(code=station_or_id))
+        except Station.DoesNotExist:
+            return {
+                'success': False,
+                'error': f'Không tìm thấy trạm quan trắc với ID/Mã: {station_or_id}'
+            }
+
+    reader = parse_csv_file_stream(file_obj)
+    time_col, column_mapping, err = extract_measurement_csv_headers(reader)
+    if err:
+        return err
+
+    total_rows = 0
+    skipped_count = 0
+    error_count = 0
+    errors = []
+    records_to_process = []
+
+    for idx, row in enumerate(reader, start=1):
+        total_rows += 1
+
+        measured_at, err_msg = parse_row_measured_at(row, time_col, idx)
+        if err_msg:
+            errors.append(err_msg)
+            error_count += 1
+            continue
+
+        st_id = (row.get('stationId') or row.get('station_id') or row.get('id') or '').strip()
+        st_code = (row.get('stationCode') or row.get('station_code') or row.get('code') or '').strip()
+        key = st_id or st_code
+
+        # Kiểm tra xem dòng này có thuộc về trạm chỉ định hay không
+        if key:
+            is_match = (
+                key == str(target_st_obj.id) or
+                (target_st_obj.code and key.lower() == target_st_obj.code.lower())
+            )
+            if not is_match:
+                # Bỏ qua dòng thuộc về trạm khác
+                skipped_count += 1
+                continue
+
+        pollutants_payload = parse_row_pollutants(row, column_mapping)
+        if not pollutants_payload:
+            continue
+
+        records_to_process.append({
+            'station': target_st_obj,
+            'measured_at': measured_at,
+            'payload': pollutants_payload
+        })
+
+    if total_rows == 0:
+        return {
+            'success': False,
+            'error': 'File CSV không có dữ liệu bản ghi nào.'
+        }
+
+    created_count, updated_count = bulk_save_station_measurements(records_to_process)
+
+    return {
+        'success': True,
+        'station_id': target_st_obj.id,
+        'station_code': target_st_obj.code,
+        'total_rows': total_rows,
+        'created_count': created_count,
+        'updated_count': updated_count,
+        'skipped_count': skipped_count,
         'error_count': error_count,
         'errors': errors[:20]
     }

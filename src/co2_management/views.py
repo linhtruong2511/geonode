@@ -25,8 +25,8 @@ from .services.station_service import (
     filter_stations, get_station_stats, get_stations_geojson,
     import_stations_from_csv, generate_station_csv_template,
     filter_measurements, get_latest_measurements_per_station,
-    generate_measurement_csv_template, import_measurements_from_csv,
-    export_measurements_csv
+    generate_measurement_csv_template, import_measurements_bulk_csv,
+    import_station_measurements_csv, export_measurements_csv
 )
 from .tasks import import_data_file_task
 
@@ -997,6 +997,39 @@ class StationViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="mau_import_tram_quan_trac.csv"'
         return response
 
+    @action(detail=False, methods=['get'])
+    def download_measurement_template(self, request):
+        """
+        [GET] /api/v1/aq-stations/download_measurement_template/
+        Tải xuống file CSV mẫu cấu trúc nhập dữ liệu đo đạc chất lượng không khí của trạm.
+        """
+        csv_content = generate_measurement_csv_template()
+        response = HttpResponse(csv_content, content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="mau_import_do_dac_tram.csv"'
+        return response
+
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def import_measurements(self, request, pk=None):
+        """
+        [POST] /api/v1/aq-stations/{id}/import_measurements/
+        Tải lên file CSV chứa dữ liệu đo đạc cho trạm cụ thể này.
+        """
+        station = self.get_object()
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {'success': False, 'error': 'Vui lòng đính kèm tệp tin CSV với key field là "file".'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        result = import_station_measurements_csv(station, file_obj)
+
+        if not result.get('success', True):
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(result, status=status.HTTP_200_OK)
+
+
 
 class StationMeasurementViewSet(viewsets.ModelViewSet):
     """
@@ -1050,8 +1083,8 @@ class StationMeasurementViewSet(viewsets.ModelViewSet):
     def import_csv(self, request):
         """
         [POST] /api/v1/aq-measurements/import_csv/
-        Tải lên file CSV chứa dữ liệu đo đạc của trạm để nạp vào cơ sở dữ liệu.
-        Có thể chỉ định trạm mặc định bằng parameter `station_id`.
+        Tải lên file CSV tổng hợp chứa dữ liệu đo đạc để nạp vào cơ sở dữ liệu.
+        Tự động nhận diện trạm của từng dòng theo stationId/stationCode.
         """
         file_obj = request.FILES.get('file')
         if not file_obj:
@@ -1060,13 +1093,13 @@ class StationMeasurementViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        default_station_id = request.data.get('station_id') or request.query_params.get('station_id')
-        result = import_measurements_from_csv(file_obj, default_station_id=default_station_id)
+        result = import_measurements_bulk_csv(file_obj)
 
         if not result.get('success', True):
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(result, status=status.HTTP_200_OK)
+
 
 
 
