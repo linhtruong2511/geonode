@@ -37,10 +37,11 @@ def filter_stations(queryset, params):
     has_data = params.get('has_data')
     if has_data is not None:
         has_data_bool = str(has_data).lower() in ['true', '1']
+        has_measurements = StationMeasurement.objects.filter(station_id=OuterRef('pk'))
         if has_data_bool:
-            queryset = queryset.filter(measurements__isnull=False).distinct()
+            queryset = queryset.filter(Exists(has_measurements))
         else:
-            queryset = queryset.filter(measurements__isnull=True).distinct()
+            queryset = queryset.filter(~Exists(has_measurements))
 
     bbox = params.get('bbox')
     if bbox:
