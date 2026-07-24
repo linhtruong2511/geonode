@@ -3,7 +3,7 @@ from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from .models import (
     Satellite, SatelliteInstrument, MeasurementSource, MeasurementMetadata,
     Measurement, VerticalProfile, QualityAssessment, MonitoringLocation,
-    DataComparison, AnalysisJob, AuditLog
+    DataComparison, AnalysisJob, AuditLog, Station, StationMeasurement
 )
 
 class SatelliteInstrumentSerializer(serializers.ModelSerializer):
@@ -103,3 +103,54 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = '__all__'
+
+
+class StationMeasurementSerializer(serializers.ModelSerializer):
+    """Serializer cho dữ liệu đo đạc chất lượng không khí của trạm"""
+    class Meta:
+        model = StationMeasurement
+        fields = '__all__'
+
+
+class StationSerializer(serializers.ModelSerializer):
+    """Serializer danh sách & thông tin chi tiết trạm quan trắc không khí"""
+    measurement_count = serializers.IntegerField(read_only=True, default=0)
+    latest_measurement_at = serializers.DateTimeField(read_only=True, default=None)
+    available_pollutants = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Station
+        fields = [
+            'id', 'code', 'name', 'address',
+            'latitude', 'longitude', 'status', 'created_at',
+            'measurement_count', 'latest_measurement_at', 'available_pollutants'
+        ]
+
+    def get_available_pollutants(self, obj):
+        from .services.station_service import get_available_pollutants
+        return get_available_pollutants(obj)
+
+
+class StationGeoSerializer(GeoFeatureModelSerializer):
+    """
+    GeoJSON Serializer cho bản đồ trạm quan trắc không khí,
+    tận dụng GeoFeatureModelSerializer của rest_framework_gis.
+    """
+    latest_measured_at = serializers.DateTimeField(read_only=True, default=None)
+    latest_pm_2_5 = serializers.FloatField(read_only=True, default=None)
+    latest_pm_10 = serializers.FloatField(read_only=True, default=None)
+    latest_co = serializers.FloatField(read_only=True, default=None)
+    latest_no2 = serializers.FloatField(read_only=True, default=None)
+    latest_so2 = serializers.FloatField(read_only=True, default=None)
+    latest_o3 = serializers.FloatField(read_only=True, default=None)
+
+    class Meta:
+        model = Station
+        geo_field = 'geom'
+        fields = [
+            'id', 'code', 'name', 'address', 'status', 'created_at',
+            'latest_measured_at', 'latest_pm_2_5', 'latest_pm_10',
+            'latest_co', 'latest_no2', 'latest_so2', 'latest_o3'
+        ]
+
+

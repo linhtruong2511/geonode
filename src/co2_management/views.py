@@ -11,12 +11,16 @@ import logging
 from django.contrib.gis.geos import Polygon
 from .models import (
     Satellite, MeasurementSource, Measurement, MonitoringLocation,
-    DataComparison, AnalysisJob, JobStatus
+    DataComparison, AnalysisJob, JobStatus, Station, StationMeasurement
 )
 from .serializers import (
     SatelliteSerializer, MeasurementSourceSerializer, MeasurementSerializer,
     MeasurementListSerializer, MonitoringLocationSerializer,
-    DataComparisonSerializer, AnalysisJobSerializer
+    DataComparisonSerializer, AnalysisJobSerializer, StationSerializer,
+    StationMeasurementSerializer, StationGeoSerializer
+)
+from .services.station_service import (
+    filter_stations, get_station_stats, get_stations_geojson
 )
 from .tasks import import_data_file_task
 
@@ -886,3 +890,74 @@ class StatisticsViewSet(viewsets.ViewSet):
                 "percentiles": percentiles
             }
         })
+
+
+class StationViewSet(viewsets.ModelViewSet):
+    """
+    API ViewSet quản lý các trạm quan trắc chất lượng không khí (`aq-stations`).
+    Hỗ trợ các thao tác CRUD chuẩn, lọc nâng cao, xuất GeoJSON bản đồ,
+    dữ liệu đo đạc theo trạm và thống kê theo trạm.
+    """
+    queryset = Station.objects.all()
+    serializer_class = StationSerializer
+    pagination_class = StandardLimitOffsetPagination
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        qs = Station.objects.annotate(
+            measurement_count=Count('measurements'),
+            latest_measurement_at=Max('measurements__measured_at')
+        )
+        return filter_stations(qs, self.request.query_params)
+
+    @action(detail=False, methods=['get'])
+    def map(self, request):
+        """
+        [GET] /api/v1/aq-stations/map/
+        Trả về danh sách trạm dưới định dạng GeoJSON FeatureCollection sử dụng GeoFeatureModelSerializer.
+        """
+        qs = self.get_queryset().filter(geom__isnull=False)
+        serializer = StationGeoSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def measurements(self, request, pk=None):
+        """
+        [GET] /api/v1/aq-stations/{id}/measurements/
+        Trả về danh sách dữ liệu đo đạc theo trạm cụ thể.
+        """
+        station = self.get_object()
+        ms_qs = StationMeasurement.objects.filter(station=station)
+
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+
+        if date_from:
+            ms_qs = ms_qs.filter(measured_at__gte=date_from)
+        if date_to:
+            ms_qs = ms_qs.filter(measured_at__lte=date_to)
+
+        ordering = request.query_params.get('ordering', '-measured_at')
+        ms_qs = ms_qs.order_by(ordering)
+
+        page = self.paginate_queryset(ms_qs)
+        if page is not None:
+            serializer = StationMeasurementSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = StationMeasurementSerializer(ms_qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """
+        [GET] /api/v1/aq-stations/{id}/stats/
+        Xem thống kê các chỉ số ô nhiễm (Min, Max, Avg, Count) của trạm cụ thể.
+        """
+        station = self.get_object()
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+
+        stats_data = get_station_stats(station.id, date_from, date_to)
+        return Response(stats_data)
+

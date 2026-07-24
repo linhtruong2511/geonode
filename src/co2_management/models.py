@@ -264,6 +264,7 @@ class Station(models.Model):
     address = models.TextField(null=True, blank=True)
     latitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    geom = models.PointField(srid=4326, null=True, blank=True)
     status = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
@@ -272,8 +273,14 @@ class Station(models.Model):
         verbose_name = 'Station'
         verbose_name_plural = 'Stations'
 
+    def save(self, *args, **kwargs):
+        if self.latitude is not None and self.longitude is not None:
+            self.geom = Point(float(self.longitude), float(self.latitude), srid=4326)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.name} ({self.code or self.id})"
+
 
 
 class StationMeasurement(models.Model):

@@ -72,3 +72,4 @@ Vagrantfile
 /.env
 
 data*
+src\celerybeat-schedule
