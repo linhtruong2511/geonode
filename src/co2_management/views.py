@@ -1,7 +1,9 @@
+from django.http import HttpResponse
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Count, Avg, Max, Min, StdDev, Q
 from django.db.models.functions import TruncMonth, TruncYear
 from django.contrib.gis.measure import D
@@ -20,7 +22,8 @@ from .serializers import (
     StationMeasurementSerializer, StationGeoSerializer
 )
 from .services.station_service import (
-    filter_stations, get_station_stats, get_stations_geojson
+    filter_stations, get_station_stats, get_stations_geojson,
+    import_stations_from_csv, generate_station_csv_template
 )
 from .tasks import import_data_file_task
 
@@ -908,7 +911,7 @@ class StationViewSet(viewsets.ModelViewSet):
             measurement_count=Count('measurements'),
             latest_measurement_at=Max('measurements__measured_at')
         )
-        return filter_stations(qs, self.request.query_params)
+        return filter_stations(qs, self.request.query_params) # type: ignore
 
     @action(detail=False, methods=['get'])
     def map(self, request):
@@ -960,4 +963,36 @@ class StationViewSet(viewsets.ModelViewSet):
 
         stats_data = get_station_stats(station.id, date_from, date_to)
         return Response(stats_data)
+
+    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def import_csv(self, request):
+        """
+        [POST] /api/v1/aq-stations/import_csv/
+        Tải lên file CSV chứa danh mục các trạm quan trắc không khí để nhập vào hệ thống.
+        """
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {'success': False, 'error': 'Vui lòng đính kèm tệp tin CSV với key field là "file".'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        result = import_stations_from_csv(file_obj)
+        if not result.get('success', True):
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(result, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """
+        [GET] /api/v1/aq-stations/download_template/
+        Tải xuống file CSV mẫu cấu trúc nhập danh mục trạm quan trắc.
+        """
+        csv_content = generate_station_csv_template()
+        response = HttpResponse(csv_content, content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="mau_import_tram_quan_trac.csv"'
+        return response
+
+
 

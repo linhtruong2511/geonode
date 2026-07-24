@@ -1,3 +1,6 @@
+import csv
+import io
+from django.db import transaction
 from django.db.models import Q, Count, Max, Min, Avg
 from django.utils.dateparse import parse_datetime
 from ..models import Station, StationMeasurement
@@ -166,3 +169,186 @@ def get_stations_geojson(queryset):
         'type': 'FeatureCollection',
         'features': features
     }
+
+
+def import_stations_from_csv(file_obj):
+    """
+    Import hoặc cập nhật danh sách trạm quan trắc từ tệp tin CSV theo đúng định dạng mẫu.
+    Kiểm tra nghiêm ngặt cấu trúc header của file CSV.
+    """
+    if hasattr(file_obj, 'read'):
+        content = file_obj.read()
+        if isinstance(content, bytes):
+            try:
+                decoded = content.decode('utf-8-sig')
+            except UnicodeDecodeError:
+                try:
+                    decoded = content.decode('utf-8')
+                except UnicodeDecodeError:
+                    decoded = content.decode('latin-1')
+            stream = io.StringIO(decoded)
+        else:
+            stream = io.StringIO(content)
+    else:
+        stream = file_obj
+
+    reader = csv.DictReader(stream)
+
+    # 1. Kiểm tra header của file CSV
+    if not reader.fieldnames:
+        return {
+            'success': False,
+            'error': 'Tệp tin CSV rỗng hoặc không chứa dòng tiêu đề (header).'
+        }
+
+    actual_fieldnames = [field.strip() for field in reader.fieldnames if field]
+    actual_fieldnames_lower = [f.lower() for f in actual_fieldnames]
+
+    # Các cột bắt buộc theo mẫu
+    required_cols = ['stationId', 'stationName']
+    missing_cols = []
+    for col in required_cols:
+        if col.lower() not in actual_fieldnames_lower:
+            missing_cols.append(col)
+
+    if missing_cols:
+        return {
+            'success': False,
+            'error': f'File CSV không đúng định dạng mẫu. Thiếu các cột bắt buộc: {", ".join(missing_cols)}. Các cột chuẩn gồm: stationId, stationCode, stationName, address, latitude, longitude, status.'
+        }
+
+    total_rows = 0
+    created_count = 0
+    updated_count = 0
+    error_count = 0
+    errors = []
+
+    rows_to_process = []
+    for idx, row in enumerate(reader, start=1):
+        total_rows += 1
+        st_id = (row.get('stationId') or row.get('station_id') or row.get('id') or '').strip()
+        st_code = (row.get('stationCode') or row.get('station_code') or row.get('code') or '').strip()
+        st_name = (row.get('stationName') or row.get('station_name') or row.get('name') or '').strip()
+        address = (row.get('address') or '').strip() or None
+
+        lat_str = (row.get('latitude') or row.get('lat') or '').strip()
+        lon_str = (row.get('longitude') or row.get('longtitude') or row.get('lon') or row.get('lng') or '').strip()
+        status_str = (row.get('status') or '').strip()
+
+        if not st_id:
+            errors.append(f"Dòng {idx}: Thiếu stationId")
+            error_count += 1
+            continue
+
+        if not st_name:
+            errors.append(f"Dòng {idx}: Thiếu stationName")
+            error_count += 1
+            continue
+
+        lat_val = None
+        if lat_str:
+            try:
+                lat_val = float(lat_str)
+            except ValueError:
+                errors.append(f"Dòng {idx}: Giá trị vĩ độ (latitude) '{lat_str}' không hợp lệ")
+                error_count += 1
+                continue
+
+        lon_val = None
+        if lon_str:
+            try:
+                lon_val = float(lon_str)
+            except ValueError:
+                errors.append(f"Dòng {idx}: Giá trị kinh độ (longitude) '{lon_str}' không hợp lệ")
+                error_count += 1
+                continue
+
+        status_val = 0
+        if status_str:
+            try:
+                status_val = int(status_str)
+            except ValueError:
+                errors.append(f"Dòng {idx}: Trạng thái (status) '{status_str}' không phải định dạng số hợp lệ")
+                error_count += 1
+                continue
+
+        rows_to_process.append({
+            'id': st_id,
+            'code': st_code or None,
+            'name': st_name,
+            'address': address,
+            'latitude': lat_val,
+            'longitude': lon_val,
+            'status': status_val,
+        })
+
+    if total_rows == 0:
+        return {
+            'success': False,
+            'error': 'File CSV không có dữ liệu bản ghi nào.'
+        }
+
+    with transaction.atomic():
+        for item in rows_to_process:
+            defaults = {
+                'code': item['code'],
+                'name': item['name'],
+                'address': item['address'],
+                'latitude': item['latitude'],
+                'longitude': item['longitude'],
+                'status': item['status'],
+            }
+
+            station, created = Station.objects.update_or_create(
+                id=item['id'],
+                defaults=defaults
+            )
+            # save() tự động sinh geom từ lat/lon
+            station.save()
+
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+    return {
+        'success': True,
+        'total_rows': total_rows,
+        'created_count': created_count,
+        'updated_count': updated_count,
+        'error_count': error_count,
+        'errors': errors[:20]
+    }
+
+
+
+def generate_station_csv_template():
+    """
+    Tạo nội dung file CSV mẫu hỗ trợ import danh mục trạm quan trắc.
+    Bao gồm UTF-8 BOM để Excel hiển thị đúng tiếng Việt.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['stationId', 'stationCode', 'stationName', 'address', 'latitude', 'longitude', 'status'])
+    writer.writerow([
+        '28505268571336961948594948504', 'PT_VTRI_KHIVTR',
+        'Phú Thọ: đường Hùng Vương - Tp Việt Trì (KK)',
+        'Khuôn viên của Công ty xăng dầu Phú Thọ tại đường Hùng Vương, thành phố Việt Trì',
+        '21.3385', '105.367', '0'
+    ])
+    writer.writerow([
+        '28505272740301122608933325208', 'LEDU_KHIDNA',
+        'Đà Nẵng: 41 đường Lê Duẩn (KK)',
+        'Khuôn viên của Trường Đại học Đà Nẵng, số 41 – Lê Duẩn',
+        '16.074', '108.215', '0'
+    ])
+    writer.writerow([
+        '28915732959631398237539556920', 'LANG_KHILAN',
+        'Hà Nội: Khu vực Lăng Bác (KK)',
+        'Khu vực Lăng Bác, Ba Đình, Hà Nội',
+        '21.0356', '105.833', '0'
+    ])
+
+    csv_data = output.getvalue()
+    return '\ufeff' + csv_data
+
